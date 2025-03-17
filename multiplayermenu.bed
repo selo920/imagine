@@ -1,0 +1,123 @@
+--///////////////////////////////////////////////////////////////////////////
+--// MainMenu.bed
+--///////////////////////////////////////////////////////////////////////////
+--// Copyright (c) 2005 Bugbear Entertainment ltd. 
+--// All Rights Reserved.
+--// 
+--// Created on 1.4.2005 14:07:05
+--// 
+--// @Author Mikko Sivulainen (mikko.sivulainen@bugbear.fi)
+--///////////////////////////////////////////////////////////////////////////
+
+
+
+menu_multiplayer = CreateMenuFromTemplate("template_basic")
+
+menu_multiplayer.options.title = TITLE_MULTIPLAYER
+menu_multiplayer.back = function()
+							EnterMenu("menu_mainmenu")
+						end
+
+--//if PC then
+--//	table.insert(menu_mainmenu.items,{ L"Quit game",function() Event:PostEvent(event(EVENT_QUIT)) end })
+--//end
+
+MPMODE_NONE = 1
+MPMODE_LAN = 2
+MPMODE_GAMESPY = 3
+MPMODE_XBOXLIVE = 4
+
+MultiplayerMode = NONE
+
+function EnterLanGame()
+--	if Network == nil then
+--		StartNetwork()
+--	end
+	if Network == nil then --not NetworkConfiguration.IsConnected() then
+		StartNetworkConfiguration(false)
+	else
+		EnterMenu("menu_lan_modeselect")
+	end
+end
+
+local Rules2Rules = {
+	[ReplicatedSession.GAMETYPE_RACE] = GR_DEFAULT,
+	[ReplicatedSession.GAMETYPE_PONGRACE] = GR_PONGRACE,
+	[ReplicatedSession.GAMETYPE_DERBY_WRECKING] = GR_DERBY,
+	[ReplicatedSession.GAMETYPE_DERBY_LMS] = GR_DERBY,
+	[ReplicatedSession.GAMETYPE_DERBY_FRAG] = GR_DERBY,
+}
+
+local Rules2EventType = {
+	[ReplicatedSession.GAMETYPE_DERBY_WRECKING] = DERBY_WRECKING,
+	[ReplicatedSession.GAMETYPE_DERBY_LMS] = DERBY_LMS,
+	[ReplicatedSession.GAMETYPE_DERBY_FRAG] = DERBY_FRAG,
+}
+
+local function SplitScreenSetup()
+	EnterBuildSplitScreenTournamentMenu(
+		function(tournamentEvents)
+			local cup = { Races={} }
+			for i = 1, table.getn(tournamentEvents) do
+				cup.Races[i] = {
+					Level = tournamentEvents[i].trackid,
+					Laps = tournamentEvents[i].lapsOrTimeLimit,
+					Rules = Rules2Rules[tournamentEvents[i].rules],
+					AIHandicapLevel = 1,
+					AIUpgradeLevel = 1,
+					StartPosition = 1,
+				}
+				local eventtype = Rules2EventType[tournamentEvents[i].rules]
+				if eventtype ~= nil then
+					cup.Races[i].EventType = eventtype
+				end
+			end
+			
+			CupManager:PrepareFromScript(cup)
+			EnterPartyModeMenu(true)
+		end,
+		function()
+			CupManager:Clear()
+			EnterMenu("menu_multiplayer")
+		end
+	)	
+end
+
+function menu_multiplayer.create(self)
+	self.parent:create(self)
+
+	self:loadResources()
+
+	self.items={
+		{ ICON_MULTIPLAYER_PS2ONLINE,	function() MultiplayerMode = MPMODE_GAMESPY; EnterGameSpy(); end, ICON(self,"icon_online") },
+		{ ICON_MULTIPLAYER_SPLITSCREEN, function() SplitScreenSetup(); end, ICON(self, "icon_split_screen") },
+	}
+end
+
+
+function menu_multiplayer.init(self)
+	self.parent:init(self)
+
+	-- MiniKludge (TM)
+	InErrorState = false
+
+	MultiplayerMode = NONE
+end
+
+function menu_multiplayer.update(self,time)
+	self.parent:update(self,time)
+end
+
+
+function menu_multiplayer.startshow(self)
+	self.parent:startshow(self)
+end
+
+function menu_multiplayer.starthide(self)
+	self.parent:starthide(self)
+end
+
+function menu_multiplayer.deinit(self)
+	self.parent:deinit(self)
+
+end

@@ -1,0 +1,242 @@
+--///////////////////////////////////////////////////////////////////////////
+--// DNAS.bed
+--///////////////////////////////////////////////////////////////////////////
+--// Copyright (c) 2005 Bugbear Entertainment ltd. 
+--// All Rights Reserved.
+--// 
+--// Created on 5.1.2005 15:13:24
+--// 
+--// Authors: Fred Sundvik (fred.sundvik@bugbear.fi)
+--///////////////////////////////////////////////////////////////////////////
+
+
+local Layout={
+	DNASLogoPos=POS(497, 300),
+	
+	DNASTextPos=POS(65, 71),
+	DNASTextSize=SIZE(423,320),
+	DNASTextFont=fontsmall(),
+	DNASTextColor=GetPaletteColor(1),
+	DNASTextLineWidth=423,
+	
+	ErrorLineWidth=320,
+	
+	ScrollUpPos=POS(253,65),
+	ScrollDownPos=POS(253,392),
+	
+	NumTextRows=16,
+}
+
+local NumRows=0
+local CurrentRow=0
+local PrevTime
+local DNASOpened
+
+local function ShowArrows()
+	if CurrentRow > (NumRows - Layout.NumTextRows) then
+		wm.GetWindow("scrolldown"):HideWindow()
+	else
+		wm.GetWindow("scrolldown"):ShowWindow()
+	end
+
+	if CurrentRow > 1 then
+		wm.GetWindow("scrollup"):ShowWindow()
+	else
+		wm.GetWindow("scrollup"):HideWindow()
+	end
+end
+
+local function HideArrows()
+	wm.GetWindow("scrolldown"):HideWindow()
+	wm.GetWindow("scrollup"):HideWindow()
+end
+
+local function SetMessage(wordwrap)
+	local dnastext = wm.GetWindow("dnastext")
+	CurrentRow = 1
+	NumRows = DNASInterface.GetNumMessageLines()
+	local title = DNASInterface.GetMessageLines(1, Layout.NumTextRows)
+	dnastext:SetTitle(title)
+	if wordwrap then
+		dnastext:WordWrap()
+	end
+	ShowArrows()
+end
+
+local function ScrollMessageUp()
+	local dnastext = wm.GetWindow("dnastext")
+	CurrentRow = CurrentRow-1
+	if CurrentRow < 1 then
+		CurrentRow = 1
+	end
+	local title = DNASInterface.GetMessageLines(CurrentRow, Layout.NumTextRows)
+	dnastext:SetTitle(title)
+	ShowArrows()
+end
+
+local function ScrollMessageDown()
+	local dnastext = wm.GetWindow("dnastext")
+	CurrentRow = CurrentRow+1
+	NumRows = DNASInterface.GetNumMessageLines()
+	if CurrentRow > (NumRows - Layout.NumTextRows + 1 ) then
+		CurrentRow = (NumRows - Layout.NumTextRows + 1)
+		if CurrentRow < 1 then
+			CurrentRow = 1
+		end
+	end
+	local title = DNASInterface.GetMessageLines(CurrentRow, Layout.NumTextRows)
+	dnastext:SetTitle(title)
+	ShowArrows()
+end
+
+menu_multiplayer_dnas = CreateMenuFromTemplate("template_basic")
+menu_multiplayer_dnas.options.title = PS2_DNAS_AGREEMENT
+menu_multiplayer_dnas.back = entermenu("menu_multiplayer_networkconfig")
+
+function menu_multiplayer_dnas.create(self)
+	self.parent:create(self)
+
+	self:addResource("dnaslogo", image("dnas.tga"))
+	self:loadResources()
+
+	items = { }
+end
+
+function menu_multiplayer_dnas.init(self)
+	self.parent:init(self)
+	
+	local dnasImage = Frame { Name="dnaslogo", Position=Layout.DNASLogoPos, Size=wm.GetResourceSize(self:getResource("dnaslogo")) }
+	dnasImage:AttachResource(self:getResource("dnaslogo"))
+	dnasImage:HideWindow()
+	
+	local dnastext = StaticText { Name="dnastext", Position=Layout.DNASTextPos, Size=Layout.DNASTextSize, Font=Layout.DNASTextFont, Color=Layout.DNASTextColor }
+	
+	local arrowsize = wm.GetResourceSize(wm.GetResource("scroll_arrow_up"))
+	local scroll = Frame { Name="scrollup", Position=Layout.ScrollUpPos, Size=arrowsize }
+	scroll:AttachResource(wm.GetResource("scroll_arrow_up"))
+
+	arrowsize = wm.GetResourceSize(wm.GetResource("scroll_arrow_down"))
+	scroll = Frame { Name="scrolldown", Position=Layout.ScrollDownPos, Size=arrowsize }
+	scroll:AttachResource(wm.GetResource("scroll_arrow_down"))
+	
+	local handler = InputHandler{Name="inputhandler"}
+	handler.onKeyPressed=function(Self, Character, VirtualKey, ScanCode)
+		if GUI:IsMenuAnimating() then
+			return
+		end
+
+		if VirtualKey == KeyCodes["BUTTON_START"] then
+			if State == "EULA" or State == "ERROR" then
+				if State == "EULA" and not DNASOpened then
+					DNASInterface.Open(nil, -1)
+					State = "DNASOPEN"
+					DNASOpened = true
+				else -- ERROR state
+					DNASInterface.Authenticate()
+					State = "DNASAUTH"
+				end
+				
+				GUI:SetHelpButtons(BUTTON_BACK, UI_ABORT)
+				wm.GetWindow("dnaslogo"):ShowWindow()
+				ShowThinkingWindow()	
+				handler:SetFocus()
+			end
+		elseif VirtualKey == KeyCodes["BUTTON_SELECT"] then
+			if State == "ERROR" or State == "EULA" then
+				DNASInterface.Close()
+				DeleteDNASInterface()			
+				NetworkConfiguration.Disconnect()
+				State = "DISCONNECT"
+				handler:HideWindow()
+			elseif State == "DNASOPEN" or State == "DNASAUTH" then
+				HideThinkingWindow()
+				DNASInterface.Abort()
+				wm.GetWindow("dnaslogo"):HideWindow()
+				State = "DNASABORT"
+			end
+		elseif VirtualKey == KeyCodes["BUTTON_UP"] then
+			ScrollMessageUp()
+		elseif VirtualKey==KeyCodes["BUTTON_DOWN"] then
+			ScrollMessageDown()
+		end
+	end	
+	
+	handler:SetFocus()
+
+	State="EULA"
+	CreateDNASInterface()
+	DNASInterface.PrepareEulaMessage(Layout.DNASTextFont, Layout.DNASTextLineWidth)
+	SetMessage()
+	ShowArrows()
+	
+	GUI:SetHelpButtons(BUTTON_OK, UI_ACCEPT, BUTTON_BACK, UI_DECLINE)
+	PrevTime = nil
+	DNASOpened = false
+end
+
+function menu_multiplayer_dnas.deinit(self)
+	self.parent:deinit(self)
+end
+
+function menu_multiplayer_dnas.update(self, time)
+	self.parent:update(self, time)
+	if State == "DNASOPEN" then
+		HideArrows()
+		local res = DNASInterface.Update()
+		if res ~= DNAS_INTERFACE_WAITING then
+			if res == DNAS_INTERFACE_SUCCESS then
+				DNASInterface.Authenticate()
+				State = "DNASAUTH"
+			else
+				wm.GetWindow("dnaslogo"):HideWindow()
+				HideThinkingWindow()
+				DNASInterface.PrepareErrorMessage(res, Layout.ErrorMessageFont, Layout.ErrorLineWidth)
+				SetMessage(true)
+				State = "ERROR"
+				GUI:SetHelpButtons(BUTTON_OK, UI_RETRY, BUTTON_BACK, UI_CANCEL)
+			end
+		end
+	elseif State == "DNASAUTH" then
+		HideArrows()
+		local res = DNASInterface.Update()
+		if res ~= DNAS_INTERFACE_WAITING then
+			wm.GetWindow("dnaslogo"):HideWindow()
+			if res == DNAS_INTERFACE_SUCCESS then
+				State = "READY"
+				HideThinkingWindow()
+				DNASInterface.Close()
+				DeleteDNASInterface()
+				EnterMenu("menu_multiplayer_gamespy_checkavailability")
+			else
+				State = "ERROR"
+				HideThinkingWindow()
+				DNASInterface.PrepareErrorMessage(res, Layout.ErrorMessageFont, Layout.ErrorLineWidth)
+				SetMessage(true)
+				GUI:SetHelpButtons(BUTTON_OK, UI_RETRY, BUTTON_BACK, UI_CANCEL)
+			end
+		end
+	elseif State == "DNASABORT" then
+		local res=DNASInterface.Update()
+		if res ~= DNAS_INTERFACE_WAITING then
+			HideThinkingWindow()
+			DNASInterface.PrepareEulaMessage(Layout.DNASTextFont, Layout.DNASTextLineWidth)
+			SetMessage()
+			ShowArrows()
+			GUI:SetHelpButtons(BUTTON_OK, UI_ACCEPT, BUTTON_BACK, UI_DECLINE)
+			State="EULA"
+		end
+	elseif State == "DISCONNECT" then
+		if PrevTime == nil then
+			PrevTime = time
+		end
+		local dt = time - PrevTime
+		PrevTime = time
+		
+		local res = NetworkConfiguration.Update(dt*1000)
+		if res ~= NetworkConfiguration.RES_WAITING then
+			State = "IDLE"
+			StopNetwork()
+			menu_multiplayer_dnas.back()
+		end	
+	end
+end

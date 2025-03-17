@@ -1,0 +1,121 @@
+--///////////////////////////////////////////////////////////////////////////
+--// StartScreen.bed
+--///////////////////////////////////////////////////////////////////////////
+--// Copyright (c) 2006 Bugbear Entertainment ltd. 
+--// All Rights Reserved.
+--// 
+--// Created on 1.2.2006 16:03:41
+--// 
+--// @Author Mikko Sivulainen (mikko.sivulainen@bugbear.fi)
+--///////////////////////////////////////////////////////////////////////////
+
+
+
+menu_startscreen = CreateMenuFromTemplate("template_basic")
+
+menu_startscreen.options.title=L""
+
+
+function menu_startscreen.create(self)
+	self.parent:create(self)
+
+	self:addResource("title_logo",image("fo2_logo.tga"))
+
+	self:loadResources()
+
+end
+
+function menu_startscreen.init(self)
+--//	self.parent:init(self)
+
+	local size=GetResourceSize(self:getResource("title_logo"))
+
+	local x=640/2-size[1]/2
+	local y=480/2-size[2]/2
+
+	local w=Frame{Name="logo",Position=POS(x,y),Size=size,IgnoreGlobalAlpha=TRUE}:AttachResource(self:getResource("title_logo"))
+
+
+	local text=TRANSLATOR(PRESS_START)
+	if XBOX then
+		text=TRANSLATOR(PRESS_START_XBOX)
+	end
+
+	local w=StaticText{Name="start_text",Title=text,Position=POS(320,390),IgnoreGlobalAlpha=TRUE,Align=FONTF_CENTER,Font=fontlarge(),Color=GetPaletteColor(34)}
+	
+
+	w.time=0
+
+	local input=InputHandler{}
+
+	local end_attract
+
+	local function start_attract()
+		AnimateWindowAlpha(W("logo"),W("logo"):GetAlpha(),0.0,0.2)
+		AnimateWindowAlpha(W("start_text"),1.0,0.0,0.2)		
+
+		--//GUI:SetBackground("data/menu/attract_bg.tga")
+		GUI:SetBackgroundVideo("data/video/attractn")
+
+		self.in_attract=true
+
+		menu_startscreen.timerhandle=Event:AddTimer(end_attract,30*1000,nil,TRUE)
+
+	end
+
+	end_attract=function()
+		self.in_attract=false
+		GUI:SetBackground("data/menu/canvas_bg.tga")
+		AnimateWindowAlpha(W("logo"),W("logo"):GetAlpha(),1.0,0.3,0.3)
+		AnimateWindowAlpha(W("start_text"),0.0,1.0,0.3,0.3)		
+		menu_startscreen.timerhandle=Event:AddTimer(start_attract,30*1000,nil,TRUE)
+	end
+
+
+	function input.onKeyPressed(self,character,virtualkey,scancode)
+		if menu_startscreen.in_attract then
+			Event:RemoveTimer(menu_startscreen.timerhandle)
+			end_attract()
+		else
+			if virtualkey == KeyCodes.BUTTON_START or virtualkey == KeyCodes.BUTTON_A then
+				StartGame()
+				EnterMenu("menu_profiles")
+			end
+		end
+	end
+
+
+	local function button_fade(event)
+		local w=W("start_text")
+
+		if w.hide then
+			w:ShowWindow()
+			w.hide=nil
+		else
+			w:HideWindow()
+			w.hide=true
+		end
+
+	end
+
+	self.buttontimerhandle=Event:AddTimer(button_fade,300)
+
+	self.timerhandle=Event:AddTimer(start_attract,30*1000,nil,TRUE)
+
+
+	GUI:SetBackground("data/menu/canvas_bg.tga")
+end
+
+function menu_startscreen.deinit(self)
+--//	self.parent:deinit(self)
+	Event:RemoveTimer(self.timerhandle)
+	Event:RemoveTimer(self.buttontimerhandle)
+	
+end
+
+function menu_startscreen.starthide(self)
+	AnimateWindowAlpha(W("logo"),W("logo"):GetAlpha(),0.0,0.3)
+	AnimateWindowAlpha(W("start_text"),W("start_text"):GetAlpha(),0.0,0.3)
+
+end
+

@@ -1,0 +1,639 @@
+--///////////////////////////////////////////////////////////////////////////
+--// Optimatchresults.bed
+--///////////////////////////////////////////////////////////////////////////
+--// Copyright (c) 2004 Bugbear Entertainment ltd. 
+--// All Rights Reserved.
+--// 
+--// Created on 20.6.2004 3:27:03
+--// 
+--// Authors: Fred Sundvik (fred.sundvik@bugbear.fi)
+--///////////////////////////////////////////////////////////////////////////
+
+dofile("data/menu/garage_elements1.bed")
+dofile("data/menu/backdrops3.bed")
+
+local Layout=
+{
+	TrackFramePos=POS(297,86),
+	GameTypePos=POS(312,69),
+	TrackNamePos=POS(312,90),
+	GameTypeColor=GetPaletteColor(33),
+	TrackNameColor=GetPaletteColor(34),
+
+	GameInfoFont=fontmedium(),
+	GameInfoLabelFontColor=GetPaletteColor(33),
+	GameInfoFontColor=GetPaletteColor(34),
+	
+	TrackTypesTitlePos=POS(320,220),
+	TrackTypesTitleFontColor=GetPaletteColor(33),
+	TrackTypesPos=POS(0,239),
+	TrackTypePos={208, 340, 465},
+	TrackTypeFontColor=GetPaletteColor(33),
+	TrackTypeNumColor=GetPaletteColor(34),
+	
+	ListPos=POS(0, 289),
+	ListWidth=640,
+	ListRowHeight=18,
+	ListRowPadding=2,
+	ListFont=fontmedium(),
+	ListFontColor=GetPaletteColor(34),
+	ListSelectedFontColor=GetPaletteColor(5),
+	
+	LabelTop=270,
+	ColPos={69, 72, 332, 405, 466, 530},
+	
+	LabelColor=GetPaletteColor(33),
+
+	RankFont=wm.GetResource("FontRank"),
+	RankColor=GetPaletteColor(0),
+}
+
+local GameInfoNames1={"cars","upgrades","nitroregen","rankedgame"}
+local GameInfoTitles1={MULTIPLAYER_FOUNDGAMES_CARS,MULTIPLAYER_FOUNDGAMES_UPGRADES,MULTIPLAYER_FOUNDGAMES_NITRO,MULTIPLAYER_FOUNDGAMES_RANKED}
+local GameInfoNames2={"language","damage","derbydamage","timeleft"}
+local GameInfoTitles2={MULTIPLAYER_FOUNDGAMES_LANGUAGE,MULTIPLAYER_DAMAGE,MULTIPLAYER_DERBYDAMAGE,MULTIPLAYER_TIMEREMAINING}
+	
+
+
+
+
+
+
+
+local State=nil
+local RefreshingQuality=false
+local EventListener
+local NeedRefresh
+
+local function JoinSelectedSession()
+	local sessionNum=wm.GetWindow("sessionlist"):GetSelectedRow()
+	if sessionNum>=1 and sessionNum<=SessionList:GetNumSessions() then
+		ShowThinkingWindow()
+		SessionList:SetSessionNum(sessionNum)
+		if MultiplayerMode == MPMODE_GAMESPY then
+			SessionList:PrepareJoin()
+			State="PREPAREJOIN1"
+		else			
+			SessionList:JoinSession()				
+			State="JOINING"
+		end
+	end
+end
+
+local function NetworkEvents(event)
+	if event.id == EVENT_NETWORK_REQUEST_PLAYERUPDATE then
+		local player=Session:GetLocalPlayer(1)
+
+		if MultiplayerMode == MPMODE_LAN then
+			player:GenerateUserId()
+			player.Name=PlayerProfile:GetName()
+		elseif MultiplayerMode == MPMODE_GAMESPY then
+			player.UId = GameSpyPresence.GetLoggedInProfileID()
+			player.Name = L(GameSpyPresence.GetProfileUniqueNick())
+		elseif MultiplayerMode == MPMODE_XBOXLIVE then
+			player.Name=XBoxLive.Auth.GetSignedInUserName(1)
+			player.UId=XBoxLive.Auth.GetSignedInUserId(1)
+		end
+
+		local info = Session:GetInfo()
+
+		if info.CarClass > 4 then
+			player.Car = info.CarClass - 5
+		elseif info.CarClass == SessionInfo.CarClass.Stunt then
+			player.Car = CarlistStuntCars()[1].index		
+		elseif info.CarClass ~= SessionInfo.CarClass.Any then
+			local classCars = CarlistFromClass(info.CarClass, false, true)
+			player.Car = classCars[1].index
+		else
+			player.Car = 0
+		end
+
+		player.CarSkin=1
+		--player.Score = 0
+		player.TournamentPoints = 0
+
+		if info.CarUpgrades ~= SessionInfo.CarUpgrades.Any then
+			player.UpgradeLevel = info.CarUpgrades
+		else
+			player.UpgradeLevel = SessionInfo.CarUpgrades.Full
+		end
+
+		player.SessionChanged = false
+	elseif event.id == EVENT_NETWORK_JOIN_RESULT then
+		if event.data == 0 then
+			HideThinkingWindow()
+			ShowMessageBox(SAFEPOS(154, 70), nil,
+						L"COULD NOT JOIN GAME",
+						L"TRY AGAIN",
+						function()JoinSelectedSession()end,
+						L"SELECT ANOTHER GAME",
+						function()State="DISPLAYING"end
+						)
+			State="ERROR"
+		elseif event.data == 1 then
+			HideThinkingWindow()
+			ShowLobby()
+		end
+	
+--[[	elseif event.id==EVENT_FIND_SESSIONS_COMPLETED then
+		HideThinkingWindow()
+		if SessionList:GetNumSessions()==0 then
+			State="ERROR"
+			ShowMessageBox(SAFEPOS(154, 70),
+						QUICK_NOGAMES,
+						QUICK_SEARCH,
+						entermenu("menu_xboxlive_quickmatch"),
+						QUICK_BACK,
+						menu_xboxlive_quickmatch.back,
+						QUICK_CREATE, 
+						entermenu("menu_xboxlive_creategame")
+						)
+		else
+			SessionList:SetSessionNum(1)
+			SessionList:JoinSession()
+			State="JOINING"
+		end--]]
+	end
+end
+
+local languages={MULTIPLAYER_LANGUAGE_ANY, MULTIPLAYER_LANGUAGE_ENGLISH, MULTIPLAYER_LANGUAGE_GERMAN, MULTIPLAYER_LANGUAGE_FRENCH, MULTIPLAYER_LANGUAGE_SPANISH, MULTIPLAYER_LANGUAGE_ITALIAN}
+local carclasses={MULTIPLAYER_CARTYPE_ANY, MULTIPLAYER_CARTYPE_STREET, MULTIPLAYER_CARTYPE_RACING, MULTIPLAYER_CARTYPE_DERBY, L"STUNT (NEED ID)"}
+local nitrolabels={L"0%", L"50%", L"100%", L"200%"}
+local upgradelabels={L"0%", L"50%", L"100%", MULTIPLAYER_UPGRADES_CHOICE}
+local damagelabels={L"0%", L"50%", L"100%", L"150%", L"200%"}
+
+local function RefreshGameInfo()
+	local sessionNum = wm.GetWindow("sessionlist"):GetSelectedRow()
+	if sessionNum >= 1 and sessionNum <= SessionList:GetNumSessions() then
+		SessionList:SetSessionNum(sessionNum)
+		SessionList:GetCompleteSession()
+		if SessionList:IsCurrentSessionComplete() then
+			local sessionInfo = SessionList:GetSessionInfo()
+			local win
+			
+			win=wm.GetWindow("trackname")
+			win:SetTitle(L(Levels[sessionInfo.Races[sessionInfo.NextRace].StageNr].Name))
+			
+			win=wm.GetWindow("gametype")
+			
+			if GameModeNames[sessionInfo.TournamentType] ~= nil then
+				win:SetTitle(GameModeNames[sessionInfo.TournamentType])
+			else
+				win:SetTitle(L("EVENT TYPE "..sessionInfo.TournamentType.." NOT HANDLED!"))
+			end
+			
+			win=wm.GetWindow("nitroregen")
+			win:SetTitle(nitrolabels[sessionInfo.NitroRegen + 1])
+			
+			win=wm.GetWindow("rankedgame")
+			if sessionInfo.RatedGame then
+				win:SetTitle(UI_YES)
+			else
+				win:SetTitle(UI_NO)
+			end
+			
+			win=wm.GetWindow("language")
+			if sessionInfo.Language == 0 then
+				win:SetTitle(MULTIPLAYER_LANGUAGE_ANY)
+			else
+				win:SetTitle(languages[sessionInfo.Language])
+			end
+			
+			win=wm.GetWindow("upgrades")
+			win:SetTitle(upgradelabels[sessionInfo.CarUpgrades + 1])
+			
+			win=wm.GetWindow("cars")
+			if sessionInfo.CarClass < 5 then
+				win:SetTitle(carclasses[sessionInfo.CarClass + 1])
+			else
+				local car = db.FlatOut2.Cars:GetProperty("Car", sessionInfo.CarClass - 5)
+				win:SetTitle(L(car.Name))
+			end
+			
+			win=wm.GetWindow("damage")
+			win:SetTitle(damagelabels[sessionInfo.DamageLevel + 1])
+			
+			win=wm.GetWindow("derbydamage")
+			win:SetTitle(damagelabels[sessionInfo.DerbyDamageLevel + 2])
+			
+			win=wm.GetWindow("timeleft")
+			if sessionInfo.Progress > 0 then
+				win:SetTitle(L(sessionInfo.Progress.." MINUTES"))
+			else
+				win:SetTitle(L"")
+			end
+			
+			win=wm.GetWindow("numraces")
+			win:SetTitle(L(sessionInfo.NumRaces))
+			win=wm.GetWindow("numderbies")
+			win:SetTitle(L(sessionInfo.NumDerbies))
+			win=wm.GetWindow("numstunts")
+			win:SetTitle(L(sessionInfo.NumStunts))
+		
+			wm.GetWindow("trackname"):ShowWindow()
+			wm.GetWindow("gametype"):ShowWindow()
+			wm.GetWindow("nitroregen"):ShowWindow()
+			wm.GetWindow("rankedgame"):ShowWindow()
+			wm.GetWindow("language"):ShowWindow()
+			wm.GetWindow("upgrades"):ShowWindow()
+			wm.GetWindow("cars"):ShowWindow()
+			NeedRefresh=false		
+		else
+			wm.GetWindow("trackname"):HideWindow()
+			wm.GetWindow("gametype"):HideWindow()
+			wm.GetWindow("nitroregen"):HideWindow()
+			wm.GetWindow("rankedgame"):HideWindow()
+			wm.GetWindow("language"):HideWindow()
+			wm.GetWindow("upgrades"):HideWindow()
+			wm.GetWindow("cars"):HideWindow()
+			NeedRefresh=true
+		end
+	end
+end
+
+local function CreateGameInfoLabels(x, y, names, titles)
+	for i = 1,table.getn(names) do
+		local yoffset = (i - 1) * 20
+		local xoffset = (i - 1) * 5
+		
+		local win = StaticText { Position=POS(x + xoffset, y + yoffset), Size=SIZE(200,20), Font=Layout.GameInfoFont, Align=FONTF_RIGHT }
+		win:SetColor(Layout.GameInfoLabelFontColor, false)
+		win:SetTitle(titles[i])
+		
+		win = StaticText { Name=names[i], Position=POS(x + xoffset + 10, y + yoffset), Size=SIZE(200,20), Font=Layout.GameInfoFont }
+		win:SetColor(Layout.GameInfoFontColor, false)
+	end
+end
+
+menu_multiplayer_optimatchresults = CreateMenuFromTemplate("template_multiplayer")
+if XBOX then
+	if MultiplayerMode == MPMODE_LAN then
+		menu_multiplayer_optimatchresults.options.title = TITLE_LINK_FOUNDGAMES
+	else
+		menu_multiplayer_optimatchresults.options.title = TITLE_LIVE_OPTIMATCH
+	end
+else
+	if MultiplayerMode == MPMODE_LAN then
+		menu_multiplayer_optimatchresults.options.title = TITLE_LAN_FOUNDGAMES
+	else
+		menu_multiplayer_optimatchresults.options.title = TITLE_GAMESPY_FOUNDGAMES
+	end
+end
+
+menu_multiplayer_optimatchresults.back = function() EnterMenu(menu_multiplayer_optimatchresults.backmenu) end
+
+function menu_multiplayer_optimatchresults.create(self)
+	self.parent:create(self)
+
+	self:addResource("garage_elements1.tga", garage_elements1, garage_elements1_size)
+	self:addResource("backdrops3.tga", backdrops3, backdrops3_size)
+	self:loadResources()
+
+	self.items = { }
+end
+
+function menu_multiplayer_optimatchresults.init(self)
+	self.parent:init(self)
+	EventListener = Event:AddListener(NetworkEvents, EVENTTYPE_NETWORK)
+	
+	if MultiplayerMode == MPMODE_LAN then
+		-- In LAN mode, we come directly to the results screen
+		if Session == nil then
+			Network:StartMultiplayer()
+			Network:StartSearchLanSessions()
+			Network:CreateLanSession()
+		end
+	elseif MultiplayerMode == MPMODE_GAMESPY then
+--		GameSpy:StopUpdate()
+--		Network:CreateGameSpySession()
+--		GameSpy:ResumeUpdate()
+	elseif MultiplayerMode == MPMODE_XBOXLIVE then
+		Network:CreateXBoxLiveSession()	
+	end
+
+	local res = self:getResource("upshop_top_n_bottom_infotxt_bar_ang")
+	local ressize = wm.GetResourceSize(res)
+	Frame { Position=Layout.TrackFramePos, Size=ressize, DrawBackgroundColor=FALSE }:AttachResource(res)
+	res = self:getResource("upshop_top_n_bottom_infotxt_bar")
+	Frame { Position=POS(Layout.TrackFramePos[1] + ressize[1], Layout.TrackFramePos[2]), Size=SIZE(300,32), DrawBackgroundColor=FALSE }:AttachResource(res)
+
+	local gametype = StaticText { Name="gametype", Font=fontmedium(), Color=Layout.GameTypeColor, Position=Layout.GameTypePos, Size=SIZE(560, 12) }
+	local trackname = StaticText { Name="trackname", Font=fontlarge(), Color=Layout.TrackNameColor, Position=Layout.TrackNamePos, Size=SIZE(560, 12) }
+	trackname:SetTitle(L"")
+	gametype:SetTitle(L"")
+	
+	local res = self:getResource("found_games_strech")
+	Frame { Position=POS(0,122), Size=SIZE(295,88) }:AttachResource(res)
+	Frame { Position=POS(339,122), Size=SIZE(301,88) }:AttachResource(res)
+	Frame { Position=POS(295,122), Size=SIZE(32,88) }:AttachResource(self:getResource("found_games_l_ang"))
+	Frame { Position=POS(307,122), Size=SIZE(32,88) }:AttachResource(self:getResource("found_games_r_ang"))
+	
+	CreateGameInfoLabels (204, 128, GameInfoNames1, GameInfoTitles1)
+	CreateGameInfoLabels (460, 128, GameInfoNames2, GameInfoTitles2)	
+	
+	-- Track types
+	StaticText { Title=MULTIPLAYER_TRACKBREAKDOWN, Position=Layout.TrackTypesTitlePos, Size=SIZE(640,18), Font=fontmedium(), Color=Layout.TrackTypesTitleFontColor, Align=FONTF_CENTER }
+	Frame { Position=Layout.TrackTypesPos, Size=SIZE(640,18) }:AttachResource(wm.GetResource("wide_black_bar_50"))
+
+	StaticText { Title=MULTIPLAYER_RACES, Position=POS(Layout.TrackTypePos[1], Layout.TrackTypesPos[2]), Size=SIZE(100,18), Font=fontmedium(), Color=Layout.TrackTypeFontColor, Align=FONTF_RIGHT }
+	StaticText { Name="numraces", Title=L"", Position=POS(Layout.TrackTypePos[1] + 7, Layout.TrackTypesPos[2]), Size=SIZE(100,18), Font=fontmedium(), Color=Layout.TrackTypeNumColor }
+	
+	StaticText { Title=MULTIPLAYER_DERBIES, Position=POS(Layout.TrackTypePos[2], Layout.TrackTypesPos[2]), Size=SIZE(100,18), Font=fontmedium(), Color=Layout.TrackTypeFontColor, Align=FONTF_RIGHT }
+	StaticText { Name="numderbies", Title=L"", Position=POS(Layout.TrackTypePos[2] + 7, Layout.TrackTypesPos[2]), Size=SIZE(100,18), Font=fontmedium(), Color=Layout.TrackTypeNumColor }
+
+	StaticText { Title=MULTIPLAYER_STUNTS, Position=POS(Layout.TrackTypePos[3], Layout.TrackTypesPos[2]), Size=SIZE(100,18), Font=fontmedium(), Color=Layout.TrackTypeFontColor, Align=FONTF_RIGHT }
+	StaticText { Name="numstunts", Title=L"", Position=POS(Layout.TrackTypePos[3] + 7, Layout.TrackTypesPos[2]), Size=SIZE(100,18), Font=fontmedium(), Color=Layout.TrackTypeNumColor }
+
+	local listboxParams={
+	ListBoxTemplate={Name="sessionlist", ShowBorders=FALSE },
+	Left=Layout.ListPos[1],
+	Top=Layout.ListPos[2],
+	LeftPadding=0,
+	RightPadding=0,
+	TopPadding=Layout.ListRowPadding,
+	BottomPadding=0,
+	RowWidth=Layout.ListWidth,
+	RowHeight=Layout.ListRowHeight,
+	RowPadding=Layout.ListRowPadding,
+	RowTemplate={Font=Layout.ListFont, DrawBackgroundColor=FALSE, TitleCentering=TITLE_CENTER_Y},
+	RowTemplateType="Button",
+	RowTemplateCust=function(Row, RowNr)
+	end,
+	NumRows=7,
+	Coloumns={
+			[1]={
+			Name="sessionnum", -- _row# is added
+			ColoumnTemplate={Position=POS(Layout.ColPos[1], 0), Font=Layout.ListFont, Size=SIZE(50,Layout.ListRowHeight), Align=FONTF_RIGHT },
+			ColoumnTemplateType="StaticText",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+				Coloumn:SetColor(Layout.ListFontColor, false)
+			end
+			},	
+				
+			[2]={
+			Name="host", -- _row# is added
+			ColoumnTemplate={Position=POS(Layout.ColPos[2], 0), Font=Layout.ListFont, Size=SIZE(50,Layout.ListRowHeight)},
+			ColoumnTemplateType="StaticText",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+				Coloumn:SetColor(Layout.ListFontColor, false)
+			end
+			},
+				
+			[3]={
+			Name="gametype", -- _row# is added
+			ColoumnTemplate={Position=POS(Layout.ColPos[3], 0), Size=SIZE(50,Layout.ListRowHeight), Font=Layout.ListFont, Align=FONTF_CENTER},
+			ColoumnTemplateType="StaticText",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+				Coloumn:SetColor(Layout.ListFontColor, false)
+			end
+			},
+				
+			[4]={
+			Name="status", -- _row# is added
+			ColoumnTemplate={Position=POS(0, 0), Size=SIZE(0,0) },
+			ColoumnTemplateType="Frame",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+			end
+			},
+			
+			[5]={
+			Name="players", -- _row# is added
+			ColoumnTemplate={Position=POS(Layout.ColPos[5], 0), Size=SIZE(50, Layout.ListRowHeight), Font=Layout.ListFont, Align=FONTF_CENTER},
+			ColoumnTemplateType="StaticText",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+				Coloumn:SetColor(Layout.ListFontColor, false)
+			end
+			},
+			
+			[6]={
+			Name="rankbg", -- _row# is added
+			ColoumnTemplate={Position=POS(Layout.ColPos[6] - wm.GetResourceSize("rank_value_bottom")[1] / 2, 0), Size=wm.GetResourceSize("rank_value_bottom")},
+			ColoumnTemplateType="Frame",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+				Coloumn:AttachResource(wm.GetResource("rank_value_bottom"))
+			end
+			},
+
+			[7]={
+			Name="rank", -- _row# is added
+			ColoumnTemplate={Position=POS(Layout.ColPos[6]-1, 1), Size=SIZE(32, Layout.ListRowHeight), Font=Layout.RankFont, Color=Layout.RankColor, Align=FONTF_CENTER},
+			ColoumnTemplateType="StaticText",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+			end
+			},	
+		}
+	}
+
+	StaticText { Title=MULTIPLAYER_FOUNDGAMES_CROSSHATCH, Position=POS(Layout.ColPos[1], Layout.LabelTop), Size=SIZE(50,20), Font=fontmedium(), Color=Layout.LabelColor, Align=FONTF_RIGHT }
+	StaticText { Title=MULTIPLAYER_FOUNDGAMES_HOST, Position=POS(Layout.ColPos[2], Layout.LabelTop), Size=SIZE(50,20), Font=fontmedium(), Color=Layout.LabelColor }
+
+	res = wm.GetResource("game_type_icon")
+	ressize = wm.GetResourceSize(res)
+	Frame { Position=POS(Layout.ColPos[3] - ressize[1] / 2, Layout.LabelTop), Size=ressize }:AttachResource(res)
+
+	res = wm.GetResource("status_icon")
+	ressize = wm.GetResourceSize(res)
+	Frame { Position=POS(Layout.ColPos[4] - ressize[1] / 2, Layout.LabelTop), Size=ressize }:AttachResource(res)
+
+	res = wm.GetResource("players_icon")
+	ressize = wm.GetResourceSize(res)
+	Frame { Position=POS(Layout.ColPos[5] - ressize[1] / 2, Layout.LabelTop), Size=ressize }:AttachResource(res)
+
+	res = wm.GetResource("rank_icon")
+	ressize = wm.GetResourceSize(res)
+	Frame { Position=POS(Layout.ColPos[6] - ressize[1] / 2, Layout.LabelTop), Size=ressize }:AttachResource(res)
+	
+	local list=CreateMultiColoumnListBox(listboxParams)
+	list.onNeedData=function(Self, RowObject, RowNr, ControlRowNr)
+		if State == "DISPLAYING" and RowNr <= SessionList:GetNumSessions() then
+			local num=wm.GetWindow("sessionnum_row"..ControlRowNr)
+			local host=wm.GetWindow("host_row"..ControlRowNr)
+			local gametype=wm.GetWindow("gametype_row"..ControlRowNr)
+			local status=wm.GetWindow("status_row"..ControlRowNr)
+			local players=wm.GetWindow("players_row"..ControlRowNr)
+			local rank=wm.GetWindow("rank_row"..ControlRowNr)
+			
+			--local allColumns={num, host, gametype, status, players}
+			
+			if RowNr == list:GetSelectedRow() then
+				RowObject:AttachResource(wm.GetResource("wide_white_bar_30"))
+				--for _,col in allColumns do
+				--	col:SetColor(Layout.ListSelectedFontColor, false)
+				--end
+			else
+				RowObject:AttachResource(wm.GetResource("wide_black_bar_50"))
+				--for _,col in allColumns do
+				--	col:SetColor(Layout.ListFontColor, false)
+				--end
+			end
+		
+			SessionList:SetSessionNum(RowNr)
+			local sessionInfo=SessionList:GetSessionInfo()
+			num:SetTitle(L(RowNr))
+			host:SetTitle(sessionInfo.SessionName)
+			if GameModeNames[sessionInfo.TournamentType] ~= nil then
+				gametype:SetTitle(GameModeNames[sessionInfo.TournamentType])
+			end
+			
+			local statusicon
+			if sessionInfo.Progress == 0 then
+				statusicon = wm.GetResource("player_lobby_icon")
+			else
+				statusicon = wm.GetResource("steering_wheel")
+			end
+			local iconsize = wm.GetResourceSize(statusicon)
+			status:SetPosition(Layout.ColPos[4] - iconsize[1] / 2, 9 - iconsize[2] / 2)
+			status:SetSize(unpack(iconsize))
+			status:AttachResource(statusicon)
+			
+			local playersTitle = string.format("%i / %i", sessionInfo.FilledPublicSlots + sessionInfo.FilledPrivateSlots, sessionInfo.MaxPublicSlots + sessionInfo.MaxPrivateSlots)
+			playersTitle = L(playersTitle)
+			players:SetTitle(playersTitle)
+			
+			rank:SetTitle(L(math.random(50)))
+		end
+	end
+	
+	list:SetNumRows(0)
+	
+	list.onSelectedRowChanged=function(Self, RowNr)
+		RefreshGameInfo()
+	end
+	
+	local arrowSize = GetResourceSize(self:getResource("scroll_up_glow"))
+	Frame { Name="uparrow_glow", Position=POS(576 - arrowSize[1] / 2, 320 - arrowSize[2] / 2), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("scroll_up_glow"))
+	arrowSize = GetResourceSize(self:getResource("scroll_up_icon"))
+	Frame { Name="uparrow", Position=POS(576 - arrowSize[1] / 2, 320 - arrowSize[2] / 2), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("scroll_up_icon"))
+	
+	arrowSize = GetResourceSize(self:getResource("scroll_down_glow"))
+	Frame { Name="downarrow_glow", Position=POS(576 - arrowSize[1] / 2, 360 - arrowSize[2] / 2), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("scroll_down_glow"))
+	arrowSize = GetResourceSize(self:getResource("scroll_down_icon"))
+	Frame { Name="downarrow", Position=POS(576 - arrowSize[1] / 2, 360 - arrowSize[2] / 2), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("scroll_down_icon"))
+
+	local pageup,pagedown
+	if XBOX then
+		pageup = "xbox_trig_l"
+		pagedown = "xbox_trig_r"
+	else
+		pageup = "ps2_l1"
+		pagedown = "ps2_r1"
+	end
+	
+	arrowSize = wm.GetResourceSize(wm.GetResource(pageup))
+	Frame { Name="pageup", Position=POS(576 - arrowSize[1] / 2, 300 - arrowSize[2] / 2), Size=arrowSize }:AttachResource(wm.GetResource(pageup))
+	arrowSize = wm.GetResourceSize(wm.GetResource(pagedown))
+	Frame { Name="pagedown", Position=POS(576 - arrowSize[1] / 2, 380 - arrowSize[2] / 2), Size=arrowSize }:AttachResource(wm.GetResource(pagedown))
+
+	list.onShowScrollUpArrow=function()
+		wm.GetWindow("uparrow_glow"):ShowWindow()
+		wm.GetWindow("uparrow"):ShowWindow()
+		wm.GetWindow("pageup"):ShowWindow()
+	end
+	
+	list.onShowScrollDownArrow=function()
+		wm.GetWindow("downarrow_glow"):ShowWindow()
+		wm.GetWindow("downarrow"):ShowWindow()
+		wm.GetWindow("pagedown"):ShowWindow()
+	end
+	
+	list.onHideScrollUpArrow=function()
+		wm.GetWindow("uparrow_glow"):HideWindow()
+		wm.GetWindow("uparrow"):HideWindow()
+		wm.GetWindow("pageup"):HideWindow()
+	end
+	
+	list.onHideScrollDownArrow=function()
+		wm.GetWindow("downarrow_glow"):HideWindow()
+		wm.GetWindow("downarrow"):HideWindow()
+		wm.GetWindow("pagedown"):HideWindow()
+	end
+
+	local handler=InputHandler{Name="inputhandler"}
+	handler.onKeyPressed=function(Self, Character, VirtualKey, ScanCode)
+		if VirtualKey==KeyCodes["BUTTON_START"] then
+			JoinSelectedSession()
+		elseif VirtualKey==KeyCodes["BUTTON_SELECT"] then
+			menu_multiplayer_optimatchresults.back()
+		elseif VirtualKey==KeyCodes["BUTTON_Y"] and State=="DISPLAYING" then
+			SessionList:Refresh()
+			ShowThinkingWindow()
+			State="SEARCHING"	
+		elseif VirtualKey==KeyCodes["BUTTON_UP"] then
+			list:MovePrev()
+		elseif VirtualKey==KeyCodes["BUTTON_DOWN"] then
+			list:MoveNext()
+		end
+	end
+	handler:SetFocus()
+	
+	SessionList:Refresh()
+	RefreshingQuality=false
+	NeedRefresh=true
+	ShowThinkingWindow()
+	State="SEARCHING"
+
+	GUI:SetHelpButtons(BUTTON_OK, UI_SELECT, BUTTON_BACK, UI_BACK, BUTTON_EXTRA, UI_REFRESH)
+end
+
+function menu_multiplayer_optimatchresults.deinit(self)
+	self.parent:deinit(self)
+	Event:RemoveListener(EventListener)
+end
+
+function menu_multiplayer_optimatchresults.update(self, time)
+	self.parent:update(self, time)
+
+	local alpha = 1 - 0.20 + math.sin(time * 6) * 0.20
+	wm.GetWindow("uparrow_glow"):SetAlpha(alpha)
+	wm.GetWindow("downarrow_glow"):SetAlpha(alpha)
+
+	if menu_multiplayer_optimatchresults.error then
+		return
+	end
+
+	if State=="SEARCHING" and SessionList:IsRefreshCompleted() then
+		HideThinkingWindow()
+		if SessionList:GetNumSessions()==0 then
+			State="ERROR"
+			ShowMessageBox(SAFEPOS(154, 70), nil,
+						OPTIRESULTS_NOGAME,
+						OPTIRESULTS_SEARCH,
+						entermenu("menu_multiplayer_optimatchresults"),
+						UI_BACK,
+						menu_multiplayer_optimatchresults.back,
+						UI_CREATEGAME,
+						entermenu("menu_multiplayer_creategame")
+						)
+		else
+			State="DISPLAYING"
+			wm.GetWindow("sessionlist"):SetNumRows(SessionList:GetNumSessions())
+			wm.GetWindow("inputhandler"):SetFocus()
+			RefreshGameInfo()
+		end
+	elseif State == "PREPAREJOIN1" and SessionList:PrepareJoinCompleted() then
+		if SessionList:PrepareJoinFailed() then
+			HideThinkingWindow()
+			ShowMessageBox(SAFEPOS(154, 70), nil,
+						GAMESPYRESULTS_NOTJOIN,
+						GAMESPYRESULTS_TRY,
+						function()JoinSelectedSession()end,
+						GAMESPYRESULTS_ANOTHER,
+						function()State="DISPLAYING"end
+						)
+			State="ERROR"
+		else
+			GameSpy.StopUpdate()
+			State="PREPAREJOIN2"
+		end
+	elseif State=="PREPAREJOIN2" then
+		if GameSpy.IsUpdateStopped() then
+			GameSpy.ResumeUpdate()
+			SessionList:JoinSession()
+			State="JOINING"
+		end
+	elseif State=="DISPLAYING" then
+		if NeedRefresh and SessionList:IsCurrentSessionComplete() then
+			RefreshGameInfo()
+		end
+	end
+end

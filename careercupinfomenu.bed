@@ -1,0 +1,441 @@
+--///////////////////////////////////////////////////////////////////////////
+--// CareerCupInfoMenu.bed
+--///////////////////////////////////////////////////////////////////////////
+--// Copyright (c) 2005 Bugbear Entertainment ltd. 
+--// All Rights Reserved.
+--// 
+--// Created on 7.12.2005 17:21:01
+--// 
+--// @Author Mikko Sivulainen (mikko.sivulainen@bugbear.fi)
+--///////////////////////////////////////////////////////////////////////////
+
+dofile("data/menu/backdrops1.bed")
+dofile("data/menu/backdrops3.bed")
+dofile("data/menu/track_images_big1.bed")
+dofile("data/menu/track_images_big2.bed")
+dofile("data/menu/track_images_big3.bed")
+dofile("data/menu/selection_elements.bed")
+
+local state={}
+
+
+function GetLevelHighScores(level,class_id)
+	local t={}
+
+	for i=1,10 do
+		local hs=GetHighScore(level,class_id,i)
+
+		table.insert(t,hs)
+	end
+
+	return t
+end
+
+
+function ShowCupInfo(selection,back,forward)
+	state=selection
+
+	state.back=back
+	state.forward=forward
+
+	EnterMenu("menu_career_cupinfo")
+end
+
+
+
+local function UpdateHighScores()
+
+	local type=Levels[state.level].TrackType
+
+	local hs_title=TRANSLATOR(TITLE_TIME)
+
+	if type == TRACKTYPE_EVENT then
+		hs_title=TRANSLATOR(TITLE_POINTS)
+	elseif type == TRACKTYPE_STUNT then
+		hs_title=GameFlow.GetStuntScoreType(Levels[state.level].StuntType)
+	end
+
+	W("hs_title"):SetTitle(hs_title)
+
+	for i=1,10 do
+		local wname=string.format("hs_%d",i)
+
+		if i < table.getn(state.highscores) and state.highscores[i].valid then
+			local w=W(wname.."_number")
+			w:ShowWindow()
+			w:SetTitle(ConvertToWString(string.format("%d.",i)))
+
+			w=W(wname.."_name")
+			w:ShowWindow()
+			w:SetTitle(state.highscores[i].name)
+
+			w=W(wname.."_score")
+			w:ShowWindow()
+			w:SetTitle(FormatHighScoreScore(state.highscores[i]))
+		else
+			W(wname.."_number"):HideWindow()
+			W(wname.."_name"):HideWindow()
+			W(wname.."_score"):HideWindow()
+		end
+	end
+
+end
+
+
+
+
+
+local function ShowEventWindows()
+
+	local delay=0.0
+	local num_windows=table.getn(state.eventwindows)
+
+	for i=1,num_windows do
+
+		local w=state.eventwindows[i]
+
+		
+		AnimateWindowAlpha(w.image,0.0,1.0,0.2,delay)
+
+		if w.trophy then
+			AnimateWindowAlpha(w.trophy,0.0,1.0,0.2,delay)
+		end
+
+		if w.image_dim then
+			AnimateWindowAlpha(w.image_dim,0.0,1.0,0.2,delay)
+			AnimateWindowAlpha(w.text,0.0,1.0,0.2,delay)			
+		end
+
+		if w.image_selected then
+			AnimateWindowAlpha(w.image_selected,0.0,1.0,0.2,delay)
+
+			AnimateWindowPos(w,w.position,POS(w.position[1]+40,w.position[2]),0.3,0.2+0.1*num_windows)
+		else
+			AnimateWindowAlpha(w.trophy_bg,0.0,1.0,0.2,delay)
+		end
+
+		delay=delay+0.1
+	end
+
+end
+
+
+local function HideEventWindows()
+
+
+end
+
+
+local function ToggleHighScores()
+	if state.show_highscore then
+
+		AnimateWindowPos(W("highscore_windows"),{ W("highscore_windows"):GetPosition() },POS(350,-25),0.3)
+
+		local w=W("info_window")
+
+--[[--/*
+		AnimateWindowPos(w,POS(650,298),w.position,0.2,0.2)
+		
+		AnimateWindowAlpha(W("next_race_title"),W("next_race_title"):GetAlpha(),1.0,0.3,0.3+0.2)
+		AnimateWindowAlpha(W("race_name"),W("race_name"):GetAlpha(),1.0,0.3,0.4+0.2)
+
+		AnimateWindowAlpha(W("clock"),W("clock"):GetAlpha(),1.0,0.3,0.5+0.2)	
+		AnimateWindowAlpha(W("clock_data"),W("clock_data"):GetAlpha(),1.0,0.3,0.5+0.2)
+
+		AnimateWindowAlpha(W("lap"),W("lap"):GetAlpha(),1.0,0.3,0.6+0.2)	
+		AnimateWindowAlpha(W("lap_data"),W("lap_data"):GetAlpha(),1.0,0.3,0.6+0.2)
+--]]--*/
+
+		state.show_highscore=nil
+	else
+--[[--/*
+		local w=W("info_window")
+		AnimateWindowPos(w,{ w:GetPosition() },POS(650,298),0.2)
+		
+		AnimateWindowAlpha(W("next_race_title"),W("next_race_title"):GetAlpha(),0.0,0.2)
+		AnimateWindowAlpha(W("race_name"),W("race_name"):GetAlpha(),0.0,0.2)
+
+		AnimateWindowAlpha(W("clock"),W("clock"):GetAlpha(),0.0,0.2)	
+		AnimateWindowAlpha(W("clock_data"),W("clock_data"):GetAlpha(),0.0,0.2)
+
+		AnimateWindowAlpha(W("lap"),W("lap"):GetAlpha(),0.0,0.2)	
+		AnimateWindowAlpha(W("lap_data"),W("lap_data"):GetAlpha(),0.0,0.2)
+--]]--*/
+		AnimateWindowPos(W("highscore_windows"),{ W("highscore_windows"):GetPosition() },POS(-4,-25),0.3)
+
+		state.show_highscore=true
+	end
+end
+
+
+menu_career_cupinfo = CreateMenuFromTemplate("template_career")
+
+
+menu_career_cupinfo.options.title=TRANSLATOR(TITLE_CUPINFO)
+
+
+function menu_career_cupinfo.create(self)
+	self.parent:create(self)
+
+	self:addResource("backdrops1.tga",backdrops1,backdrops1_size)
+	self:addResource("backdrops3.tga",backdrops3,backdrops3_size)
+	self:addResource("track_images_big1.tga",track_images_big1,track_images_big1_size)
+	self:addResource("track_images_big2.tga",track_images_big2,track_images_big2_size)
+	self:addResource("track_images_big3.tga",track_images_big3,track_images_big3_size)
+	self:addResource("selection_elements.tga",selection_elements,selection_elements_size)
+
+	self:loadResources()
+
+	
+
+end
+
+function menu_career_cupinfo.init(self)
+	self.parent:init(self)
+	
+	local cupdata=Classes[state.class_id].Cups[state.event_id]
+
+	local ppos=POS(0,62)
+
+
+	local p=Frame{Name="track_image_bar",Position=ppos,Size=SIZE(640,22)}:AttachResource(self:getResource("black_transparent_50"))
+	StaticText{Title=ConvertToWString(cupdata.Name),Name="cup_name",Font=fontsmall(), Position=POS(56,68),Color=GetPaletteColor(3)}
+
+
+	--//backdrop
+	local resource=self:getResource("backdrop_normal")
+	local size=GetResourceSize(resource)
+
+	Frame{Position=POS(56,84),Size=size}:AttachResource(resource)
+	Frame{Position=POS(81,169),Size=size}:AttachResource(resource)
+	Frame{Position=POS(106,254),Size=size}:AttachResource(resource)
+	Frame{Position=POS(131,339),Size=size}:AttachResource(resource)
+
+
+	--//info window at bottom right
+	local pos=POS(353,298)
+	local p=Frame{Name="info_window",Position=pos,Size=SIZE(288,100)}
+	p.position=pos
+
+	Frame{Position=RELATIVEPOS(POS(353,298),pos),Size=SIZE(69,100),Parent=p}:AttachResource(self:getResource("backdrop_detailed_tip"))
+	Frame{Position=RELATIVEPOS(POS(422,298),pos),Size=SIZE(219,100),Parent=p}:AttachResource(self:getResource("backdrop_detailed_main"))
+
+	StaticText{Name="next_race_title",Title=TRANSLATOR(TITLE_NEXTRACE),Position=RELATIVEPOS(POS(369,303),pos),Color=GetPaletteColor(3),Font=fontmedium(),Parent=p}
+	StaticText{Name="race_name",Position=RELATIVEPOS(POS(375,322),pos),Font=fontmedium(),Color=GetPaletteColor(3),Parent=p}
+
+	Frame{Name="clock",Position=RELATIVEPOS(POS(387,352),pos),Size=GetResourceSize(self:getResource("clock")),Parent=p}:AttachResource(self:getResource("clock"))
+	StaticText{Name="clock_data",Title=L"0'00'00  MUTSIS",Position=RELATIVEPOS(POS(407,349),pos),Font=fontsmall(),Parent=p}
+
+	Frame{Name="lap",Position=RELATIVEPOS(POS(392,378),pos),Size=GetResourceSize(self:getResource("lap")),Parent=p}:AttachResource(self:getResource("lap"))
+	StaticText{Name="lap_data",Position=RELATIVEPOS(POS(412,375),pos),Font=fontsmall(),Parent=p}
+
+
+
+	--//highscores
+	p=Frame{Name="highscore_windows",Position=POS(350,-25),Size=SIZE(640,480)}
+
+	StaticText{Title=TRANSLATOR(TITLE_CROSSHATCH),Position=POS(324,111),Fontf=fontmedium(),Align=FONTF_RIGHT,Parent=p,Color=GetPaletteColor(33)}
+	StaticText{Title=TRANSLATOR(TITLE_NAME),Position=POS(330,111),Parent=p,Font=fontmedium(),Color=GetPaletteColor(33)}
+
+	local hs_title=TRANSLATOR(TITLE_TIME)
+
+	StaticText{Name="hs_title",Title=hs_title,Position=POS(474,111),Parent=p,Font=fontmedium(),Color=GetPaletteColor(33)}
+
+
+	Frame{Position=POS(301,129),Size=SIZE(31,92),Parent=p}:AttachResource(self:getResource("sr_highscore_bar_ang"))
+	Frame{Position=POS(331,129),Size=SIZE(309,92),Parent=p}:AttachResource(self:getResource("sr_highscore_bar_str"))
+
+	Frame{Position=POS(328,224),Size=SIZE(31,92),Parent=p}:AttachResource(self:getResource("sr_highscore_bar_ang"))
+	Frame{Position=POS(358,224),Size=SIZE(282,92),Parent=p}:AttachResource(self:getResource("sr_highscore_bar_str"))
+
+	local hs_pos=POS(329,130)
+	for i=1,10 do
+		StaticText{Name=string.format("hs_%d_number",i),Position=POS(hs_pos[1],hs_pos[2]-1),Align=FONTF_RIGHT,Font=fontmedium(),Color=GetPaletteColor(34),Parent=p}
+		StaticText{Name=string.format("hs_%d_name",i),Position=POS(hs_pos[1]+6,hs_pos[2]-1),Font=fontmedium(),Color=GetPaletteColor(34),Parent=p}
+		StaticText{Name=string.format("hs_%d_score",i),Position=POS(hs_pos[1]+150,hs_pos[2]-1),Font=fontmedium(),Color=GetPaletteColor(34),Parent=p}
+
+		hs_pos[1] = hs_pos[1] + 5
+		hs_pos[2] = hs_pos[2] + 19
+	end
+	--//end highscores
+
+
+	--//races
+	state.eventwindows={}
+
+
+	local numraces=table.getn(cupdata.Races)
+
+	if numraces > 6 then
+		numraces=6
+	end
+
+	local next_race=1
+
+	local images = {
+		[TRACKTYPE_FOREST] = "forest",
+		[TRACKTYPE_FIELDS] = "fields",
+		[TRACKTYPE_DESERT] = "desert",
+		[TRACKTYPE_CANAL] = "canals",
+		[TRACKTYPE_CITY] = "city",
+		[TRACKTYPE_RACING] = "racing",
+	}
+
+	local positions={
+		POS(65,88),
+		POS(79,139),
+		POS(95,191),
+		POS(110,244),
+		POS(126,298),
+		POS(141,352),
+	}
+
+	for i=1,numraces do
+		local completed=CupManager:IsRaceCompleted(i)
+		local current
+
+		local w=Frame{Position=positions[i],Size=SIZE(245,46)}
+		w.position=positions[i]
+
+		local level=Levels[cupdata.Races[i].Level]
+		local imagename=string.format("%s_big",level.TrackIcon)
+
+		w.trophy_bg=Frame{Position=POS(182,0),Size=SIZE(52,47),Parent=w}:AttachResource(self:getResource("trophy_backdrop"))
+		
+		local position=CupManager:GetRacePosition(0,i)
+		if position > 0 and position < 3 then
+			local trophys={
+				"small_trophy_gold",
+				"small_trophy_silver",
+				"small_trophy_bronze",
+			}
+
+			w.trophy=Frame{Position=POS(195,11),Size=SIZE(24,26),Parent=w}:AttachResource(self:getResource(trophys[position]))
+
+		end
+
+		w.image=Frame{Position=POS(0,0),Size=SIZE(193,47),Parent=w}:AttachResource(self:getResource(imagename))
+
+		if completed then
+			w.image_dim=Frame{Position=POS(0,0),Size=SIZE(193,47),Parent=w}:AttachResource(self:getResource("track_images_big_shade"))
+			w.text=StaticText{Title=TRANSLATOR(TITLE_COMPLETED),Position=POS(96,15),Align=FONTF_CENTER,Font=fontmedium(),Color=GetPaletteColor(3),Parent=w}
+		end
+
+		if not GameFlow.IsCupRaceLocked(i) then
+			next_race=i
+		end
+
+		w.trophy_bg:SetAlpha(0)
+		w.image:SetAlpha(0)
+
+		if w.trophy then
+			w.trophy:SetAlpha(0)
+		end
+
+		if completed then
+			w.image_dim:SetAlpha(0)
+			w.text:SetAlpha(0)
+		end
+
+		table.insert(state.eventwindows,w)
+	end
+
+	local w=state.eventwindows[next_race]
+	w.image_selected=Frame{Position=POS(-1,-1),Size=SIZE(193,47),Parent=w}:AttachResource(self:getResource("track_images_big_active"))
+	w.image_selected:SetAlpha(0)
+
+	W("race_name"):SetTitle(ConvertToWString(Levels[cupdata.Races[next_race].Level].Name))
+	W("lap_data"):SetTitle(ConvertToWString(string.format("%d LAPS",cupdata.Races[next_race].Laps)))
+
+	local highscore=GetHighScore(cupdata.Races[next_race].Level)
+
+	W("clock_data"):SetTitle(FormatHighScore(highscore))
+
+
+	state.highscores=GetLevelHighScores(cupdata.Races[next_race].Level)
+	state.level=cupdata.Races[next_race].Level
+
+	local input=InputHandler{}
+
+	input.onKeyPressed=function(self,character,virtualkey,scancode)
+		if virtualkey == KeyCodes.BUTTON_START then
+			if state.forward then
+				playmenusound_action()
+				state.forward()
+			end
+		elseif virtualkey == KeyCodes.BUTTON_SELECT then
+			if state.back then
+				playmenusound_back()
+				state.back()
+			end
+		elseif virtualkey == KeyCodes.BUTTON_INFO then
+			playmenusound_move()
+			ToggleHighScores()
+		end
+	end
+
+
+	UpdateHighScores()
+	input:SetFocus()
+
+	GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_RACE),BUTTON_BACK,TRANSLATOR(UI_BACK),BUTTON_INFO,TRANSLATOR(UI_HIGHSCORES))
+
+	if state.subclass == 4 or state.class_id == 4 then
+		GUI:SetBackground("data/menu/finals_bg.tga")
+	else
+		GUI:SetBackground("data/menu/menu_background.tga")
+	end
+end
+
+function menu_career_cupinfo.deinit(self)
+	self.parent:deinit(self)
+
+
+
+end
+
+function menu_career_cupinfo.startshow(self)
+	self.parent:startshow(self)
+
+	W("next_race_title"):SetAlpha(0)
+	W("race_name"):SetAlpha(0)
+	W("clock"):SetAlpha(0)
+	W("clock_data"):SetAlpha(0)
+	W("lap"):SetAlpha(0)
+	W("lap_data"):SetAlpha(0)
+
+
+	local num_races=table.getn(state.eventwindows)
+
+	local w=W("info_window")
+	AnimateWindowPos(w,POS(650,298),POS(353,298),0.3)
+	
+	AnimateWindowAlpha(W("next_race_title"),0.0,1.0,0.3,0.3+0.1*num_races)
+	AnimateWindowAlpha(W("race_name"),0.0,1.0,0.3,0.4+0.1*num_races)
+
+	AnimateWindowAlpha(W("clock"),0.0,1.0,0.3,0.5+0.1*num_races)	
+	AnimateWindowAlpha(W("clock_data"),0.0,1.0,0.3,0.5+0.1*num_races)
+
+	AnimateWindowAlpha(W("lap"),0.0,1.0,0.3,0.6+0.1*num_races)	
+	AnimateWindowAlpha(W("lap_data"),0.0,1.0,0.3,0.6+0.1*num_races)
+
+
+	ShowEventWindows()
+
+end
+
+function menu_career_cupinfo.starthide(self)
+	self.parent:starthide(self)
+
+	HideEventWindows()
+
+	AnimateWindowAlpha(W("next_race_title"),W("next_race_title"):GetAlpha(),0.0,0.15)
+	AnimateWindowAlpha(W("race_name"),W("race_name"):GetAlpha(),0.0,0.15)
+	AnimateWindowAlpha(W("clock"),W("clock"):GetAlpha(),0.0,0.15)	
+	AnimateWindowAlpha(W("clock_data"),W("clock_data"),0.0,0.15)
+	AnimateWindowAlpha(W("lap"),W("lap"):GetAlpha(),0.0,0.15)	
+	AnimateWindowAlpha(W("lap_data"),W("lap_data"),0.0,0.15)
+
+	AnimateWindowPos(W("info_window"),{ W("info_window"):GetPosition() },POS(650,298),0.2)
+
+end

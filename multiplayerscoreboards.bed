@@ -1,0 +1,392 @@
+--///////////////////////////////////////////////////////////////////////////
+--// MultiplayerScoreboards.bed
+--///////////////////////////////////////////////////////////////////////////
+--// Copyright (c) 2004 Bugbear Entertainment ltd. 
+--// All Rights Reserved.
+--// 
+--// Created on 20.12.2005 11:53
+--// 
+--// Authors: Pasi Matilainen (pasi.matilainen@bugbear.fi)
+--///////////////////////////////////////////////////////////////////////////
+
+dofile("data/menu/flags.bed")
+
+local BoardType
+
+local SCOREBOARD_RACE = 1
+local SCOREBOARD_STUNT = 2
+local SCOREBOARD_DERBY = 3
+local SCOREBOARD_MIXED = 4
+local SCOREBOARD_BOWLING = 5
+local SCOREBOARD_FIELDGOAL = 6
+
+local BoardTitles = {
+	[SCOREBOARD_RACE] = HEADER_MULTIPLAYER_RACERANKING,
+	[SCOREBOARD_STUNT] = HEADER_MULTIPLAYER_STUNTRANKING,
+	[SCOREBOARD_DERBY] = HEADER_MULTIPLAYER_DERBYRANKING,
+	[SCOREBOARD_MIXED] = HEADER_MULTIPLAYER_MIXEDRANKING,
+	[SCOREBOARD_BOWLING] = L"BOWLING RANKING", 
+	[SCOREBOARD_FIELDGOAL] = L"FIELDGOAL RANKING", 
+}
+
+
+-- Scoreboard selection
+
+menu_multiplayer_scoreboards = CreateMenuFromTemplate("template_multiplayer")
+menu_multiplayer_scoreboards.options.title = TITLE_MULTIPLAYER_RANKINGS
+
+if XBOX then
+	menu_multiplayer_scoreboards.back = entermenu("menu_xboxlive")
+else
+	menu_multiplayer_scoreboards.back = entermenu("menu_multiplayer_gamespy")
+end
+
+local function EnterScoreboard(type)
+	BoardType = type
+	EnterMenu("menu_multiplayer_scoreboard")
+end
+
+function menu_multiplayer_scoreboards.create(self)
+	self.parent:create(self)
+
+	self:loadResources()
+	
+	self.items = {
+		{ ICON_MULTIPLAYER_RACES, function() EnterScoreboard(SCOREBOARD_RACE) end, ICON(self, "icon_multiplayer") },
+		{ ICON_MULTIPLAYER_STUNTS, function() EnterScoreboard(SCOREBOARD_STUNT) end, ICON(self, "icon_multiplayer") },
+		{ ICON_MULTIPLAYER_DERBIES, function() EnterScoreboard(SCOREBOARD_DERBY) end, ICON(self, "icon_multiplayer") },
+		{ ICON_MULTIPLAYER_MIXED, function() EnterScoreboard(SCOREBOARD_MIXED) end, ICON(self, "icon_multiplayer") },
+		{ L"FIELDGOAL", function() EnterScoreboard(SCOREBOARD_FIELDGOAL) end, ICON(self, "icon_multiplayer") },
+		
+		
+	}
+end
+
+function menu_multiplayer_scoreboards.init(self)
+	self.parent:init(self)
+end
+
+
+
+-- Scoreboard
+
+local Layout=
+{
+	TitlePos = POS(62, 90),
+	TitleFont = fontlarge(),
+	TitleColor = GetPaletteColor(3),
+	
+	LabelsTop = 128,
+	LabelFont = fontsmall(),
+	LabelFontColor = GetPaletteColor(1),
+	
+	NumX = 62,
+	FlagX = 103,
+	NameX = 132,
+	RacesX = 390,
+	PointsX = 463,
+	RankX = 530,
+	
+	ListPos = POS(48,147),
+	ListNumRows = 8,
+	ListRowHeight = 19,
+	ListRowWidth = 534,
+	ListRowPadding = 4,
+	ListFont = fontsmall(),
+	ListFontColor = GetPaletteColor(4),
+	ListActiveFontColor = GetPaletteColor(5),
+	
+	PageUpPos = POS(557,129),
+	PageDownPos = POS(557,328),
+	ScrollUpPos = POS(565,153),
+	ScrollDownPos = POS(565, 309),
+}
+
+local FriendsOnly
+local ActiveItem
+local StatList = nil
+local State
+local PrevTime
+
+local IDLE = 1
+local REFRESHING = 2
+local MOVETOUSER = 3
+
+menu_multiplayer_scoreboard = CreateMenuFromTemplate("template_basic")
+menu_multiplayer_scoreboard.options.title = TITLE_MULTIPLAYER_RANKINGS
+menu_multiplayer_scoreboard.back = entermenu("menu_multiplayer_scoreboards")
+
+local function ShowPlayer()
+	StatList:MoveToUser()
+	State = MOVETOUSER
+end
+
+local function ToggleShowFriends()
+	if FriendsOnly then
+		FriendsOnly = false
+	else
+		FriendsOnly = true
+	end
+	
+	StatList:SetFriendsOnly(FriendsOnly)
+	if FriendsOnly then
+		menu_multiplayer_scoreboard.items = {
+			{ ICON_MULTIPLAYER_SHOWALL, function() ToggleShowFriends() end, ICON(menu_multiplayer_scoreboard, "icon_multiplayer") },
+			{ ICON_MULTIPLAYER_SHOWPLAYER, function() ShowPlayer() end, ICON(menu_multiplayer_scoreboard, "icon_multiplayer") },
+		}
+	else
+		menu_multiplayer_scoreboard.items = {
+			{ ICON_MULTIPLAYER_SHOWFRIENDS, function() ToggleShowFriends() end, ICON(menu_multiplayer_scoreboard, "icon_multiplayer") },
+			{ ICON_MULTIPLAYER_SHOWPLAYER, function() ShowPlayer() end, ICON(menu_multiplayer_scoreboard, "icon_multiplayer") },
+		}
+	end
+	
+	GUI:HideMenuButtons()
+	GUI:InitMenuButtons(menu_multiplayer_scoreboard.items)
+	GUI:SetActiveItem(1)
+	GUI:ShowMenuButtons()
+	State = REFRESHING
+	wm.SetFocus(wm.GetWindow("inputhandler"))
+end
+
+function menu_multiplayer_scoreboard.create(self)
+	self.parent:create(self)
+	
+	self:addResource("flags.tga", flags, flags_size)
+	
+	self:loadResources()
+	
+	self.items = {
+		{ ICON_MULTIPLAYER_SHOWFRIENDS, function() ToggleShowFriends() end, ICON(self, "icon_multiplayer") },
+		{ ICON_MULTIPLAYER_SHOWPLAYER, function() ShowPlayer() end, ICON(self, "icon_multiplayer") },
+	}
+end
+
+function menu_multiplayer_scoreboard.init(self)
+	self.parent:init(self)
+
+	StaticText { Title=BoardTitles[BoardType], Position=Layout.TitlePos, Size=SIZE(300,17), Font=Layout.TitleFont, Color=Layout.TitleColor }
+
+	StaticText { Title=L"#", Position=POS(Layout.NumX, Layout.LabelsTop), Size=SIZE(50, 19), Font=Layout.LabelFont, Color=Layout.LabelFontColor }
+	StaticText { Title=MULTIPLAYER_NAME, Position=POS(Layout.NameX, Layout.LabelsTop), Size=SIZE(50, 19), Font=Layout.LabelFont, Color=Layout.LabelFontColor }
+	StaticText { Title=MULTIPLAYER_RACES, Position=POS(Layout.RacesX, Layout.LabelsTop), Size=SIZE(50, 19), Font=Layout.LabelFont, Color=Layout.LabelFontColor, Align=FONTF_CENTER }
+	StaticText { Title=MULTIPLAYER_POINTS, Position=POS(Layout.PointsX, Layout.LabelsTop), Size=SIZE(50, 19), Font=Layout.LabelFont, Color=Layout.LabelFontColor, Align=FONTF_CENTER }
+	StaticText { Title=MULTIPLAYER_RANK, Position=POS(Layout.RankX, Layout.LabelsTop), Size=SIZE(50, 19), Font=Layout.LabelFont, Color=Layout.LabelFontColor, Align=FONTF_CENTER }
+	
+	local rankiconsize = wm.GetResourceSize("rank_icon_1")
+	
+	local listboxParams = {
+		ListBoxTemplate	= { Name="scorelist" },
+		Left			= Layout.ListPos[1],
+		Top				= Layout.ListPos[2],
+		LeftPadding		= 0,
+		RightPadding	= 0,
+		TopPadding		= 0,
+		BottomPadding	= 0,
+		RowWidth		= Layout.ListRowWidth,
+		RowHeight		= Layout.ListRowHeight,
+		RowPadding		= Layout.ListRowPadding,
+		RowTemplate		= { },
+		RowTemplateType	= "Button",
+		RowTemplateCust	= function(Row, RowNr)
+		end,
+		NumRows	= Layout.ListNumRows,
+		Coloumns={
+			[1]={
+			Name="num", -- _row# is added
+			ColoumnTemplate={Position=POS(Layout.NumX-Layout.ListPos[1], 0), Size=Layout.ListNumSize, Font=Layout.ListFont, Align=FONTF_LEFT },
+			ColoumnTemplateType="StaticText",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+			end
+			},
+			[2]={
+			Name="flagicon", -- _row# is added
+			ColoumnTemplate={Position=POS(Layout.FlagX-Layout.ListPos[1], 1), Size=wm.GetResourceSize(self:getResource("bugbear")) },
+			ColoumnTemplateType="Frame",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+--				Coloumn:AttachResource(wm.GetResource("flag_finland"))
+				Coloumn:HideWindow()
+			end
+			},
+			[3]={
+			Name="playername", -- _row# is added
+			ColoumnTemplate={Position=POS(Layout.NameX-Layout.ListPos[1], 0), Size=SIZE(50,13), Font=Layout.ListFont },
+			ColoumnTemplateType="StaticText",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+			end
+			},
+			[4]={
+			Name="races", -- _row# is added
+			ColoumnTemplate={Position=POS(Layout.RacesX-Layout.ListPos[1], 0), Size=SIZE(50,13), Font=Layout.ListFont, Align=FONTF_CENTER },
+			ColoumnTemplateType="StaticText",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+			end
+			},
+			[5]={
+			Name="points", -- _row# is added
+			ColoumnTemplate={Position=POS(Layout.PointsX-Layout.ListPos[1], 0), Size=SIZE(50,13), Font=Layout.ListFont, Align=FONTF_CENTER },
+			ColoumnTemplateType="StaticText",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+			end
+			},
+			[6]={
+			Name="rankicon", -- _row# is added
+			ColoumnTemplate={Position=POS(Layout.RankX-Layout.ListPos[1]-rankiconsize[1]/2, 0), Size=rankiconsize },
+			ColoumnTemplateType="Frame",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+			end
+			}
+		}
+	}
+	
+	StatList = StatisticsList { BoardType, Layout.ListNumRows }
+	
+	local scorelist = CreateMultiColoumnListBox(listboxParams)
+	scorelist:SetNumRows(Layout.ListNumRows)
+	scorelist:SetSelectedRow(1)
+	scorelist.onNeedData = function(Self, RowObject, RowNr, ControlRowNr)
+		local num = wm.GetWindow("num_row"..ControlRowNr)
+		local flag = wm.GetWindow("flagicon_row"..ControlRowNr)
+		local name = wm.GetWindow("playername_row"..ControlRowNr)
+		local races = wm.GetWindow("races_row"..ControlRowNr)
+		local points = wm.GetWindow("points_row"..ControlRowNr)
+		local rank = wm.GetWindow("rankicon_row"..ControlRowNr)
+		
+		if State == IDLE and not StatList:IsRefreshing() and not StatList:IsFailed() then
+			local scores = StatList:GetData()
+			
+			local scoreIndex = string.format("%d", ControlRowNr)
+			if scores[scoreIndex]==nil then
+				return
+			end
+			
+			num:SetTitle(WStringConcat(scores[scoreIndex].Ranking, L"."))
+			if MultiplayerMode == MPMODE_XBOXLIVE then
+				flag:ShowWindow()
+				flag:AttachResource(self:getResource(flagnames[scores[scoreIndex].Country]))
+			end
+			
+			name:SetTitle(scores[scoreIndex].Name)
+			races:SetTitle(L(scores[scoreIndex].NumRacesStarted))
+			if BoardType <= SCOREBOARD_MIXED then
+				points:SetTitle(scores[scoreIndex].Rating)
+				rank:AttachResource(wm.GetResource("rank_icon_"..scores[scoreIndex].Level))
+				rank:ShowWindow()
+			else
+				points:SetTitle(ConvertToWString(string.format("%0.2f",scores[scoreIndex].Score)))
+				rank:HideWindow()
+			end
+			--rank:AttachResource(wm.GetResource("rank_icon_"..scores[scoreIndex].Level))
+			
+			if scores[scoreIndex].Selected then
+				RowObject:AttachResource(wm.GetResource("wide_white_bar_30"))
+				num:SetColor(Layout.ListActiveFontColor, false)
+				name:SetColor(Layout.ListActiveFontColor, false)
+				races:SetColor(Layout.ListActiveFontColor, false)
+				points:SetColor(Layout.ListActiveFontColor, false)
+			else
+				RowObject:AttachResource(wm.GetResource("wide_black_bar_50"))
+				num:SetColor(Layout.ListFontColor, false)
+				name:SetColor(Layout.ListFontColor, false)
+				races:SetColor(Layout.ListFontColor, false)
+				points:SetColor(Layout.ListFontColor, false)
+			end
+		end
+	end
+	
+	local handler = InputHandler { Name="inputhandler" }
+	handler.onKeyPressed = function(Self, Character, VirtualKey, ScanCode)
+		if VirtualKey == KeyCodes["BUTTON_START"] then
+			menu_multiplayer_scoreboard.items[ActiveItem][2]()
+		elseif VirtualKey == KeyCodes["BUTTON_SELECT"] then
+			menu_multiplayer_scoreboard.back()
+		elseif VirtualKey == KeyCodes["BUTTON_LEFT"] then
+			local numitems = table.getn(menu_multiplayer_scoreboard.items)
+			ActiveItem = math.mod(ActiveItem - 2 + numitems, numitems) + 1
+			GUI:SetActiveItem(ActiveItem)
+			wm.SetFocus(handler)
+		elseif VirtualKey == KeyCodes["BUTTON_RIGHT"] then
+			local numitems = table.getn(menu_multiplayer_scoreboard.items)
+			ActiveItem = math.mod(ActiveItem, numitems) + 1
+			GUI:SetActiveItem(ActiveItem)
+			wm.SetFocus(handler)
+		elseif VirtualKey == KeyCodes["BUTTON_UP"] then
+--			if scorelist:GetSelectedRow() == 1 then
+--				State = REFRESHING
+--				StatList:MovePageUp()
+--			else
+			State = REFRESHING
+			StatList:MoveUp()
+--				scorelist:Refresh()
+				--scorelist:MovePrev()
+--			end
+		elseif VirtualKey == KeyCodes["BUTTON_DOWN"] then
+--			if scorelist:GetSelectedRow() == Layout.ListNumRows then
+--				State = REFRESHING
+--				StatList:MovePageDown()
+--			else
+			State = REFRESHING
+			StatList:MoveDown()
+				--scorelist:MoveNext()
+--			end
+		elseif PS2 and VirtualKey == KeyCodes["BUTTON_EXTRA1"] or XBOX and VirtualKey == KeyCodes["BUTTON_LEFT_TRIGGER"] then
+			State = REFRESHING
+			StatList:MovePageUp()
+		elseif PS2 and VirtualKey == KeyCodes["BUTTON_EXTRA2"] or XBOX and VirtualKey == KeyCodes["BUTTON_RIGHT_TRIGGER"] then
+			State = REFRESHING
+			StatList:MovePageDown()
+		end
+	end
+	
+	ActiveItem = 1
+	FriendsOnly = false
+	wm.SetFocus(handler)
+	ShowThinkingWindow()
+	if XBOX then
+		StatList:MoveToUser(XBoxLive.Auth.GetSignedInUserId(1))
+	else
+		StatList:MoveToUser(GameSpyPresence.GetLoggedInProfileID())
+	end
+	StatList:Update(0)
+	State = MOVETOUSER
+	--GetPlayerRank()
+	PrevTime = nil
+end
+
+function menu_multiplayer_scoreboard.deinit(self)
+	self.parent:deinit(self)
+end
+
+function menu_multiplayer_scoreboard.update(self, time)
+	self.parent:update(self, time)
+	
+	if menu_multiplayer_scoreboard.error then
+		return
+	end
+
+	if PrevTime then
+		StatList:Update(time - PrevTime)
+	end
+	PrevTime = time
+	
+	if State == MOVETOUSER and not StatList:IsRefreshing() then
+		if StatList:IsUserFound() then
+			State = IDLE
+			HideThinkingWindow()
+			wm.GetWindow("scorelist"):Refresh()
+		else
+			StatList:MoveToNr(0)
+			State = REFRESHING
+		end
+	end
+	
+	if State == REFRESHING and not StatList:IsRefreshing() then
+		State = IDLE
+		HideThinkingWindow()
+		wm.GetWindow("scorelist"):Refresh()
+	end
+	
+--	if StatList and StatList:IsFailed() then
+--		MessageBox(L"FAILED", MESSAGEBOX_OK, function() backmenu() end)
+--	end
+end
