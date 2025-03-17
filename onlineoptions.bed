@@ -161,7 +161,6 @@ OptionsPopup = {
 		
 		if OptionsPopup.CheckErrorsFSM then
 			FSM_init_state(OptionsPopup.CheckErrorsFSM)
-			OptionsPopup.CheckErrorsFSM:Remove()
 			OptionsPopup.CheckErrorsFSM = nil
 		end
 	end,
@@ -530,7 +529,6 @@ end
 function HideOnlineOptions()
 	if CheckMessagesFSM ~= nil then
 		FSM_init_state(CheckMessagesFSM)
-		CheckMessagesFSM:Remove()
 		CheckMessagesFSM = nil
 	end
 	RemoveOptionsWindows()

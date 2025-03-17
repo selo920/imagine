@@ -376,7 +376,7 @@ end
 
 function TimeToString(time)
 	if time <= 0 then
-		return "DNF" 
+		return TRANSLATOR(INGAME_RACERESULTS_DNF_TEXT)
 	end
 
 	return MinSecMsToString(TimeToMinSecMs(time))
@@ -947,7 +947,6 @@ function HideThinkingWindow()
 	if ThinkingWindow~=nil then
 		wm.DeactivateWindow(ThinkingWindow)
 		FSM_init_state(ThinkingWindowFSM)
-		ThinkingWindowFSM:Remove()
 		ThinkingWindowFSM=nil
 		ThinkingWindow=nil
 		if PrevThinkingFocus then

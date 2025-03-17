@@ -255,7 +255,7 @@ local function UpdateArrows(self)
 	local xpos,ypos = value:GetPosition()
 	leftarrow:SetPosition(xpos - 5 - leftArrowSize[1], ypos + 3)
 
-	local w,_ = wm.GetTextExtents(value:GetTitle(), fontmedium())
+	local w,_ = wm.GetTextExtents(value:GetTitle(), fonteng())
 	rightarrow:SetPosition(xpos + w + 9, ypos + 3)
 end
 
@@ -265,7 +265,7 @@ local function RefreshInfo(self)
 		
 		labelwin:SetTitle(Options[i][Label])
 		local x,y = labelwin:GetPosition()
-		local w,h = wm.GetTextExtents(labelwin:GetTitle(), fontmedium())
+		local w,h = wm.GetTextExtents(labelwin:GetTitle(), fonteng())
 		
 		local valuewin = wm.GetWindow("optionvalue_row"..i)
 		valuewin:SetPosition(x+w+20,y)
@@ -370,11 +370,11 @@ function menu_multiplayer_trackselection.init(self)
 		Frame { Name="optionbg_left_row"..i, Position=POS(x,y), Size=SIZE(20,26), Color={0,0,0,MAX_VERTEXCOLOR_A}, Layer=3 }:AttachResource(self:getResource("multip_add_track_ang"))
 		Frame { Name="optionbg_row"..i, Position=POS(x+20,PS2 and y + 1 or y), Size=SIZE(319,26), Layer=3, Color=black50, DrawBackgroundColor=TRUE }
 		
-		local win = StaticText { Name="optionlabel_row"..i, Position=POS(x+11,y+5), Size=SIZE(100,16), Font=fontmedium(), Color=GetPaletteColor(33) }
+		local win = StaticText { Name="optionlabel_row"..i, Position=POS(x+11,y+5), Size=SIZE(100,16), Font=fonteng(), Color=GetPaletteColor(33) }
 		win:SetTitle(Options[i][Label])
 		
 		local w,h = wm.GetTextExtents(win:GetTitle(), fontmedium())
-		StaticText { Name="optionvalue_row"..i, Position=POS(x+w+20,y+5), Size=SIZE(100,16), Font=fontmedium(), Color=GetPaletteColor(34) }
+		StaticText { Name="optionvalue_row"..i, Position=POS(x+w+20,y+5), Size=SIZE(100,16), Font=fonteng(), Color=GetPaletteColor(34) }
 		
 		y = y + 32
 		x = x + 9

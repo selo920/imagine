@@ -150,6 +150,10 @@ function fontsmallnumbers()
 end
 
 function fontmedium()
+	return wm.GetResource("FontSmall") --//wm.GetResource("FontMedium")
+end
+
+function fonteng()
 	return wm.GetResource("FontMedium")
 end
 

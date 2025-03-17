@@ -129,7 +129,7 @@ function menu_singleplayer.init(self)
 	Frame{Position=POS(284,72+12),Size=SIZE(58,32)}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar_ang"))
 	Frame{Position=POS(342,72+12),Size=SIZE(298,32)}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar"))
 
-	StaticText{Name="type_name",Position=POS(441,79+12),Align=FONTF_CENTER,Font=fontlarge(),Color=GetPaletteColor(33)}
+	StaticText{Name="type_name",Position=POS(441,79+12),Align=FONTF_CENTER,Font=fontsmall(),Color=GetPaletteColor(33)}
 
 	Frame{Position=POS(295,109+12),Size=SIZE(49,130)}:AttachResource(self:getResource("upshop_mid_infotxt_bar_ang"))
 	Frame{Position=POS(344,109+12),Size=SIZE(296,130)}:AttachResource(self:getResource("upshop_mid_infotxt_bar"))
@@ -143,7 +143,7 @@ function menu_singleplayer.init(self)
 	Frame{Position=POS(332,251),Size=SIZE(48,77)}:AttachResource(self:getResource("upshop_mid_infotxt_bar_ang2"))
 	Frame{Position=POS(380,251),Size=SIZE(260,77)}:AttachResource(self:getResource("upshop_mid_infotxt_bar2"))
 
-	StaticText{Name="type_description",Position=POS(310,120+12),TextLineAdjust=6,Size=SIZE(270,300),Font=fontmedium(),Color=GetPaletteColor(34)}
+	StaticText{Name="type_description",FontScale=0.9,Position=POS(310,120+12),TextLineAdjust=6,Size=SIZE(270,300),Font=fontsmall(),Color=GetPaletteColor(34)}
 
 	Frame{Name="type_image",Position=POS(0,98),Size=SIZE(332,219)}
 

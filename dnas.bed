@@ -11,20 +11,23 @@
 
 
 local Layout={
-	DNASLogoPos=POS(497, 300),
+	DNASLogoPos=POS(450, 264),
 	
-	DNASTextPos=POS(65, 71),
-	DNASTextSize=SIZE(423,320),
+	DNASFramePos=POS(65,72),
+	DNASFrameSize=SIZE(373,320),
+	DNASTextPos=POS(10, 14),
+	DNASTextSize=SIZE(353,300),
 	DNASTextFont=fontsmall(),
 	DNASTextColor=GetPaletteColor(1),
-	DNASTextLineWidth=423,
+	DNASTextLineWidth=353,
 	
-	ErrorLineWidth=320,
+	ErrorLineWidth=353,
+	ErrorMessageFont=fontsmall(),
 	
-	ScrollUpPos=POS(253,65),
-	ScrollDownPos=POS(253,392),
+	ScrollUpPos=POS(253,78),
+	ScrollDownPos=POS(253,382),
 	
-	NumTextRows=16,
+	NumTextRows=14,
 }
 
 local NumRows=0
@@ -71,6 +74,9 @@ local function ScrollMessageUp()
 	end
 	local title = DNASInterface.GetMessageLines(CurrentRow, Layout.NumTextRows)
 	dnastext:SetTitle(title)
+	if State == "ERROR" then
+		dnastext:WordWrap()
+	end
 	ShowArrows()
 end
 
@@ -86,6 +92,9 @@ local function ScrollMessageDown()
 	end
 	local title = DNASInterface.GetMessageLines(CurrentRow, Layout.NumTextRows)
 	dnastext:SetTitle(title)
+	if State == "ERROR" then
+		dnastext:WordWrap()
+	end
 	ShowArrows()
 end
 
@@ -108,8 +117,9 @@ function menu_multiplayer_dnas.init(self)
 	local dnasImage = Frame { Name="dnaslogo", Position=Layout.DNASLogoPos, Size=wm.GetResourceSize(self:getResource("dnaslogo")) }
 	dnasImage:AttachResource(self:getResource("dnaslogo"))
 	dnasImage:HideWindow()
-	
-	local dnastext = StaticText { Name="dnastext", Position=Layout.DNASTextPos, Size=Layout.DNASTextSize, Font=Layout.DNASTextFont, Color=Layout.DNASTextColor }
+
+	local dnasframe = Frame { Name="dnasframe", Position=Layout.DNASFramePos, Size=Layout.DNASFrameSize, ShowBorders=TRUE }	
+	local dnastext = StaticText { Name="dnastext", Position=Layout.DNASTextPos, Size=Layout.DNASTextSize, Font=Layout.DNASTextFont, Color=Layout.DNASTextColor, Parent=dnasframe }
 	
 	local arrowsize = wm.GetResourceSize(wm.GetResource("scroll_arrow_up"))
 	local scroll = Frame { Name="scrollup", Position=Layout.ScrollUpPos, Size=arrowsize }
@@ -129,8 +139,8 @@ function menu_multiplayer_dnas.init(self)
 			if State == "EULA" or State == "ERROR" then
 				if State == "EULA" and not DNASOpened then
 					DNASInterface.Open(nil, -1)
-					State = "DNASOPEN"
 					DNASOpened = true
+					State = "DNASOPEN"
 				else -- ERROR state
 					DNASInterface.Authenticate()
 					State = "DNASAUTH"
@@ -140,6 +150,7 @@ function menu_multiplayer_dnas.init(self)
 				wm.GetWindow("dnaslogo"):ShowWindow()
 				ShowThinkingWindow()	
 				handler:SetFocus()
+				playmenusound_action()
 			end
 		elseif VirtualKey == KeyCodes["BUTTON_SELECT"] then
 			if State == "ERROR" or State == "EULA" then
@@ -148,16 +159,20 @@ function menu_multiplayer_dnas.init(self)
 				NetworkConfiguration.Disconnect()
 				State = "DISCONNECT"
 				handler:HideWindow()
-			elseif State == "DNASOPEN" or State == "DNASAUTH" then
+				playmenusound_back()
+			elseif State == "DNASAUTH" then
 				HideThinkingWindow()
 				DNASInterface.Abort()
-				wm.GetWindow("dnaslogo"):HideWindow()
 				State = "DNASABORT"
+				wm.GetWindow("dnaslogo"):HideWindow()
+				playmenusound_back()
 			end
 		elseif VirtualKey == KeyCodes["BUTTON_UP"] then
 			ScrollMessageUp()
+			playmenusound_move()
 		elseif VirtualKey==KeyCodes["BUTTON_DOWN"] then
 			ScrollMessageDown()
+			playmenusound_move()
 		end
 	end	
 	
@@ -180,8 +195,10 @@ end
 
 function menu_multiplayer_dnas.update(self, time)
 	self.parent:update(self, time)
+	win = wm.GetWindow("dnastext")
 	if State == "DNASOPEN" then
 		HideArrows()
+		win:SetTitle(PS2_DNAS_OPEN)
 		local res = DNASInterface.Update()
 		if res ~= DNAS_INTERFACE_WAITING then
 			if res == DNAS_INTERFACE_SUCCESS then
@@ -198,6 +215,7 @@ function menu_multiplayer_dnas.update(self, time)
 		end
 	elseif State == "DNASAUTH" then
 		HideArrows()
+		win:SetTitle(PS2_DNAS_AUTH)
 		local res = DNASInterface.Update()
 		if res ~= DNAS_INTERFACE_WAITING then
 			wm.GetWindow("dnaslogo"):HideWindow()
@@ -216,6 +234,7 @@ function menu_multiplayer_dnas.update(self, time)
 			end
 		end
 	elseif State == "DNASABORT" then
+		win:SetTitle(PS2_DNAS_ABORT)
 		local res=DNASInterface.Update()
 		if res ~= DNAS_INTERFACE_WAITING then
 			HideThinkingWindow()

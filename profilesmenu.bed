@@ -296,8 +296,8 @@ function menu_profiles.init(self)
 	local text_y=196
 	local k,v
 	for k,v in pairs(text_titles) do
-    	StaticText{Name=string.format("%s_text",v[1]),Title=v[2],Position=POS(v[3][1]-10,v[3][2]),Align=FONTF_RIGHT,Font=fontmedium(),Color=GetPaletteColor(34)}
-		StaticText{Name=string.format("%s_data",v[1]),Position=POS(v[3][1]+10,v[3][2]),Font=fontmedium(),Color=GetPaletteColor(33)}
+    	StaticText{Name=string.format("%s_text",v[1]),FontScale=0.75,Title=v[2],Position=POS(v[3][1]-10,v[3][2]+2),Align=FONTF_RIGHT,Font=fontsmall(),Color=GetPaletteColor(34)}
+		StaticText{Name=string.format("%s_data",v[1]),Position=POS(v[3][1]+10,v[3][2]),Font=fonteng(),Color=GetPaletteColor(33)}
 	end
 	
 
@@ -431,7 +431,7 @@ function menu_profiles_create_name.init(self)
 
 	wm.SetTextInput(new_profile.name or PlayerProfile:GetName())
 
-	local keyboard=VirtualKeyboard{Name="kb",Font=fontmedium(),Title=TRANSLATOR(TITLE_PLAYERNAME),TitleFont=fontlarge(),MaxSize=8,
+	local keyboard=VirtualKeyboard{Name="kb",Font=fonteng(),Title=TRANSLATOR(TITLE_PLAYERNAME),InputFont=fontlarge(),TitleFont=fontsmall(),MaxSize=8,
 		TitleResources={ self:getResource("keyboard_title_bars_tip"), self:getResource("keyboard_title_bars_main") },
 		InputResources={ self:getResource("keyboard_title_bars_tip2"), self:getResource("keyboard_title_bars_main2") },
 		KeyboardResources={ self:getResource("keyboard_bg_tip"), self:getResource("keyboard_bg_main")} }

@@ -199,7 +199,7 @@ function menu_career_cupinfo.init(self)
 
 	local p
 
-	StaticText{Title=ConvertToWString(cupdata.Name),Name="cup_name",Font=fontmedium(), Position=POS(309,108),Color=GetPaletteColor(33)}
+	StaticText{Title=ConvertToWString(cupdata.Name),Name="cup_name",Font=fonteng(), Position=POS(309,108),Color=GetPaletteColor(33)}
 
 
 
@@ -213,10 +213,10 @@ function menu_career_cupinfo.init(self)
 
 
 	Frame{Name="lap",Position=RELATIVEPOS(POS(377,343),pos),Size=GetResourceSize(self:getResource("lap")),Parent=p}:AttachResource(self:getResource("lap"))
-	StaticText{Name="lap_data",Position=RELATIVEPOS(POS(404,343),pos),Font=fontsmall(),Parent=p,Color=GetPaletteColor(34)}
+	StaticText{Name="lap_data",Position=RELATIVEPOS(POS(404,343),pos),Font=fonteng(),Parent=p,Color=GetPaletteColor(34)}
 
 	Frame{Name="clock",Position=RELATIVEPOS(POS(384,366),pos),Size=GetResourceSize(self:getResource("clock")),Parent=p}:AttachResource(self:getResource("clock"))
-	StaticText{Name="clock_data",Title=L"",Position=RELATIVEPOS(POS(411,367),pos),Font=fontsmall(),Parent=p,Color=GetPaletteColor(34)}
+	StaticText{Name="clock_data",Title=L"",Position=RELATIVEPOS(POS(411,367),pos),Font=fonteng(),Parent=p,Color=GetPaletteColor(34)}
 
 
 
@@ -278,7 +278,7 @@ function menu_career_cupinfo.init(self)
 
 		if completed then
 			w.image_dim=Frame{Position=POS(0,0),Size=SIZE(193,47),Parent=w}:AttachResource(self:getResource("track_images_shade_big"))
-			w.text=StaticText{Title=TRANSLATOR(TITLE_COMPLETED),Position=POS(96,15),Align=FONTF_CENTER,Font=fontmedium(),Color=GetPaletteColor(3),Parent=w}
+			w.text=StaticText{Title=TRANSLATOR(TITLE_COMPLETED),Position=POS(96,15),Align=FONTF_CENTER,Font=fonteng(),Color=GetPaletteColor(3),Parent=w}
 		end
 
 		if not GameFlow.IsCupRaceLocked(i) then
@@ -301,9 +301,9 @@ function menu_career_cupinfo.init(self)
 	end
 
 	local text=WStringConcat(TRANSLATOR(HEADER_CUP),ConvertToWString(string.format(" %d/%d",next_race,table.getn(cupdata.Races))))
-	StaticText{Title=text,Position=POS(321,150),Font=fontsmall(),Color=GetPaletteColor(34)}
-	StaticText{Name="race_name",Position=POS(338,168),Font=fontsmall(),Color=GetPaletteColor(33)}
-	StaticText{Name="race_description",Position=POS(336,194),Size=SIZE(250,200),TextLineAdjust=7,Font=fontsmall(),Color=GetPaletteColor(34)}
+	StaticText{Title=text,Position=POS(321,150),Font=fonteng(),Color=GetPaletteColor(34)}
+	StaticText{Name="race_name",Position=POS(338,168),Font=fonteng(),Color=GetPaletteColor(33)}
+	StaticText{FontScale=0.9,Name="race_description",Position=POS(336,194),Size=SIZE(270,200),TextLineAdjust=7,Font=fontsmall(),Color=GetPaletteColor(34)}
 
 
 	local w=state.eventwindows[next_race]

@@ -14,12 +14,11 @@ dofile("data/menu/selection_balks.bed")
 local State
 local NumConfigurations
 local CurrentTime
-local NeedGameSpy
-local StartTime
+local MessageBoxActive
 
 menu_checksavedevice_network = CreateMenuFromTemplate("template_basic")
 menu_checksavedevice_network.options.title = L""
-menu_checksavedevice_network.back = entermenu("menu_multiplayer")
+menu_checksavedevice_network.back = entermenu("menu_mainmenu")
 menu_checksavedevice_network.forward = entermenu("menu_multiplayer_networkconfig")
 
 function menu_checksavedevice_network.create(self)
@@ -31,10 +30,16 @@ end
 function menu_checksavedevice_network.init(self)
 	self.parent:init(self)
 
-	GUI:SetHelpButtons(nil,nil,nil,nil,nil,nil,TRUE)
+	GUI:SetBackgroundVideo("data/video/bg_main")
+
+	GUI:SetHelpButtons()
 
 	Save.CheckSaveDeviceNetwork()
 	Save.UpdateSaveFlow()
+end
+
+function menu_checksavedevice_network.deinit(self)
+	self.parent:deinit(self)
 end
 
 function menu_checksavedevice_network.update(self, time)
@@ -55,8 +60,8 @@ end
 
 local Layout=
 {
-	BoxPos=POS(88,105),
-	BoxSize=SIZE(464,261),
+	BoxPos=POS(83,105),
+	BoxSize=SIZE(474,261),
 	
 	TitleFont=fontlarge(),
 	TitleColor=GetPaletteColor(34),
@@ -66,7 +71,7 @@ local Layout=
 	UpArrowCenter=POS(502,28),
 	DownArrowCenter=POS(502,240),
 	
-	NrPos=POS(32, 1),
+	NrPos=POS(46, 1),
 	NrSize=SIZE(40, 40),
 	ISPPos=POS(52, 1),
 	ISPSize=SIZE(400, 20),
@@ -79,26 +84,54 @@ local Layout=
 	ListNrColor=GetPaletteColor(33),
 	ListISPColor=GetPaletteColor(33),
 	ListHWColor=GetPaletteColor(34),
-	ListSelectedItemColor=GetPaletteColor(73),
+	ListSelectedItemColor=GetPaletteColor(14),
+	ListDisabledItemColor=GetPaletteColor(2),
 	ListItemColor={0,0,0,0.5*MAX_VERTEXCOLOR_A},
 	ListNumRows=5,
-	RowWidth=460,
+	RowWidth=470,
 	RowHeight=39,
 	RowPadding=3,	
 }
 
-function StartNetworkConfiguration(needGameSpy)
-	NeedGameSpy = needGameSpy
+function StartNetworkConfiguration()
 	EnterMenu("menu_multiplayer_networkconfig")
 end
 
-local function HideList()
-	wm.GetWindow("box"):HideWindow()
+local ListWindows
+
+local function ShowMessage()
+	for k,v in pairs(ListWindows) do
+--	local win = wm.GetWindow("box")
+		if v.MaxAlpha then
+			v.AnimHandle = AnimateWindowAlpha(v,v.MaxAlpha,0.0,0.2,0.0)
+		else
+			v.AnimHandle = AnimateWindowAlpha(v,1.0,0.0,0.2,0.0)
+		end
+	end
+	win = wm.GetWindow("message")
+	win:ShowWindow()
+	win.AnimHandle = AnimateWindowAlpha(win,0.0,1.0,0.2,0.2)	
+end
+
+local function ShowList()
+	local win = wm.GetWindow("message")
+	win:HideWindow()
+	for k,v in pairs(ListWindows) do
+		if v.MaxAlpha then
+			v.AnimHandle = AnimateWindowAlpha(v,v.MaxAlpha,v.MaxAlpha,0.0,0.0,v.AnimHandle)
+		else
+			v.AnimHandle = AnimateWindowAlpha(v,1.0,1.0,0.0,0.0,v.AnimHandle)
+		end
+	end
+end
+
+local function AddListWin(win)
+	table.insert(ListWindows, win)
 end
 
 menu_multiplayer_networkconfig = CreateMenuFromTemplate("template_basic")
-menu_multiplayer_networkconfig.options.title = L"NETWORK CONFIGURATION"
-menu_multiplayer_networkconfig.back = function() StopNetwork(); EnterMenu("menu_multiplayer"); end
+menu_multiplayer_networkconfig.options.title = TITLE_PS2_NETWORK_CONFIG
+menu_multiplayer_networkconfig.back = function() StopNetwork(); EnterMenu("menu_mainmenu"); end
 
 function menu_multiplayer_networkconfig.create(self)
 	self.parent:create(self)
@@ -112,16 +145,25 @@ end
 function menu_multiplayer_networkconfig.init(self)
 	self.parent:init(self)
 	GUI:SetBackground("data/menu/menu_background.tga")
-	StartTime = 0
 	
-	StartNetwork()
+	if Network == nil then
+		StartNetwork()
+	end
+	
+	ListWindows = { }
 	
 	local box = Frame { Name="box", Position=Layout.BoxPos, Size=Layout.BoxSize, ShowBorders=TRUE }
+
+	StaticText { Name="message", Title=L"", Position=POS(Layout.BoxSize[1]/2,Layout.BoxSize[2]/2-10), Size=SIZE(640,20), Font=fontlarge(), Color=GetPaletteColor(34), Align=FONTF_CENTER, Parent=box }:HideWindow()
 	
-	StaticText { Title=L"SELECT NETWORK CONFIGURATION", Position=Layout.TitlePos, Size=Layout.TitleSize, Font=Layout.TitleFont, Color=Layout.TitleColor, Parent=box }
+	local win = StaticText { Title=HEADER_SELECT_NETWORK_CONFIG, Position=Layout.TitlePos, Size=Layout.TitleSize, Font=Layout.TitleFont, Color=Layout.TitleColor, Parent=box }
+	AddListWin(win)
+	
 	local function MakeArrow(pos, name, iconname)
 		local arrowSize = GetResourceSize(self:getResource(iconname))
-		Frame { Name=name, Position=POS(pos[1] - arrowSize[1] / 2, pos[2] - arrowSize[2] / 2), Size=arrowSize, Parent=box }:AttachResource(self:getResource(iconname))
+		win = Frame { Name=name, Position=POS(pos[1] - arrowSize[1] / 2, pos[2] - arrowSize[2] / 2), Size=arrowSize, Parent=box }
+		win:AttachResource(self:getResource(iconname))
+		AddListWin(win)
 	end
 	
 	MakeArrow(Layout.UpArrowCenter, "uparrow_glow", "scroll_up_glow")
@@ -133,6 +175,8 @@ function menu_multiplayer_networkconfig.init(self)
 		local w = Frame { Name="listitembg_row"..i, Position=POS(Layout.ListLeft, Layout.ListTop + (Layout.RowHeight+Layout.RowPadding)*(i-1)), Size=SIZE(Layout.RowWidth, Layout.RowHeight), DrawBackgroundColor=TRUE, Parent=box }
 		local c = Layout.ListItemColor
 		w:SetColor({c[0],c[1],c[2],0.5*MAX_VERTEXCOLOR_A}, false)
+		w.MaxAlpha = 0.5
+		AddListWin(w)
 	end
 	
 	local listboxParams={
@@ -154,9 +198,10 @@ function menu_multiplayer_networkconfig.init(self)
 		Coloumns={
 			[1]={
 			Name="number", -- _row# is added
-			ColoumnTemplate={Position=Layout.NrPos, Size=Layout.NrSize, Font=Layout.ListFont, Color=Layout.ListNrColor },
+			ColoumnTemplate={Position=Layout.NrPos, Size=Layout.NrSize, Font=Layout.ListFont, Color=Layout.ListNrColor, Align=FONTF_RIGHT },
 			ColoumnTemplateType="StaticText",
 			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+				AddListWin(Coloumn)
 			end
 			},		
 
@@ -165,6 +210,7 @@ function menu_multiplayer_networkconfig.init(self)
 			ColoumnTemplate={Position=Layout.ISPPos, Size=Layout.ISPSize, Font=Layout.ListFont, Color=Layout.ListISPColor },
 			ColoumnTemplateType="StaticText",
 			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+				AddListWin(Coloumn)
 			end
 			},
 			[3]={
@@ -172,12 +218,15 @@ function menu_multiplayer_networkconfig.init(self)
 			ColoumnTemplate={Position=Layout.HardwarePos, Size=Layout.HardwareSize, Font=Layout.ListFont,Color=Layout.ListHWColor },
 			ColoumnTemplateType="StaticText",
 			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+				AddListWin(Coloumn)
 			end,
 			},
 		}
 	}
 
 	local list=CreateMultiColoumnListBox(listboxParams)
+	AddListWin(list)
+
 	list.onNeedData=function(Self, RowObject, RowNr, ControlRowNr)
 		local nr=wm.GetWindow("number_row"..ControlRowNr)
 		local isp=wm.GetWindow("isp_row"..ControlRowNr)
@@ -194,13 +243,40 @@ function menu_multiplayer_networkconfig.init(self)
 			isp:SetTitle(NetworkConfiguration.GetISP(RowNr))
 			hardware:SetTitle(NetworkConfiguration.GetHardware(RowNr))
 		end
-		
+
+		local a,c
 		if RowNr == list:GetSelectedRow() then
-			local c = Layout.ListSelectedItemColor
-			bg:SetColor({2*c[1]-1,2*c[2]-1,2*c[3]-1,MAX_VERTEXCOLOR_A}, false)
+			if bg.AnimHandle and IsAnimationActive(bg.AnimHandle) then
+				a = bg:GetColor(true)[4]
+			else
+				a = 1.0
+			end
+			c = Layout.ListSelectedItemColor
+			bg.MaxAlpha = 1.0
 		else
-			local c = Layout.ListItemColor
-			bg:SetColor({2*c[1]-1,2*c[2]-1,2*c[3]-1,0.5*MAX_VERTEXCOLOR_A}, false)
+			if bg.AnimHandle and IsAnimationActive(bg.AnimHandle) then
+				a = bg:GetColor(true)[4]
+			else
+				a = 0.5
+			end
+			c = Layout.ListItemColor
+			bg.MaxAlpha = 0.5
+		end
+		
+		if RowNr == NumConfigurations + 1 or NetworkConfiguration.IsConfigurationValid(RowNr) then
+			nr:SetColor(Layout.ListNrColor, false)
+			isp:SetColor(Layout.ListISPColor, false)
+			hardware:SetColor(Layout.ListHWColor, false)
+		else
+			nr:SetColor(Layout.ListDisabledItemColor, false)
+			isp:SetColor(Layout.ListDisabledItemColor, false)
+			hardware:SetColor(Layout.ListDisabledItemColor, false)
+		end
+
+		if RowNr == list:GetSelectedRow() then
+			bg:SetColor({2*c[1]-1,2*c[2]-1,2*c[3]-1,a*MAX_VERTEXCOLOR_A}, false)
+		else
+			bg:SetColor({2*c[1]-1,2*c[2]-1,2*c[3]-1,a*MAX_VERTEXCOLOR_A}, false)
 		end
 	end
 	
@@ -230,37 +306,76 @@ function menu_multiplayer_networkconfig.init(self)
 			return
 		end
 
-		if VirtualKey==KeyCodes["BUTTON_START"] then
-			if list:GetSelectedRow() ~= NumConfigurations + 1 then
-				local conf=NetworkConfiguration.GetCombinationNr(list:GetSelectedRow())
-				NetworkConfiguration.LoadConfigurationFile(conf)
-				ShowThinkingWindow()
-				State="NETCONF"				
-			else
-				local f=function()
-					NetworkConfiguration.LoadNetgui()				
+		if State == "SELECTING" then
+			if VirtualKey==KeyCodes["BUTTON_START"] then
+				if list:GetSelectedRow() == NumConfigurations + 1 then
+					MessageBoxActive = true
+					MessageBox(
+						PS2_CONNECTION_SELECT_STARTCONFIG,
+						MESSAGEBOX_YESNO,
+						function(value)
+							MessageBoxActive = false
+							if value == TRUE then
+								NetworkConfiguration.LoadNetgui()
+							end
+						end	
+					)
+				elseif NetworkConfiguration.IsConfigurationValid(list:GetSelectedRow()) then
+					local conf = NetworkConfiguration.GetCombinationNr(list:GetSelectedRow())
+					NetworkConfiguration.LoadConfigurationFile(conf)
+					ShowThinkingWindow(true)
+					ShowMessage()
+					GUI:SetHelpButtons(BUTTON_BACK, UI_ABORT)
+					State="NETCONF"
+				else
+					MessageBoxActive = true
+					MessageBox(
+						TRANSLATOR(PS2_NET_NOT_SUPPORTED),
+						MESSAGEBOX_OK,
+						function(value)
+							MessageBoxActive = false
+						end	
+					)
 				end
-				ShowMessageBox(POS(0, 85), nil, PS2_CONNECTION_SELECT_STARTCONFIG, UI_YES, f, UI_NO, function()end)
+				playmenusound_action()
+			elseif VirtualKey==KeyCodes["BUTTON_SELECT"] then
+				menu_multiplayer_networkconfig.back()
+				playmenusound_back()
+			elseif VirtualKey==KeyCodes["BUTTON_UP"] then
+				list:MovePrev()
+				playmenusound_move()
+			elseif VirtualKey==KeyCodes["BUTTON_DOWN"] then
+				list:MoveNext()
+				playmenusound_move()
 			end
-		elseif VirtualKey==KeyCodes["BUTTON_SELECT"] then
-			menu_multiplayer_networkconfig.back()
-		elseif VirtualKey==KeyCodes["BUTTON_UP"] then
-			list:MovePrev()
-		elseif VirtualKey==KeyCodes["BUTTON_DOWN"] then
-			list:MoveNext()
+		elseif State == "NETCONF" then
+			if VirtualKey==KeyCodes["BUTTON_SELECT"] then
+				State = "SELECTING"
+				NetworkConfiguration.Abort()
+				HideThinkingWindow()
+				ShowList()
+				GUI:SetHelpButtons(BUTTON_OK, UI_SELECT, BUTTON_BACK, UI_BACK)
+			end
 		end
 	end		
 	handler:SetFocus()
 
+	MessageBoxActive = false
+
+	NumConfigurations = 0
 	local res = NetworkConfiguration.PrepareConfigurations()
-	if res > 0  then
-		NumConfigurations=NetworkConfiguration.GetNumConfigurations()
-		State = "SELECTING"
-		list:SetNumRows(NumConfigurations + 1)
-	else
-		State = "ERROR"
+	NumConfigurations=NetworkConfiguration.GetNumConfigurations()
+	list:SetNumRows(NumConfigurations + 1)
+	State = "SELECTING"
+	
+	local c = {0,0,0,0.25*MAX_VERTEXCOLOR_A}
+	for i = NumConfigurations + 1, Layout.ListNumRows do
+		local win = wm.GetWindow("listitembg_row"..i)
+		win:SetColor(c, false)
+		win.MaxAlpha = 0.25
 	end
-	CurrentTime=0
+	
+	CurrentTime = 0
 end
 
 function menu_multiplayer_networkconfig.deinit(self)
@@ -272,6 +387,11 @@ function menu_multiplayer_networkconfig.update(self,time)
 
 	local saveState = Save.CheckDeviceState()
 	if saveState ~= Save.SAVE_DEVICE_OK then
+		if MessageBoxActive then
+			GUI:CloseMessageBox()
+			MessageBoxActive = false
+		end
+		HideThinkingWindow()
 		if saveState == Save.SAVE_DEVICE_CHANGED then
 			Save.SignalDeviceChanged()
 		end
@@ -280,14 +400,8 @@ function menu_multiplayer_networkconfig.update(self,time)
 		return
 	end
 
-	if StartTime ~= 0 then
-		if time - StartTime > 30 then
-			HideThinkingWindow()
-			StartTime = 0
-			State = "SELECTING"
-			NetworkConfiguration.Abort()
-			ShowMessageBox(POS(0,185), nil, L"Network configuration timed out", L"OK", function() wm.GetWindow("inputhandler"):SetFocus() end)
-		end
+	if MessageBoxActive then
+		return
 	end
 	
 	if CurrentTime==0 then
@@ -297,30 +411,27 @@ function menu_multiplayer_networkconfig.update(self,time)
 	CurrentTime=time
 	local win=wm.GetWindow("infomessage")
 	if State=="NETCONF" then
-		if StartTime == 0 then
-			StartTime = time
-		end
-
 		local res = NetworkConfiguration.Update(dt*1000)
+		wm.GetWindow("message"):SetTitle(NetworkConfiguration.GetStatusString())
 		if res ~= NetworkConfiguration.RES_WAITING then
 			if res == NetworkConfiguration.RES_COMPLETED then
 				State = "IDLE"
 				HideThinkingWindow()
-				if NeedGameSpy then
-					if CommandLine["-nodnas"] then
-						EnterMenu("menu_multiplayer_gamespy_checkavailability")
-					else
-						EnterMenu("menu_multiplayer_dnas")
-					end
+				if CommandLine["-nodnas"] then
+					EnterMenu("menu_multiplayer_gamespy_checkavailability")
 				else
-					EnterMenu("menu_lan_modeselect")
+					EnterMenu("menu_multiplayer_dnas")
 				end
-			else	
+			else
 				HideThinkingWindow()
+				wm.GetWindow("message"):HideWindow()
+				MessageBoxActive = true
 				MessageBox(NetworkConfiguration.GetErrorString(), MESSAGEBOX_OK,
 					function()
 						State = "SELECTING"
+						ShowList()
 						wm.GetWindow("list"):Refresh()
+						MessageBoxActive = false
 					end
 				)
 				State="ERROR"

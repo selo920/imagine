@@ -73,6 +73,10 @@ local menufiles = {
 	"ExtrasMenu.bed",
 	"StartScreen.bed",
 
+	"MultiplayerBuildTournament.bed",
+	"MultiplayerRaceMenu.bed",
+
+--[[--/*
 	"LobbyChangeOptions.bed",
 	"LobbySessionDetails.bed",
 	"MultiplayerCreateGame.bed",
@@ -85,7 +89,7 @@ local menufiles = {
 	"MultiplayerTournamentStandings.bed",
 	"MultiplayerBuildTournament.bed",
 	"MultiplayerRaceMenu.bed",
-
+--]]--*/
 	--//"PressBuild.bed",
 	--//"FocusTest.bed",
 }
@@ -369,7 +373,7 @@ function LoadMenuFiles()
 	if XBOX then
 		numfiles = numfiles + table.getn(xbox_menufiles)
 	elseif PS2 then
-		numfiles = numfiles + table.getn(ps2_menufiles)
+--//		numfiles = numfiles + table.getn(ps2_menufiles)
 	elseif PC then
 		numfiles = numfiles + table.getn(pc_menufiles)
 	end
@@ -420,11 +424,11 @@ function LoadMenuFiles()
 			UpdateLoadingBar(1.0 / numfiles)
 		end
 	elseif PS2 then
-		for k,v in pairs(ps2_menufiles) do
-			dofile(menufilepath..v)
+--//		for k,v in pairs(ps2_menufiles) do
+--//			dofile(menufilepath..v)
 
-			UpdateLoadingBar(1.0 / numfiles)
-		end
+--//			UpdateLoadingBar(1.0 / numfiles)
+--//		end
 	elseif PC then
 		for k,v in pairs(pc_menufiles) do
 			dofile(menufilepath..v)
@@ -507,8 +511,8 @@ function main()
 	--//menu_entered=true
 
 	if PS2 then 
-		BUTTON_OK=BUTTON_PS2_CROSS
-		BUTTON_BACK=BUTTON_PS2_TRIANGLE
+		BUTTON_OK=BUTTON_PS2_CIRCLE
+		BUTTON_BACK=BUTTON_PS2_CROSS
 		BUTTON_EXTRA=BUTTON_PS2_SQUARE
 		BUTTON_INFO=BUTTON_PS2_SQUARE
 		KeyCodes.BUTTON_INFO=KeyCodes.BUTTON_X

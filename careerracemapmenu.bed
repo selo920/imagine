@@ -1291,18 +1291,18 @@ function menu_career_racemap.init(self)
 	Frame{Position=RELATIVEPOS(POS(297,89),ppos),Size=SIZE(20,28),Parent=p}:AttachResource(self:getResource("cls_title_ang"))
 	Frame{Position=RELATIVEPOS(POS(297+20,89),ppos),Size=SIZE(323,28),DrawBackgroundColor=TRUE,Parent=p,Color=GetPaletteColor(0),Alpha=0.5} --//:AttachResource(self:getResource("class_info_box_strech"))
 
-	StaticText{Name="class_title",Position=RELATIVEPOS(POS(323,91),ppos),Parent=p,Font=fontlarge(),Color=GetPaletteColor(33)}
+	StaticText{Name="class_title",Position=RELATIVEPOS(POS(323,91),ppos),Parent=p,Font=fonteng(),Color=GetPaletteColor(33)}
 
 	Frame{Position=RELATIVEPOS(POS(309,131),ppos),Size=SIZE(30,74),Parent=p}:AttachResource(self:getResource("cls_info_ang"))
 	Frame{Position=RELATIVEPOS(POS(339,131),ppos),Size=SIZE(301,74),Parent=p,DrawBackgroundColor=TRUE,Color=GetPaletteColor(0),Alpha=0.5}
 
-	local len=wm.GetTextWidth(TRANSLATOR(HEADER_COMPLETED),fontmedium())
+	local len=wm.GetTextWidth(TRANSLATOR(HEADER_COMPLETED),fonteng())
 
-	StaticText{Name="subclass_title",Position=RELATIVEPOS(POS(333,135),ppos),Parent=p,Font=fontmedium(),Color=GetPaletteColor(33)}
-	StaticText{Name="completed_text",Title=TRANSLATOR(HEADER_COMPLETED),Position=RELATIVEPOS(POS(333+9,135+24),ppos),Parent=p,Font=fontmedium(),Color=GetPaletteColor(34)}
-	StaticText{Name="completed_cups",Position=RELATIVEPOS(POS(333+9+len+4,135+24),ppos),Parent=p,Font=fontmedium(),Color=GetPaletteColor(33)}
-	StaticText{Name="completed_text2",Title=TRANSLATOR(HEADER_COMPLETED),Position=RELATIVEPOS(POS(333+9+9,135+24+24),ppos),Parent=p,Font=fontmedium(),Color=GetPaletteColor(34)}
-	StaticText{Name="completed_events",Position=RELATIVEPOS(POS(333+9+9+len+4,135+24+24),ppos),Parent=p,Font=fontmedium(),Color=GetPaletteColor(33)}
+	StaticText{Name="subclass_title",Position=RELATIVEPOS(POS(333,135),ppos),Parent=p,Font=fonteng(),Color=GetPaletteColor(33)}
+	StaticText{Name="completed_text",Title=TRANSLATOR(HEADER_COMPLETED),Position=RELATIVEPOS(POS(333+9,135+24),ppos),Parent=p,Font=fonteng(),Color=GetPaletteColor(34)}
+	StaticText{Name="completed_cups",Position=RELATIVEPOS(POS(333+9+len+4,135+24),ppos),Parent=p,Font=fonteng(),Color=GetPaletteColor(33)}
+	StaticText{Name="completed_text2",Title=TRANSLATOR(HEADER_COMPLETED),Position=RELATIVEPOS(POS(333+9+9,135+24+24),ppos),Parent=p,Font=fonteng(),Color=GetPaletteColor(34)}
+	StaticText{Name="completed_events",Position=RELATIVEPOS(POS(333+9+9+len+4,135+24+24),ppos),Parent=p,Font=fonteng(),Color=GetPaletteColor(33)}
 
 	Frame{Position=RELATIVEPOS(POS(339,233),ppos),Size=SIZE(30,69),Parent=p}:AttachResource(self:getResource("cls_desc_ang"))
 	Frame{Position=RELATIVEPOS(POS(369,233),ppos),Size=SIZE(271,69),Parent=p,DrawBackgroundColor=TRUE,Color=GetPaletteColor(0),Alpha=0.5}
@@ -1310,7 +1310,7 @@ function menu_career_racemap.init(self)
 	Frame{Position=RELATIVEPOS(POS(359,302),ppos),Size=SIZE(30,69),Parent=p}:AttachResource(self:getResource("cls_desc_ang"))
 	Frame{Position=RELATIVEPOS(POS(389,302),ppos),Size=SIZE(640-389,69),Parent=p,DrawBackgroundColor=TRUE,Color=GetPaletteColor(0),Alpha=0.5}
 
-	StaticText{Name="class_description",Position=RELATIVEPOS(POS(368,241),ppos),Size=SIZE(180,300),Parent=p,TextLineAdjust=7,Font=fontsmall(),Color=GetPaletteColor(34)}
+	StaticText{FontScale=0.9,Name="class_description",Position=RELATIVEPOS(POS(368,241),ppos),Size=SIZE(180,300),Parent=p,TextLineAdjust=7,Font=fontsmall(),Color=GetPaletteColor(34)}
 
 
 	p=Frame{Name="subclass_arrow_left",Position=POS(52,218),Size=SIZE(45,88)}:AttachResource(self:getResource("map_arrow_left"))
@@ -1368,7 +1368,7 @@ function menu_career_racemap.init(self)
 	local p=Frame{Name="track_image_bar",Position=ppos,Size=SIZE(640,73)}:AttachResource(self:getResource("black_transparent_50"))
 	p:SetAlpha(0)
 
-	StaticText{Name="cup_name",Font=fontsmall(), Position=POS(278,68),Align=FONTF_CENTER,Color=GetPaletteColor(3)}
+	StaticText{Name="cup_name",Font=fonteng(), Position=POS(278,68+2),Align=FONTF_CENTER,Color=GetPaletteColor(3)}
 
 	state.trackimages={}
 	state.trackimages[1]={}
@@ -1404,14 +1404,14 @@ function menu_career_racemap.init(self)
 
 	w=Frame{Name="trophy_bar",Position=POS(0,137),Size=SIZE(640,21),DrawBackgroundColor=TRUE,Alpha=0,Color=GetPaletteColor(0)}
 
-	StaticText{Name="prize_title",Title=TRANSLATOR(HEADER_CUPPRIZES),Font=fontsmall(),Position=POS(79,139),Color=GetPaletteColor(33),Alpha=0}
-	StaticText{Name="prize_1_title",Title=TRANSLATOR(HEADER_1ST),Font=fontsmall(),Position=POS(187,138),Alpha=0,Color=GetPaletteColor(33)}
-	StaticText{Name="prize_2_title",Title=TRANSLATOR(HEADER_2ND),Font=fontsmall(),Position=POS(304,138),Alpha=0,Color=GetPaletteColor(33)}
-	StaticText{Name="prize_3_title",Title=TRANSLATOR(HEADER_3RD),Font=fontsmall(),Position=POS(425,138),Alpha=0,Color=GetPaletteColor(33)}
+	StaticText{FontScale=0.9,Name="prize_title",Title=TRANSLATOR(HEADER_CUPPRIZES),Font=fontsmall(),Position=POS(79,139),Color=GetPaletteColor(33),Alpha=0}
+	StaticText{Name="prize_1_title",Title=TRANSLATOR(HEADER_1ST),Font=fonteng(),Position=POS(187,138),Alpha=0,Color=GetPaletteColor(33)}
+	StaticText{Name="prize_2_title",Title=TRANSLATOR(HEADER_2ND),Font=fonteng(),Position=POS(304,138),Alpha=0,Color=GetPaletteColor(33)}
+	StaticText{Name="prize_3_title",Title=TRANSLATOR(HEADER_3RD),Font=fonteng(),Position=POS(425,138),Alpha=0,Color=GetPaletteColor(33)}
 
-	StaticText{Name="prize_1",Font=fontsmall(),Position=POS(187+wm.GetTextWidth(TRANSLATOR(HEADER_1ST),fontsmall())+4,138),Alpha=0,Color=GetPaletteColor(34)}
-	StaticText{Name="prize_2",Font=fontsmall(),Position=POS(304+wm.GetTextWidth(TRANSLATOR(HEADER_2ND),fontsmall())+4,138),Alpha=0,Color=GetPaletteColor(34)}
-	StaticText{Name="prize_3",Font=fontsmall(),Position=POS(425+wm.GetTextWidth(TRANSLATOR(HEADER_3RD),fontsmall())+4,138),Alpha=0,Color=GetPaletteColor(34)}
+	StaticText{Name="prize_1",Font=fonteng(),Position=POS(187+wm.GetTextWidth(TRANSLATOR(HEADER_1ST),fonteng())+4,138),Alpha=0,Color=GetPaletteColor(34)}
+	StaticText{Name="prize_2",Font=fonteng(),Position=POS(304+wm.GetTextWidth(TRANSLATOR(HEADER_2ND),fonteng())+4,138),Alpha=0,Color=GetPaletteColor(34)}
+	StaticText{Name="prize_3",Font=fonteng(),Position=POS(425+wm.GetTextWidth(TRANSLATOR(HEADER_3RD),fonteng())+4,138),Alpha=0,Color=GetPaletteColor(34)}
 
 
 	local input=InputHandler{Name="racemap_handler"}

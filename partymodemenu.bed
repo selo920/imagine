@@ -415,19 +415,19 @@ function menu_partymode.init(self)
 	GUI:SetBackgroundVideo("data/video/bg_main")
 
 	Frame{Position=POS(0,78),Size=SIZE(279,24)}:AttachResource(self:getResource("party_mode_title_bar"))
-	StaticText{Title=TRANSLATOR(TITLE_PLAYERSETUP),Color=GetPaletteColor(33),Position=POS(268,80),Align=FONTF_RIGHT,Font=fontlarge()}
+	StaticText{Title=TRANSLATOR(TITLE_PLAYERSETUP),Color=GetPaletteColor(33),Position=POS(268,80),Align=FONTF_RIGHT,Font=fontmedium()}
 
 
-	StaticText{Title=TRANSLATOR(TITLE_NAME),Font=fontsmall(),Position=POS(278,110),Color=GetPaletteColor(33),Align=FONTF_RIGHT}
-	StaticText{Title=TRANSLATOR(TITLE_CAR),Font=fontsmall(),Position=POS(293,110),Color=GetPaletteColor(33)}
+	StaticText{Title=TRANSLATOR(TITLE_NAME),Font=fonteng(),Position=POS(278,110),Color=GetPaletteColor(33),Align=FONTF_RIGHT}
+	StaticText{Title=TRANSLATOR(TITLE_CAR),Font=fonteng(),Position=POS(293,110),Color=GetPaletteColor(33)}
 
 	local pos=POS(290,131)
 
 	for i=1,8 do
 		local prefix=string.format("player%d",i)
 		Frame{Name=prefix.."_bar",Position=POS(0,pos[2]),Size=SIZE(640,20)}:AttachResource(self:getResource("black_transparent_50"))
-		StaticText{Name=prefix.."_name",Position=POS(pos[1]-9,pos[2]),Font=fontsmall(),Color=GetPaletteColor(34),Align=FONTF_RIGHT}
-		StaticText{Name=prefix.."_car",Position=POS(pos[1]+9,pos[2]),Font=fontsmall(),Color=GetPaletteColor(34)}
+		StaticText{Name=prefix.."_name",Position=POS(pos[1]-9,pos[2]),Font=fonteng(),Color=GetPaletteColor(34),Align=FONTF_RIGHT}
+		StaticText{Name=prefix.."_car",Position=POS(pos[1]+9,pos[2]),Font=fonteng(),Color=GetPaletteColor(34)}
 
 		pos[1] = pos[1] + 8
 		pos[2] = pos[2] + 26
@@ -505,7 +505,7 @@ function menu_partymode_addplayer_name.init(self)
 
 	wm.SetTextInput(state.players[state.num_players].name)
 
-	local keyboard=VirtualKeyboard{Name="kb",Font=fontmedium(),Title=title,TitleFont=fontlarge(),MaxSize=8,
+	local keyboard=VirtualKeyboard{Name="kb",Font=fonteng(),Title=title,InputFont=fontlarge(),TitleFont=fontsmall(),MaxSize=8,
 		TitleResources={ self:getResource("keyboard_title_bars_tip"), self:getResource("keyboard_title_bars_main") },
 		InputResources={ self:getResource("keyboard_title_bars_tip2"), self:getResource("keyboard_title_bars_main2") },
 		KeyboardResources={ self:getResource("keyboard_bg_tip"), self:getResource("keyboard_bg_main")} }
@@ -807,7 +807,7 @@ function menu_partymode_stuntselect.init(self)
 	Frame{Position=POS(284,72+12),Size=SIZE(58,32)}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar_ang"))
 	Frame{Position=POS(342,72+12),Size=SIZE(298,32)}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar"))
 
-	StaticText{Name="preset_name",Position=POS(441,79+12),Align=FONTF_CENTER,Font=fontlarge(),Color=GetPaletteColor(33)}
+	StaticText{Name="preset_name",Position=POS(441,79+12),Align=FONTF_CENTER,Font=fontmedium(),Color=GetPaletteColor(33)}
 
 	Frame{Position=POS(295,109+12),Size=SIZE(49,130)}:AttachResource(self:getResource("upshop_mid_infotxt_bar_ang"))
 	Frame{Position=POS(344,109+12),Size=SIZE(296,130)}:AttachResource(self:getResource("upshop_mid_infotxt_bar"))
@@ -884,7 +884,7 @@ local Layout = {
 	ListFont=fontmedium(),
 	ListFontColor=GetPaletteColor(4),
 
-	ListTitleFont=fontsmall(),
+	ListTitleFont=fonteng(),
 	ListTitleFontColor=GetPaletteColor(1),
 	
 	ListTitleY=129,
@@ -894,7 +894,7 @@ local Layout = {
 }
 
 menu_partymode_results = CreateMenuFromTemplate("template_basic")
-menu_partymode_results.options.title = L"STANDINGS"
+menu_partymode_results.options.title = TRANSLATOR(PARTYMODE_STANDINGS) --//L"STANDINGS"
 menu_partymode_results.back = entermenu("menu_partymode")
 
 
@@ -927,7 +927,7 @@ local function CreateListRow(num)
 	local bg = Frame { Position=POS(Layout.ListPos[1], y), Size=SIZE(640, h), DrawBackgroundColor=TRUE, Color={0,0,0,0.5*MAX_VERTEXCOLOR_A,false} }
 	StaticText { Position=POS(Layout.ListNumX, 0), Size=SIZE(12, h), Title=L(pos.."."), Font=font, Color=Layout.ListFontColor, Parent=bg, Align=FONTF_CENTER }
 	StaticText { Position=POS(Layout.ListNameX, 0), Size=SIZE(260, h), Title=GameFlow.GetPlayerName(id), Font=font, Color=Layout.ListFontColor, Parent=bg }
-	StaticText { Name="tournamentpoints_"..num, Position=POS(Layout.ListTournamentPointsX, 0), Size=SIZE(50, h), Title=L(GameFlow.GetPlayerCupPoints(id)), Font=font, Color=Layout.ListFontColor, Parent=bg, Align=FONTF_CENTER }
+	StaticText { Name="tournamentpoints_"..num, Position=POS(Layout.ListTournamentPointsX, 0), Size=SIZE(50, h), Title=L(string.format("%d",GameFlow.GetPlayerCupPoints(id))), Font=font, Color=Layout.ListFontColor, Parent=bg, Align=FONTF_CENTER }
 end
 
 function menu_partymode_results.init(self)

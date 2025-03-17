@@ -185,7 +185,7 @@ function menu_career_carshop.init(self)
 	Frame{Position=RELATIVEPOS(POS(302,128),ppos),Size=SIZE(48,32),Parent=p}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar_ang"))
 	Frame{Position=RELATIVEPOS(POS(350,128),ppos),Size=SIZE(356,32),Parent=p}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar"))
 
-	StaticText{Name="shop_title",Position=RELATIVEPOS(POS(322,132),ppos),Font=fontlarge(),Color=GetPaletteColor(33),Parent=p}
+	StaticText{Name="shop_title",Position=RELATIVEPOS(POS(322,132),ppos),Font=fonteng(),Color=GetPaletteColor(33),Parent=p}
 
 	Frame{Position=RELATIVEPOS(POS(312,165),ppos),Size=SIZE(48,130),Parent=p}:AttachResource(self:getResource("upshop_mid_infotxt_bar_ang"))
 	Frame{Position=RELATIVEPOS(POS(360,165),ppos),Size=SIZE(280,130),Parent=p}:AttachResource(self:getResource("upshop_mid_infotxt_bar"))
@@ -193,7 +193,7 @@ function menu_career_carshop.init(self)
 	Frame{Position=RELATIVEPOS(POS(350,300),ppos),Size=SIZE(48,32),Parent=p}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar_ang"))
 	Frame{Position=RELATIVEPOS(POS(398,300),ppos),Size=SIZE(242,32),Parent=p}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar"))
 
-	StaticText{Name="shop_description",Position=RELATIVEPOS(POS(330,180),ppos),TextLineAdjust=7,Size=SIZE(250,110),Font=fontsmall(),Color=GetPaletteColor(34),Parent=p}
+	StaticText{FontScale=0.9,Name="shop_description",Position=RELATIVEPOS(POS(330,180),ppos),TextLineAdjust=7,Size=SIZE(250,110),Font=fontsmall(),Color=GetPaletteColor(34),Parent=p}
 
 
 	local handler=InputHandler{Name="inputhandler"}

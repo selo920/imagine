@@ -180,8 +180,7 @@ local options_controller = {
 	[2] = { title=TRANSLATOR(PC_CONTROLLER_FORCELEVEL), type=TYPE_SLIDER, category="Control", setting="ForceMagnitude", data = { 100 } },
 	[3] = { title=TRANSLATOR(PC_CONTROLLER_SENSITIVITY), type=TYPE_SLIDER, category="Control", setting="ControllerSensitivity", data = { 100 } },
 	[4] = { title=TRANSLATOR(PC_CONTROLLER_DEADZONE), type=TYPE_SLIDER, category="Control", setting="ControllerDeadzone", data = { 100 } },
-	[5] = { title=TRANSLATOR(CAR_TRANSMISSION), type=TYPE_VALUE, category="Game", setting="ManualTransmission", data = { TRANSLATOR(CAR_TRANSMISSION_AUTO), TRANSLATOR(CAR_TRANSMISSION_MANUAL) } },
-	[6] = { title=TRANSLATOR(OPTIONS_CONTROLLER), type=TYPE_VALUE, category="Control", setting="Controller", action=change_controller_actionmap, data = { } },
+	[5] = { title=TRANSLATOR(OPTIONS_CONTROLLER), type=TYPE_VALUE, category="Control", setting="Controller", action=change_controller_actionmap, data = { } },
 }
 
 local key_config = {
@@ -189,15 +188,14 @@ local key_config = {
 	[2] = { title=TRANSLATOR(CONFIG_BRAKE), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_DOWN } },
 	[3] = { title=TRANSLATOR(CONFIG_STEERLEFT), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_LEFT } },
 	[4] = { title=TRANSLATOR(CONFIG_STEERRIGHT), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_RIGHT } },
-	[5] = { title=TRANSLATOR(CONFIG_GEARUP), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_RIGHT_TRIGGER } },
-	[6] = { title=TRANSLATOR(CONFIG_GEARDOWN), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_LEFT_TRIGGER } },
-	[7] = { title=TRANSLATOR(CONFIG_NITRO), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_B } },
-	[8] = { title=TRANSLATOR(CONFIG_HANDBRAKE), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_A } },
-	[9] = { title=TRANSLATOR(CONFIG_CAMERA), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_Y } },
-	[10] = { title=TRANSLATOR(CONFIG_RESET), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_EXTRA2 } },
-	[11] = { title=TRANSLATOR(CONFIG_PLAYERLIST), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_EXTRA4 } },
-	[12] = { title=TRANSLATOR(CONFIG_LOOK), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_EXTRA1 } },
+	[5] = { title=TRANSLATOR(CONFIG_NITRO), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_B } },
+	[6] = { title=TRANSLATOR(CONFIG_HANDBRAKE), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_A } },
+	[7] = { title=TRANSLATOR(CONFIG_CAMERA), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_Y } },
+	[8] = { title=TRANSLATOR(CONFIG_RESET), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_EXTRA2 } },
+	[9] = { title=TRANSLATOR(CONFIG_PLAYERLIST), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_EXTRA4 } },
+	[10] = { title=TRANSLATOR(CONFIG_LOOK), type=TYPE_KEY, data = { Input.CONTROLLER_BUTTON_EXTRA1 } },
 }
+
 
 
 local options = {
@@ -228,7 +226,7 @@ local function create_value(item,parent)
 	local arrowsize=GetResourceSize(menu_options:getResource("selection_arrow_l"))
 	local parentsize={ parent:GetSize() }
 
-	o=StaticText{Title=item.data[value+1] or L"ERROR", Position=POS(parent.itempos[1]+11+arrowsize[1]+4,0),Font=fontlarge(),Parent=parent}
+	o=StaticText{FontScale=0.9,Title=item.data[value+1] or L"ERROR", Position=POS(parent.itempos[1]+11+arrowsize[1]+4,4),Font=fontsmall(),Parent=parent}
 
 	o.leftarrow=Frame{Position=POS(parent.itempos[1]+11,(parentsize[2]/2-arrowsize[2]/2)),Size=arrowsize,Parent=parent}:AttachResource(menu_options:getResource("selection_arrow_r"))
 	o.rightarrow=Frame{Position=POS(parent.itempos[1]+11,(parentsize[2]/2-arrowsize[2]/2)),Size=arrowsize,Parent=parent}:AttachResource(menu_options:getResource("selection_arrow_l"))
@@ -290,12 +288,12 @@ local function create_value(item,parent)
 		self:SetTitle(self.item.data[value+1] or L"ERROR")
 
 
-		local textw=wm.GetTextWidth(self:GetTitle(),fontlarge())
+		local textw=wm.GetTextWidth(self:GetTitle(),fontmedium())
 
 		local _,y=self.rightarrow:GetPosition()
 		local arrowsize=GetResourceSize(menu_options:getResource("selection_arrow_l"))
 
-		self.rightarrow:SetPosition(self.parent.itempos[1]+11+arrowsize[1]+4+textw+4,y)
+		self.rightarrow:SetPosition(self.parent.itempos[1]+11+arrowsize[1]+4+textw,y)
 
 	end
 
@@ -354,7 +352,7 @@ local function create_slider(item,parent)
 							Ticks=item.data[1],Value=0,Parent=parent}
 
 
-	o.textvalue=StaticText{Title=L"", Position=POS(parent.itempos[1]+11+arrowsize[1]+4+120+4+arrowsize[1]+4,2),Font=fontmedium(),Color=GetPaletteColor(33),Parent=parent}
+	o.textvalue=StaticText{Title=L"", Position=POS(parent.itempos[1]+11+arrowsize[1]+4+120+4+arrowsize[1]+4,2),Font=fonteng(),Color=GetPaletteColor(33),Parent=parent}
 
 	o.leftarrow=Frame{Position=POS(parent.itempos[1]+11,(parentsize[2]/2-arrowsize[2]/2)),Size=arrowsize,Parent=parent}:AttachResource(menu_options:getResource("selection_arrow_r"))
 	o.rightarrow=Frame{Position=POS(parent.itempos[1]+11,(parentsize[2]/2-arrowsize[2]/2)),Size=arrowsize,Parent=parent}:AttachResource(menu_options:getResource("selection_arrow_l"))
@@ -445,7 +443,7 @@ end
 
 local function create_command(item,parent)
 
-	titlew=wm.GetTextWidth(parent.title:GetTitle(),fontlarge())
+	titlew=wm.GetTextWidth(parent.title:GetTitle(),fontsmall())
 
 	local arrowsize=GetResourceSize(menu_options:getResource("white_arrow_right"))
 	local parentsize={ parent:GetSize() }
@@ -530,7 +528,7 @@ local function create_option(item,parent)
 
 	local o
 
-	parent.title=StaticText{Title=item.title,Position=POS(parent.itempos[1]-11,0),Font=fontlarge(),Align=FONTF_RIGHT,Parent=parent}
+	parent.title=StaticText{FontScale=0.9,Title=item.title,Position=POS(parent.itempos[1]-11,4),Font=fontsmall(),Align=FONTF_RIGHT,Parent=parent}
 
 
 	parent.moveLeft = function(self)
@@ -564,7 +562,7 @@ end
 
 local function create_options(options)
 	
-	local pos=POS(0,80)
+	local pos=POS(0,86)
 	local parent
 
 	local itempos=POS(266,3)
@@ -657,39 +655,32 @@ local function hide_options(options)
 end
 
 
-local function show_options(options,showall)
+local function show_options(options)
 	for k,v in ipairs(options) do
 
-		
 		local frame=v.frame
 
 		if frame then
-			local alpha=1
-
-			if not showall and k > 10 then
-				alpha=0
-			end
-
 			frame.value:setTitle()
 
-			--//frame.handle=AnimateWindowAlpha(frame,frame:GetAlpha(),0.0,0.2,0.0,frame.handle)
+			frame.handle=AnimateWindowAlpha(frame,frame:GetAlpha(),0.0,0.2,0.0,frame.handle)
 
-			frame.title.handle=AnimateWindowAlpha(frame.title,frame.title:GetAlpha(),alpha,0.2,0.0,frame.title.handle)
-			frame.value.handle=AnimateWindowAlpha(frame.value,frame.value:GetAlpha(),alpha,0.2,0.0,frame.value.handle)
+			frame.title.handle=AnimateWindowAlpha(frame.title,frame.title:GetAlpha(),1.0,0.2,0.0,frame.title.handle)
+			frame.value.handle=AnimateWindowAlpha(frame.value,frame.value:GetAlpha(),1.0,0.2,0.0,frame.value.handle)
 
 			if frame.value.textvalue then
-				frame.value.textvalue.handle=AnimateWindowAlpha(frame.value.textvalue,frame.value.textvalue:GetAlpha(),alpha,0.2,0.0,frame.value.textvalue.handle)
+				frame.value.textvalue.handle=AnimateWindowAlpha(frame.value.textvalue,frame.value.textvalue:GetAlpha(),1.0,0.2,0.0,frame.value.textvalue.handle)
 			end
 
 			if frame.value.leftarrow then
-				frame.value.leftarrow.handle=AnimateWindowAlpha(frame.value.leftarrow,frame.value.leftarrow:GetAlpha(),alpha,0.2,0.0,frame.value.leftarrow.handle)
-				frame.value.rightarrow.handle=AnimateWindowAlpha(frame.value.rightarrow,frame.value.rightarrow:GetAlpha(),alpha,0.2,0.0,frame.value.rightarrow.handle)
+				frame.value.leftarrow.handle=AnimateWindowAlpha(frame.value.leftarrow,frame.value.leftarrow:GetAlpha(),1.0,0.2,0.0,frame.value.leftarrow.handle)
+				frame.value.rightarrow.handle=AnimateWindowAlpha(frame.value.rightarrow,frame.value.rightarrow:GetAlpha(),1.0,0.2,0.0,frame.value.rightarrow.handle)
 			end
 
 			if frame.gfx[1] then
-				frame.gfx[1].handle=AnimateWindowAlpha(frame.gfx[1],frame.gfx[1]:GetAlpha(),alpha,0.2,0.0,frame.gfx[1].handle)
-				frame.gfx[2].handle=AnimateWindowAlpha(frame.gfx[2],frame.gfx[2]:GetAlpha(),alpha,0.2,0.0,frame.gfx[2].handle)
-				frame.gfx[3].handle=AnimateWindowAlpha(frame.gfx[3],frame.gfx[3]:GetAlpha(),alpha,0.2,0.0,frame.gfx[3].handle)
+				frame.gfx[1].handle=AnimateWindowAlpha(frame.gfx[1],frame.gfx[1]:GetAlpha(),1.0,0.2,0.0,frame.gfx[1].handle)
+				frame.gfx[2].handle=AnimateWindowAlpha(frame.gfx[2],frame.gfx[2]:GetAlpha(),1.0,0.2,0.0,frame.gfx[2].handle)
+				frame.gfx[3].handle=AnimateWindowAlpha(frame.gfx[3],frame.gfx[3]:GetAlpha(),1.0,0.2,0.0,frame.gfx[3].handle)
 			end
 
 		end
@@ -701,7 +692,7 @@ local function create_layouts()
 
 		for k,v in pairs(pad_layout) do
 			if layout[v.key] then
-				local w=StaticText{Title=layout[v.key].title or L"",Position=v.pos,Font=fontsmall(), Align=v.align}
+				local w=StaticText{FontScale=0.9,Title=layout[v.key].title or L"",Position={ v.pos[1],v.pos[2]+4 },Font=fontsmall(), Align=v.align}
 				w:SetAlpha(0)
 				layout[v.key].window=w
 			end
@@ -825,7 +816,7 @@ end
 
 local function get_pc_controllers()
 
-	local item=options_controller[6]
+	local item=options_controller[5]
 
 	item.data={}
 	for i=0,Input.GetNumControllers()-1 do
@@ -935,7 +926,6 @@ menu_options.back=function()
 local function set_focus(category)
 	
 	local w=W("inputhandler")
-	show_options(options[category],true)
 	w:SetFocus()
 	w.item=nil
 	w.undo=get_undo(options[category])
@@ -943,7 +933,6 @@ local function set_focus(category)
 	w.category=category
 	w.options=options[category]
 	w:activate(1)
-
 	GUI:HideMenuButtons()
 	GUI:SetHelpButtons(BUTTON_BACK,TRANSLATOR(UI_BACK))
 
@@ -1003,10 +992,8 @@ function menu_options.create(self)
 		self.defaultitems[3]=MENUITEM(TRANSLATOR(ICON_OPTIONS_CONTROLLEROPTIONS),function() set_focus(3) end,ICON(self,"icon_controller_options"))
 		self.defaultitems[4]=MENUITEM(TRANSLATOR(ICON_OPTIONS_CONFIGURECONTROLS),function() set_focus(4) end,ICON(self,"icon_controller_options"))
 
-
 		options[3]=options_controller
 		options[4]=key_config
-
 
 		get_pc_controllers()
 		change_controller_actionmap(nil,Settings.Control.Controller)
@@ -1055,8 +1042,8 @@ function menu_options.init(self)
 		w:AttachResource(controller.pad)
 		w:SetAlpha(0)
 
-		StaticText{Name="vibration_title",Title=TRANSLATOR(UI_VIBRATION),Position=POS(344,300),Align=FONTF_RIGHT,Font=fontsmall(),Color=GetPaletteColor(34)}:SetAlpha(0)
-		StaticText{Name="vibration_status",Position=POS(346,300),Font=fontsmall(),Color=GetPaletteColor(33)}:SetAlpha(0)
+		StaticText{FontScale=0.9,Name="vibration_title",Title=TRANSLATOR(UI_VIBRATION),Position=POS(344,300),Align=FONTF_RIGHT,Font=fontsmall(),Color=GetPaletteColor(34)}:SetAlpha(0)
+		StaticText{FontScale=0.9,Name="vibration_status",Position=POS(346,300),Font=fontsmall(),Color=GetPaletteColor(33)}:SetAlpha(0)
 
 		create_layouts()
 	end
@@ -1065,7 +1052,7 @@ function menu_options.init(self)
 		if virtualkey == KeyCodes.BUTTON_SELECT then
 			--//do_undo(self.options,self.undo)
 			menu_options.changed=menu_options.changed or settings_changed(self.options,self.undo)
-			show_options(options[self.category])
+
 			playmenusound_back()
 			GUI:SetActiveItem(self.category)
 			self:deactivate(self.item)

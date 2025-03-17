@@ -19,8 +19,6 @@ function EnterOptimatchMenu(backmenu)
 	EnterMenu("menu_multiplayer_optimatch")
 end
 
-SessionSearchParams = nil
-
 local Layout=
 {
 	ListLeft=0,
@@ -197,61 +195,50 @@ local function ClearItems(RowNr)
 	ClearItemLabels(RowNr)
 end
 
-local function SetSearchParam(name, value)
---	SessionList:SetParameter(name, value)
-	SessionSearchParams.params[name] = value
-end
-
-function StartSearchMatch()
+local function StartSearchMatch()
+	--Network:StartMultiplayer()
 	if MultiplayerMode == MPMODE_GAMESPY then
 		GameSpy:StopUpdate()
 		Network:StartSearchGameSpySessions()
 		GameSpy:ResumeUpdate()
 	elseif MultiplayerMode == MPMODE_XBOXLIVE then
-		if SessionSearchParams.RankedGame == 1 then
+		if GetSelectedItemValue(RankedGame) == 1 then
 			Network:StartSearchXBoxLiveSessions("OPTIMATCHRATED")
 		else
 			Network:StartSearchXBoxLiveSessions("OPTIMATCHNONRATED")
 		end
 	end
-	
-	for name,value in pairs(SessionSearchParams.params) do
-		SessionList:SetParameter(name, value)
-	end
-end
-
-local function SetMatchSearchParams()
-	SessionSearchParams = { params = { } }
-	SessionSearchParams.RankedGame = GetSelectedItemValue(RankedGame)
 
 	local gameType = GetSelectedItemValue(GameType)
+--	local eventType = GetSelectedItemValue(EventType)
+
 	if gameType ~= -1 then
-		SetSearchParam("GameType", gameType)
+		SessionList:SetParameter("GameType", gameType)
 	end
 	
 	if gameType ~= ReplicatedSession.GAMETYPE_STUNT then
 		local carType = GetSelectedItemValue(CarType)
 		if carType ~= SessionInfo.CarClass.Any then
-			SetSearchParam("CarType", carType)
+			SessionList:SetParameter("CarType", carType)
 		end	
 	end
 	
 	local nitroRegen = GetSelectedItemValue(NitroRegen)
 	if nitroRegen ~= -1 then 
-		SetSearchParam("NitroRegen", nitroRegen)
+		SessionList:SetParameter("NitroRegen", nitroRegen)
 	end
 	
 	if gameType == ReplicatedSession.GAMETYPE_TOURNAMENT_RACE or gameType == -1 then
 		local damageLevel = GetSelectedItemValue(DamageLevel)
 		if damageLevel ~= -1 then
-			SetSearchParam("DamageLevel", damageLevel)
+			SessionList:SetParameter("DamageLevel", damageLevel)
 		end
 	end
 	
 	if gameType == ReplicatedSession.GAMETYPE_TOURNAMENT_DERBY or gameType == -1 then
 		local derbyDamageLevel = GetSelectedItemValue(DerbyDamageLevel)
 		if derbyDamageLevel ~= -1 then
-			SetSearchParam("DerbyDamageLevel", derbyDamageLevel)
+			SessionList:SetParameter("DerbyDamageLevel", derbyDamageLevel)
 		end
 	end
 end
@@ -359,8 +346,6 @@ end
 
 function menu_multiplayer_optimatch.init(self)
 	self.parent:init(self)
-	
-	SessionSearchParams = nil
 	
 	GUI:SetBackgroundVideo("data/video/bg_main")
 	
@@ -507,7 +492,6 @@ function menu_multiplayer_optimatch.init(self)
 				
 		local selectedRow = optionlist:GetSelectedRow()
 		if VirtualKey == KeyCodes["BUTTON_START"] then
-			SetMatchSearchParams()
 			StartSearchMatch()
 			EnterMenu("menu_multiplayer_optimatchresults")
 			playmenusound_action()			

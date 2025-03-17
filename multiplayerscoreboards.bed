@@ -105,8 +105,6 @@ local Layout=
 	PageDownPos = POS(576.5,320),
 	ScrollUpPos = POS(576.5,160),
 	ScrollDownPos = POS(576.5,300),
-	
-	TotUsersPos = POS(320, 330),
 }
 
 local FriendsOnly
@@ -132,14 +130,6 @@ local function ShowPlayer()
 	State = MOVETOUSER
 end
 
-local function ShowTop()
-	StatList:MoveToTop()
-	if StatList:IsRefreshing() then
-		ShowThinkingWindow()
-		State = REFRESHING
-	end
-end
-
 local function ShowPlayerProfile()
 	local score = StatList:GetSelectedRowData()
 
@@ -157,22 +147,18 @@ local function ToggleShowFriends()
 	end
 	
 	StatList:SetFriendsOnly(FriendsOnly)
-	StatList:MoveToUser(XBoxLive.Auth.GetSignedInUserId(1))
-	StatList:Refresh()
 	State=MOVETOUSER
 	ShowThinkingWindow()
 	if FriendsOnly then
 		menu_multiplayer_scoreboard.items = {
 			{ ICON_MULTIPLAYER_SHOWALL, function() ToggleShowFriends() end, ICON(menu_multiplayer_scoreboard, "icon_show_all_players") },
 			{ ICON_MULTIPLAYER_SHOWPLAYER, function() ShowPlayer() end, ICON(menu_multiplayer_scoreboard, "icon_select_player") },
-			{ STATS_TOP, function() ShowTop() end, ICON(menu_multiplayer_scoreboard, "icon_select_player") },
 			{ ICON_MULTIPLAYER_PLAYER_PROFILE, function() ShowPlayerProfile() end, ICON(menu_multiplayer_scoreboard, "icon_player_profile") },
 		}
 	else
 		menu_multiplayer_scoreboard.items = {
 			{ ICON_MULTIPLAYER_SHOWFRIENDS, function() ToggleShowFriends() end, ICON(menu_multiplayer_scoreboard, "icon_multiplayer") },
 			{ ICON_MULTIPLAYER_SHOWPLAYER, function() ShowPlayer() end, ICON(menu_multiplayer_scoreboard, "icon_select_player") },
-			{ STATS_TOP, function() ShowTop() end, ICON(menu_multiplayer_scoreboard, "icon_select_player") },
 			{ ICON_MULTIPLAYER_PLAYER_PROFILE, function() ShowPlayerProfile() end, ICON(menu_multiplayer_scoreboard, "icon_player_profile") },
 		}
 	end
@@ -181,7 +167,7 @@ local function ToggleShowFriends()
 	GUI:InitMenuButtons(menu_multiplayer_scoreboard.items)
 	GUI:SetActiveItem(1)
 	GUI:ShowMenuButtons()
-	--State = REFRESHING
+	State = REFRESHING
 	wm.SetFocus(wm.GetWindow("inputhandler"))
 end
 
@@ -195,7 +181,6 @@ function menu_multiplayer_scoreboard.create(self)
 	self.items = {
 		{ ICON_MULTIPLAYER_SHOWFRIENDS, function() ToggleShowFriends() end, ICON(self, "icon_multiplayer") },
 		{ ICON_MULTIPLAYER_SHOWPLAYER, function() ShowPlayer() end, ICON(self, "icon_select_player") },
-		{ STATS_TOP, function() ShowTop() end, ICON(menu_multiplayer_scoreboard, "icon_select_player") },
 		{ ICON_MULTIPLAYER_PLAYER_PROFILE, function() ShowPlayerProfile() end, ICON(self, "icon_player_profile") },
 	}
 end
@@ -214,7 +199,6 @@ function menu_multiplayer_scoreboard.init(self)
 
 	StaticText { Title=L"#", Position=POS(Layout.NumX-1, Layout.LabelsTop), Size=SIZE(50, 19), Font=Layout.LabelFont, Color=Layout.LabelFontColor, Align=FONTF_RIGHT }
 	StaticText { Title=MULTIPLAYER_NAME, Position=POS(Layout.NameX, Layout.LabelsTop), Size=SIZE(50, 19), Font=Layout.LabelFont, Color=Layout.LabelFontColor }
-	StaticText { Name="totusers", Title=L"", Position=Layout.TotUsersPos, Size=SIZE(50, 19), Font=Layout.LabelFont, Color=Layout.LabelFontColor, Align=FONTF_CENTER }
 
 	local function CreateIcon(resname, x)
 		local icon = wm.GetResource(resname)
@@ -312,7 +296,7 @@ function menu_multiplayer_scoreboard.init(self)
 	arrowSize = GetResourceSize(self:getResource("scroll_down_icon"))
 	Frame { Name="downarrow", Position=POS(pos[1] - arrowSize[1] / 2, pos[2] - arrowSize[2] / 2), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("scroll_down_icon")):HideWindow()
 
-	StatList = StatisticsList { BoardType, Layout.ListNumRows, 50 }
+	StatList = StatisticsList { BoardType, Layout.ListNumRows }
 	
 	local scorelist = CreateMultiColoumnListBox(listboxParams)
 	scorelist:SetNumRows(Layout.ListNumRows)
@@ -493,7 +477,6 @@ function menu_multiplayer_scoreboard.update(self, time)
 			State = IDLE
 			HideThinkingWindow()
 			wm.GetWindow("scorelist"):Refresh()
-			wm.GetWindow("totusers"):SetTitle(WStringConcat(STATS_TOTAL, ConvertToWString(string.format(" %i", StatList:GetTotalNumUsers()))))
 		else
 			StatList:MoveToNr(0)
 			State = REFRESHING
@@ -504,7 +487,6 @@ function menu_multiplayer_scoreboard.update(self, time)
 		State = IDLE
 		HideThinkingWindow()
 		wm.GetWindow("scorelist"):Refresh()
-		wm.GetWindow("totusers"):SetTitle(WStringConcat(STATS_TOTAL, ConvertToWString(string.format(" %i", StatList:GetTotalNumUsers()))))
 	end
 	
 --	if StatList and StatList:IsFailed() then

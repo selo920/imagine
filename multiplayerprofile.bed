@@ -144,7 +144,6 @@ HideMultiPlayerProfile = function()
 	wm.RemoveWindow(wm.GetWindow("pp_contentbox2"))
 	Profile=nil
 	FSM_init_state(UpdateProfileFSM)
-	UpdateProfileFSM:Remove()
 	UpdateProfileFSM=nil
 end
 

@@ -72,7 +72,6 @@ local function HidePlayersList()
 
 	if UpdatePlayersListFSM then
 		FSM_init_state(UpdatePlayersListFSM)
-		UpdatePlayersListFSM:Remove()
 		UpdatePlayersListFSM=nil
 	end
 	wm.RemoveWindow(wm.GetWindow("pl_contentbox"))

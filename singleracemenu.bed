@@ -273,7 +273,7 @@ function menu_singleplayer_racetype.init(self)
 	Frame{Position=POS(284,72),Size=SIZE(58,32)}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar_ang"))
 	Frame{Position=POS(342,72),Size=SIZE(298,32)}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar"))
 
-	StaticText{Name="type_name",Position=POS(441,79),Align=FONTF_CENTER,Font=fontlarge(),Color=GetPaletteColor(33)}
+	StaticText{Name="type_name",Position=POS(441,79),Align=FONTF_CENTER,Font=fonteng(),Color=GetPaletteColor(33)}
 
 	Frame{Position=POS(295,109),Size=SIZE(49,130)}:AttachResource(self:getResource("upshop_mid_infotxt_bar_ang"))
 	Frame{Position=POS(344,109),Size=SIZE(296,130)}:AttachResource(self:getResource("upshop_mid_infotxt_bar"))
@@ -284,14 +284,14 @@ function menu_singleplayer_racetype.init(self)
 	Frame{Position=POS(0,215),Size=SIZE(313,101)}:AttachResource(self:getResource("big_bottom_race_sel"))
 	Frame{Position=POS(313,215),Size=SIZE(34,101)}:AttachResource(self:getResource("big_bottom_race_sel_ang"))
 
-	StaticText{Name="type_description",Position=POS(310,109),TextLineAdjust=7,Size=SIZE(280,110),Font=fontmedium(),Color=GetPaletteColor(34)}
+	StaticText{Name="type_description",FontScale=0.9,Position=POS(310,109+12),TextLineAdjust=7,Size=SIZE(280,110),Font=fontsmall(),Color=GetPaletteColor(34)}
 
 	Frame{Name="track_image",Position=POS(0,84),Size=SIZE(332,219)}
 
 
 
 	bar:onButtonChange(1)
-	GUI:SetHelpButtons(BUTTON_BACK,TRANSLATOR(UI_BACK),BUTTON_OK,TRANSLATOR(UI_SELECT))
+	GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK))
 
 	--//GUI:SetBackground("data/menu/carshop_bg.tga")
 	GUI:SetBackgroundVideo("data/video/bg_main")
@@ -556,7 +556,7 @@ function menu_singleplayer_trackselection.init(self)
 	Frame{Position=POS(284,72),Size=SIZE(58,32)}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar_ang"))
 	Frame{Position=POS(342,72),Size=SIZE(298,32)}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar"))
 
-	StaticText{Name="track_name",Position=POS(441,79),Align=FONTF_CENTER,Font=fontlarge(),Color=GetPaletteColor(33)}
+	StaticText{Name="track_name",Position=POS(441,79),Align=FONTF_CENTER,Font=fonteng(),Color=GetPaletteColor(33)}
 
 	local p=Frame{Name="info_windows",Position=POS(0,0),Size=SIZE(640,480)}
 
@@ -566,9 +566,9 @@ function menu_singleplayer_trackselection.init(self)
 	Frame{Position=POS(333,244),Size=SIZE(55,72),Parent=p}:AttachResource(self:getResource("info_box_detailed_tip"))
 	Frame{Position=POS(333+55,244),Size=SIZE(252,72),Parent=p}:AttachResource(self:getResource("info_box_detailed_strech"))
 
-	StaticText{Name="track_description",Position=POS(310,109),TextLineAdjust=7,Size=SIZE(270,110),Font=fontmedium(),Color=GetPaletteColor(34),Parent=p}
+	StaticText{Name="track_description",FontScale=0.9,Position=POS(310,109+12),TextLineAdjust=7,Size=SIZE(270,110),Font=fontsmall(),Color=GetPaletteColor(34),Parent=p}
 
-	StaticText{Name="track_info_title",Title=TRANSLATOR(HEADER_TRACKINFORMATION),Position=POS(346,251),Font=fontmedium(),Color=GetPaletteColor(33),Parent=p}
+	StaticText{Name="track_info_title",Title=TRANSLATOR(HEADER_TRACKINFORMATION),Position=POS(346,251),Font=fonteng(),Color=GetPaletteColor(33),Parent=p}
 
 
 	local lap_size=GetResourceSize(self:getResource("lap"))
@@ -578,18 +578,18 @@ function menu_singleplayer_trackselection.init(self)
 	Frame{Name="lap_icon",Position=POS(358,294),Size=lap_size,Parent=p}:AttachResource(self:getResource("lap"))
 
 	--//StaticText{Name="highscore",Title=L"0'00'00",Font=fontsmall(),Position=POS(358+clock_size[1]+4,275),Color=GetPaletteColor(34),Parent=p}
-	StaticText{Name="lapcount",Title=L"3 LAPS",Font=fontsmall(),Position=POS(358+lap_size[1]+4,295),Color=GetPaletteColor(34),Parent=p}
-	StaticText{Name="stunt_goal",Position=POS(358+lap_size[1]+4,294),Font=fontsmall(),Color=GetPaletteColor(33),Parent=p}:HideWindow()
+	StaticText{Name="lapcount",Title=L"3 LAPS",Font=fonteng(),Position=POS(358+lap_size[1]+4,295),Color=GetPaletteColor(34),Parent=p}
+	StaticText{Name="stunt_goal",Position=POS(358,294),Font=fontsmall(),Color=GetPaletteColor(33),Parent=p}:HideWindow()
 
 	--//highscores
 	p=Frame{Name="highscore_windows",Position=POS(350,0),Size=SIZE(640,480)}
 
-	StaticText{Title=L"#",Position=POS(324,111),Fontf=fontmedium(),Align=FONTF_RIGHT,Parent=p,Color=GetPaletteColor(33)}
-	StaticText{Title=TRANSLATOR(TITLE_NAME),Position=POS(330,111),Parent=p,Font=fontmedium(),Color=GetPaletteColor(33)}
+	StaticText{Title=L"#",Position=POS(324,111),Fontf=fonteng(),Align=FONTF_RIGHT,Parent=p,Color=GetPaletteColor(33)}
+	StaticText{Title=TRANSLATOR(TITLE_NAME),Position=POS(330,111),Parent=p,Font=fonteng(),Color=GetPaletteColor(33)}
 
 	local hs_title=TRANSLATOR(TITLE_TIME)
 
-	StaticText{Name="hs_title",Title=hs_title,Position=POS(474,111),Parent=p,Font=fontmedium(),Color=GetPaletteColor(33)}
+	StaticText{Name="hs_title",Title=hs_title,Position=POS(474,111),Parent=p,Font=fonteng(),Color=GetPaletteColor(33)}
 
 
 	Frame{Position=POS(301,129),Size=SIZE(31,92),Parent=p}:AttachResource(self:getResource("sr_highscore_bar_ang"))
@@ -600,9 +600,9 @@ function menu_singleplayer_trackselection.init(self)
 
 	local hs_pos=POS(329,130)
 	for i=1,10 do
-		StaticText{Name=string.format("hs_%d_number",i),Position=POS(hs_pos[1],hs_pos[2]-1),Align=FONTF_RIGHT,Font=fontmedium(),Color=GetPaletteColor(34),Parent=p}
-		StaticText{Name=string.format("hs_%d_name",i),Position=POS(hs_pos[1]+6,hs_pos[2]-1),Font=fontmedium(),Color=GetPaletteColor(34),Parent=p}
-		StaticText{Name=string.format("hs_%d_score",i),Position=POS(hs_pos[1]+150,hs_pos[2]-1),Font=fontmedium(),Color=GetPaletteColor(34),Parent=p}
+		StaticText{Name=string.format("hs_%d_number",i),Position=POS(hs_pos[1],hs_pos[2]-1),Align=FONTF_RIGHT,Font=fonteng(),Color=GetPaletteColor(34),Parent=p}
+		StaticText{Name=string.format("hs_%d_name",i),Position=POS(hs_pos[1]+6,hs_pos[2]-1),Font=fonteng(),Color=GetPaletteColor(34),Parent=p}
+		StaticText{Name=string.format("hs_%d_score",i),Position=POS(hs_pos[1]+150,hs_pos[2]-1),Font=fonteng(),Color=GetPaletteColor(34),Parent=p}
 
 		hs_pos[1] = hs_pos[1] + 5
 		hs_pos[2] = hs_pos[2] + 19

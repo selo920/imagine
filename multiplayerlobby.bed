@@ -21,7 +21,7 @@ local Layout={
 	ChatTitlePos=POS(370,129),
 	ChatBoxPos=POS(370,151),
 	ChatBoxSize=SIZE(260,160),
-	ChatTextPos=POS(2,5),
+	ChatTextPos=POS(5,5),
 	ChatTextSize=SIZE(237,140),
 	ChatTextFont=fontsmall(),
 	ChatTextFontScale=0.7,
@@ -80,7 +80,6 @@ local SelectPlayerStart
 local ChangeCarMessageShowing
 local ShowChangeCarMessage
 local SelectedPlayerPeerId
-local SelectedPlayerValid
 local DisconnectCounter
 local SessionError
 local CarIds
@@ -90,9 +89,7 @@ local ChatScrollPos
 local NumChatTextLines
 local ReadyState
 local OldReadyState
-local WaitReadyState
-local AllowReadyIn
-local VoiceSettingsActive
+local ChangingReadyState
 
 LobbyInitialized = false
 
@@ -233,36 +230,16 @@ local function SetLobbyHelpButtons()
 	end
 end
 
-local function SetReady(Ready, AllowReady)
-	if Ready and AllowReadyIn > 0 then
-		return
-	end
-	
-
-	if not AllowReady then
-		AllowReadyIn=2
-	else 
-		AllowReadyIn=-1
-	end
+local function ToggleReady()
 	local player = Session:GetLocalPlayer(1)
-	if Ready then
-		--Changing to ready
-		--Don't try to change back to ready when waiting for unready
-		if  not WaitReadyState then
-			player:SetReady(true)
-			ReadyState = Ready
-		end			
+	if ChangingReadyState then
+		ReadyState=not ReadyState
 	else
-		--Changing to unready
-		player:SetReady(false)
-		if not WaitReadyState then
-			if player:IsReadyStatePending() then
-				ShowThinkingWindow()
-				WaitReadyState = true
-			else
-				ReadyState = false
-			end
-		end
+		OldReadyState=ReadyState
+		ReadyState=not ReadyState
+		player:SetReady(ReadyState)
+		ShowThinkingWindow()
+		ChangingReadyState=true
 	end
 end
 
@@ -471,270 +448,6 @@ end
 
 
 
-
-local TYPE_BOOLEAN = 0
-local TYPE_VALUE = 1
-
-local function hidevoice()
-	local box=wm.GetWindow("voicebox")
-	wm.DeactivateWindow(box)
-	wm.RemoveWindow(box)
-	
-	local bg=wm.GetWindow("voicebg")
-	wm.DeactivateWindow(bg)
-	wm.RemoveWindow(bg)
-	
-	wm.DeactivateWindow(wm.GetWindow("voicehandler"))
-	wm.RemoveWindow(wm.GetWindow("voicehandler"))
-	
-	VoiceSettingsActive=false
-	BuildLobbyMenuButtons()
-	GUI:ShowMenuButtons()
-	wm.GetWindow("lobbyinputhandler"):SetFocus()
-
-end
-
-local function ChangeVoiceSettings()
-	VoiceSettingsActive=true
-	local toggleactivationlevel
-	local options = {
-		{ title=TRANSLATOR(PC_MUTE_PLAYER_VOICE), type=TYPE_BOOLEAN, category="Network", setting="MutePlayerVoice", data = { TRANSLATOR(UI_NO), TRANSLATOR(UI_YES) }, onChanged=function(value) toggleactivationlevel(value) end },
-		{ title=TRANSLATOR(PC_MUTE_INGAME_VOICE), type=TYPE_BOOLEAN, category="Network",setting="MuteVoiceIngame", data = { TRANSLATOR(UI_NO), TRANSLATOR(UI_YES) } },
-		{ title=TRANSLATOR(PC_VOICE_OUTPUT_VOLUME), type=TYPE_VALUE, category="Network", setting="VoiceOutputVolume", step=0.05},
-		-- Activation level 100 is actually -100dB, 0 is -0 dB so show the value bar as reversed
-		{ title=TRANSLATOR(PC_VOICE_ACTIVATION_LEVEL), type=TYPE_VALUE, category="Network", setting="VoiceTalkingLevel", reverse=true, step=0.025 },
-	}
-
-	GUI:HideMenuButtons()
-	
-	local bg = Frame {Name="voicebg", Position=POS(0,0), Size=SIZE(640,480), Color={0,0,0,0.5*MAX_VERTEXCOLOR_A}, DrawBackgroundColor=TRUE }
-	wm.ActivateWindow(bg)
-	
-	local box = Frame { Name="voicebox", Position=POS(70,165), Size=SIZE(500,150), ShowBorders=TRUE }
-
-	local voiceLevel=nil
-	-- Initialize UI & values
-	for i,v in ipairs(options) do
-		StaticText { Title=v.title, Position=POS(30,30+(i-1)*20), Size=SIZE(200,16), Font=fontmedium(), Color=GetPaletteColor(34), Parent=box }
-		v.value = Settings[v.category][v.setting]
-		v.oldvalue = v.value
-		if v.type == TYPE_BOOLEAN then
-			if v.value == true then
-				v.value = TRUE
-			else
-				v.value = FALSE
-			end
-			v.valuewin = StaticText { Position=POS(335,30+(i-1)*20), Size=SIZE(120,16), Font=fontmedium(), Color=GetPaletteColor(34), Parent=box }
-			v.valuewin:SetTitle(v.data[(v.value == TRUE) and 2 or 1])
-		elseif v.type == TYPE_VALUE then
-			-- Locally between 0.0 and 1.0
-			Frame { Position=POS(335,30+(i-1)*20+5), Size=SIZE(120,11), Color=GetPaletteColor(2), DrawBackgroundColor=TRUE, Parent=box }
-			v.max = Settings.GetValueMax(v.category.."."..v.setting)
-			v.value = v.value / v.max
-			if v.reverse then
-				v.value = 1.0 - v.value
-			end
-			v.valuewin = Frame { Position=POS(335,30+(i-1)*20+5), Size=SIZE(120*v.value,11), Color=GetPaletteColor(1), DrawBackgroundColor=TRUE, Parent=box }
-			if v.setting=="VoiceTalkingLevel" then
-				voiceLevel=Frame {Name="voicelevel", Position=POS(335,30+(i-1)*20+5), Size=SIZE(2,11), Color=GetPaletteColor(14), DrawBackgroundColor=TRUE, Parent=box }
-			end
-		end
-	end
-	
-	local dimoptions = Frame { Position=POS(30,90), Size=SIZE(450, 18), Color={0,0,0,0.5*MAX_VERTEXCOLOR_A}, DrawBackgroundColor=TRUE, Parent=box }
-	if Settings.Network.MutePlayerVoice then
-		dimoptions:ShowWindow()
-	else
-		dimoptions:HideWindow()
-	end
-	
-	local arrowSize = GetResourceSize(wm.GetResource("selection_arrow_r"))
-	local leftarrow = Frame { Name="leftarrow", Position=POS(322,34), Size=arrowSize, Parent=box }:AttachResource(wm.GetResource("selection_arrow_r"))
-	arrowSize = GetResourceSize(wm.GetResource("selection_arrow_l"))
-	local rightarrow = Frame { Name="rightarrow", Position=POS(461,34), Size=arrowSize, Parent=box }:AttachResource(wm.GetResource("selection_arrow_l"))
-	
-	-- OK & back buttons
-	local backbutton = "esc_btn"
-	--local okbutton = "enter_btn"
-	local buttonsize = wm.GetResourceSize(backbutton)
-
-	local win = Frame { Name="backbutton", Position=POS(0,0), Size=buttonsize, Parent=box }
-	win:AttachResource(wm.GetResource(backbutton))
-	StaticText { Name="backbutton_title", Position=POS(0,0), Size=SIZE(50,13), Color=GetPaletteColor(34), Font=fontmedium(), Parent=box }
-
-	--local win = Frame { Name="okbutton", Position=POS(0,0), Size=buttonsize, Parent=box }
-	--win:AttachResource(wm.GetResource(okbutton))
-	--StaticText { Name="okbutton_title", Position=POS(0,0), Size=SIZE(50,13), Color=GetPaletteColor(34), Font=fontmedium(), Parent=box }
-
-	local buttonwidth
-	local x,y=box:GetSize()
-	local titley=y - 25
-	local buttony=y - 26
-	buttonwidth,_ = wm.GetWindow("backbutton"):GetSize()
-	x = x - 7
-	
-	local function updatebutton(button, title)
-		local w,win
-		
-		wm.GetWindow(button):ShowWindow()
-		wm.GetWindow(button.."_title"):ShowWindow()
-		
-		w,_ = wm.GetTextExtents(title, fontmedium())
-		x = x - w
-		win = wm.GetWindow(button.."_title")
-		win:SetPosition(x, titley)
-		win:SetTitle(title)
-		x = x - buttonwidth - 4
-		wm.GetWindow(button):SetPosition(x, buttony)
-		x = x - 20
-	end
-	
-	--updatebutton("okbutton", TRANSLATOR(UI_OK))
-	updatebutton("backbutton", TRANSLATOR(UI_BACK))
-
-	wm.ActivateWindow(box)
-	
-
-	local activerow = 1
-
-	local function updatearrows()
-		leftarrow:SetPosition(322,14 + activerow * 20)
-		if options[activerow].type == TYPE_VALUE then
-			rightarrow:SetPosition(461,14 + activerow * 20)
-		elseif options[activerow].type == TYPE_BOOLEAN then
-			local win = options[activerow].valuewin -- == 1 and headsetenabled or ingamevoice
-			local w,h = wm.GetTextExtents(win:GetTitle(), fontmedium())
-			local x,y = win:GetPosition()
-			rightarrow:SetPosition(x + w + 9, 14 + activerow * 20)
-		end
-	end
-	
-	local function restorevalues()
-		for k,v in pairs(options) do
-			Settings[v.category][v.setting] = v.oldvalue
-		end
-	end
-
-	toggleactivationlevel = function(muteplayer)
-		if muteplayer == TRUE then
-			dimoptions:ShowWindow()
-		else
-			dimoptions:HideWindow()
-		end
-	end
-	
-	updatearrows()
-	
-	local handler = InputHandler { Name="voicehandler" }
-	handler.onKeyPressed = function(Self, Character, VirtualKey, ScanCode)
-		if VirtualKey == KeyCodes["BUTTON_START"] then
-			--Settings.SaveSettings()
-			--hidevoice()
-			--playmenusound_action()
-		elseif VirtualKey == KeyCodes["BUTTON_SELECT"] then
-			Settings.SaveSettings()
-			hidevoice()
-			playmenusound_action()
-			--restorevalues()
-			--hidevoice()
-			--playmenusound_back()
-		elseif VirtualKey == KeyCodes["BUTTON_UP"] then
-			if activerow > 1 then
-				activerow = activerow - 1
-				updatearrows()
-			end
-			playmenusound_move()
-		elseif VirtualKey == KeyCodes["BUTTON_DOWN"] then
-			if not Settings.Network.MutePlayerVoice and activerow < 4 or activerow < 3 then
-				activerow = activerow + 1
-				updatearrows()
-			end
-			playmenusound_move()
-		elseif VirtualKey == KeyCodes["BUTTON_LEFT"] then
-			local option = options[activerow]
-			if option.type == TYPE_BOOLEAN then
-				if option.value == TRUE then
-					option.value = FALSE
-				else
-					option.value = TRUE
-				end
-				option.valuewin:SetTitle(option.data[(option.value == TRUE) and 2 or 1])
-				Settings[option.category][option.setting] = option.value
-				updatearrows()
-			elseif option.type == TYPE_VALUE then
-				if option.value > option.step then
-					option.value = option.value - option.step
-				else
-					option.value = 0
-				end
-				local w,h = option.valuewin:GetSize()
-				local p
-				option.valuewin:SetSize(120 * option.value, h)
-				if option.reverse then
-					Settings[option.category][option.setting] = (1.0 - option.value) * option.max
-				else
-					Settings[option.category][option.setting] = option.value * option.max
-				end
-			end
-			if option.onChanged then
-				option.onChanged(option.value)
-			end
-			playmenusound_move()
-		elseif VirtualKey == KeyCodes["BUTTON_RIGHT"] then
-			local option = options[activerow]
-			if option.type == TYPE_BOOLEAN then
-				if option.value == TRUE then
-					option.value = FALSE
-				else
-					option.value = TRUE
-				end
-				option.valuewin:SetTitle(option.data[(option.value == TRUE) and 2 or 1])
-				Settings[option.category][option.setting] = option.value
-				updatearrows()
-			elseif option.type == TYPE_VALUE then
-				if option.value < 1.0-option.step then
-					option.value = option.value + option.step
-				else
-					option.value = 1.0
-				end
-				local w,h = option.valuewin:GetSize()
-				option.valuewin:SetSize(120 * option.value, h)
-				if option.reverse then
-					Settings[option.category][option.setting] = (1.0 - option.value) * option.max
-				else
-					Settings[option.category][option.setting] = option.value * option.max
-				end
-			end
-			if option.onChanged then
-				option.onChanged(option.value)
-			end
-			playmenusound_move()
-		end
-	end
-	
-	handler:SetFocus()
-end
-
-local function UpdateVoiceSettings()
-	if VoiceSettingsActive then
-		local win=wm.GetWindow("voicelevel")
-		local volume=Network:GetVoiceManager():GetVoiceInputVolume()
-		local minVal=Settings.GetValueMin("Network.VoiceTalkingLevel")
-		local maxVal=Settings.GetValueMax("Network.VoiceTalkingLevel")
-		if volume<minVal then
-			volume=minVal
-		end
-		if volume>maxVal then
-			volume=maxVal
-		end
-		local pos=1.0 - ((volume - minVal) / (maxVal - minVal))
-		local range=120
-		local x,y=win:GetPosition()
-		win:SetPosition(335+range*pos, y)
-	end
-end
-
-
 -- Player details
 
 local function MutePlayer(playerNum)
@@ -801,29 +514,7 @@ local function SetSelectPlayerButtons(playerNum)
 	local player = Session:GetPlayer(playerNum)
 	
 	menu_multiplayer_lobby.items = { }
-	if not player.Valid then
-		SelectedPlayerValid = false
-		GUI:HideMenuButtons()
-		return
-	end
-
-	SelectedPlayerValid = true
-	local canKick=Session:IsHost() and playerNum ~= 1 and not Session:GetInfo().KickVote.VoteInProgress
-	if canKick then
-		if XBOX then
-			local info=XBoxLive.GetPlayersList():GetPlayerInfo(player.UId)
-			if info.TriedKickThisRace or info.Kicked then
-				canKick=false
-			end
-		else
-			local info=GameSpy.GetPlayersList():GetPlayerInfo(player.UId)
-			if info.TriedKickThisRace or info.Kicked then
-				canKick=false
-			end
-		end
-	end
-	
-	if MultiplayerMode ~= MPMODE_LAN and Session:GetLocalPlayer(1).UId ~= player.UId then
+	if XBOX and MultiplayerMode ~= MPMODE_LAN and Session:GetLocalPlayer(1).UId ~= player.UId then
 		local muted
 		if XBOX then
 			local localVoicePlayer = Session:GetLocalPlayer(1):GetVoiceManagerPlayer()
@@ -839,7 +530,7 @@ local function SetSelectPlayerButtons(playerNum)
 			table.insert(menu_multiplayer_lobby.items, { ICON_MULTIPLAYER_PLAYER_MUTE, function() MutePlayer(playerNum) end, ICON(menu_multiplayer_lobby, "icon_mute_player") } )
 		end
 	end
-	if canKick then
+	if Session:IsHost() and playerNum ~= 1 and not Session:GetInfo().KickVote.VoteInProgress then
 		table.insert(menu_multiplayer_lobby.items, { ICON_MULTIPLAYER_PLAYER_KICK, function() StartKickVote(playerNum) end, ICON(menu_multiplayer_lobby, "icon_kick_player") } )
 	end
 	if MultiplayerMode == MPMODE_XBOXLIVE then
@@ -850,11 +541,6 @@ local function SetSelectPlayerButtons(playerNum)
 	GUI:ShowMenuButtons()
 	ActivePlayerOption = 1
 	GUI:SetActiveItem(ActivePlayerOption)
-	
-	if table.getn(menu_multiplayer_lobby.items)==0 then
-		SelectedPlayerValid=false
-		GUI:HideMenuButtons()
-	end
 end
 
 local function SelectPlayer()
@@ -868,12 +554,10 @@ local function SelectPlayer()
 		
 	handler.onKeyPressed = function(Self, Character, VirtualKey, ScanCode)
 		if VirtualKey == KeyCodes["BUTTON_START"] then
-			if SelectedPlayerValid then
-				list.onSelectedRowChanged = nil
-				wm.RemoveWindow(handler)
-				menu_multiplayer_lobby.items[ActivePlayerOption][2]()
-				playmenusound_action()
-			end
+			list.onSelectedRowChanged = nil
+			wm.RemoveWindow(handler)
+			menu_multiplayer_lobby.items[ActivePlayerOption][2]()
+			playmenusound_action()
 		elseif VirtualKey == KeyCodes["BUTTON_SELECT"] then
 			list.onSelectedRowChanged = nil
 			Mode = LOBBY
@@ -884,21 +568,18 @@ local function SelectPlayer()
 			list:MoveNext()
 			playmenusound_move()
 		elseif VirtualKey == KeyCodes["BUTTON_UP"] then
-			list:MovePrev()
+			if XBOX or list:GetSelectedRow() > 2 then
+				list:MovePrev()
+			end
 			playmenusound_move()
 		elseif VirtualKey == KeyCodes["BUTTON_RIGHT"] then
-			local numitems = table.getn(menu_multiplayer_lobby.items)
-			if numitems > 0 then
-				ActivePlayerOption = math.mod(ActivePlayerOption, numitems) + 1
-				GUI:SetActiveItem(ActivePlayerOption)
-			end
+			ActivePlayerOption = math.mod(ActivePlayerOption, table.getn(menu_multiplayer_lobby.items)) + 1
+			GUI:SetActiveItem(ActivePlayerOption)
 			handler:SetFocus()
 		elseif VirtualKey == KeyCodes["BUTTON_LEFT"] then
 			local numitems = table.getn(menu_multiplayer_lobby.items)
-			if numitems > 0 then
-				ActivePlayerOption = math.mod(ActivePlayerOption - 2 + numitems, numitems) + 1
-				GUI:SetActiveItem(ActivePlayerOption)
-			end
+			ActivePlayerOption = math.mod(ActivePlayerOption - 2 + numitems, numitems) + 1
+			GUI:SetActiveItem(ActivePlayerOption)
 			handler:SetFocus()
 		end
 	end
@@ -916,8 +597,13 @@ local function SelectPlayer()
 	SelectedPlayerPeerId = Session:GetPlayer(list:GetSelectedRow()).PeerId
 	Mode = SELECT_PLAYER
 	SelectPlayerStart = 0
-	wm.GetWindow("list"):SetSelectedRow(1)
-	SetSelectPlayerButtons(1)
+	if XBOX then
+		wm.GetWindow("list"):SetSelectedRow(1)
+		SetSelectPlayerButtons(1)
+	else
+		wm.GetWindow("list"):SetSelectedRow(2)
+		SetSelectPlayerButtons(2)
+	end
 	wm.GetWindow("list"):Refresh()
 end
 
@@ -930,8 +616,9 @@ local function LobbyEventListenerFunc(Event)
 		local player=Session:GetLocalPlayer(1)
 		if player.PeerId==Event.arg then
 			AddLobbyMessage(MULTIPLAYER_YOUARETHENEWHOST, GetPaletteColor(33), LOBBY_MIGRATION_MESSAGE_TIME, ANIM_BLINK)
-			SetReady(false, true)
-			if Mode == LOBBY then
+			if player:IsReady() then
+				ToggleReady()
+			elseif Mode == LOBBY then
 				HideThinkingWindow()
 				if not GUI:IsMenuAnimating() then
 					BuildLobbyMenuButtons()
@@ -963,7 +650,7 @@ local function LobbyEventListenerFunc(Event)
 		GameFlow.ClearRace()
 		CupManager:Clear()
 		
-		if PS2 or (PC and Settings.Network.MuteVoiceIngame == true) then
+		if PS2 then
 			Session:GetLocalPlayer(1):GetVoiceManagerPlayer():SetMode(ReplicatedVoiceInfo.MODE_INACTIVE)
 		end
 		local info=Session:GetInfo()
@@ -1114,31 +801,12 @@ local function UpdateGameInfo(self)
 	local nextRace = LatestSessionInfo.NextRace
 	local race = LatestSessionInfo.Races[nextRace]
 	local msg = L(Levels[race.StageNr].Name)
-	
-	if not LatestSessionInfo.RaceStatus.Finished then
+	if race.EventType ~= ReplicatedSession.GAMETYPE_STUNT and race.EventType ~= ReplicatedSession.GAMETYPE_DERBY_LMS then
+		msg = WStringConcat(msg, L(", "..race.LapsOrTimeLimit.." "))
 		if race.EventType == ReplicatedSession.GAMETYPE_RACE then
-			msg = WStringConcat(msg, L(", "))
-			msg = WStringConcat(msg, INGAME_SCORE_LAP_TITLE)
-			msg = WStringConcat(msg, L(" "..LatestSessionInfo.RaceStatus.Value1.."/"..race.LapsOrTimeLimit.." "))
-		elseif race.EventType == ReplicatedSession.GAMETYPE_STUNT then
-			msg = WStringConcat(msg, L(", "))
-			msg = WStringConcat(msg, INGAME_ROUND)
-			msg = WStringConcat(msg, L(" "..LatestSessionInfo.RaceStatus.Value1.."/"..LatestSessionInfo.RaceStatus.Value2.." "))
-		elseif race.EventType == ReplicatedSession.GAMETYPE_DERBY_WRECKING then
-			msg = WStringConcat(msg, L(", "))
-			msg = WStringConcat(msg, INGAME_REMAINING)
-			msg = WStringConcat(msg, L(" "..LatestSessionInfo.RaceStatus.Value1.."/"..LatestSessionInfo.RaceStatus.Value2..", "))	
-			msg = WStringConcat(msg, L(LatestSessionInfo.RaceStatus.Value3.." "))
+			msg = WStringConcat(msg, MULTIPLAYER_LAPS)
+		else
 			msg = WStringConcat(msg, MULTIPLAYER_MINUTES)
-		end
-	else
-		if race.EventType ~= ReplicatedSession.GAMETYPE_STUNT and race.EventType ~= ReplicatedSession.GAMETYPE_DERBY_LMS then
-			msg = WStringConcat(msg, L(", "..race.LapsOrTimeLimit.." "))
-			if race.EventType == ReplicatedSession.GAMETYPE_RACE then
-				msg = WStringConcat(msg, MULTIPLAYER_LAPS)
-			else
-				msg = WStringConcat(msg, MULTIPLAYER_MINUTES)
-			end
 		end
 	end
 
@@ -1164,18 +832,6 @@ local function UpdateGameInfo(self)
 		local t2=WStringConcat(L" (", MULTIPLAYER_EVENT)
 		t2 = WStringConcat(t2, L(" "..LatestSessionInfo.NextRace.."/"..Session:GetNumRaces()..")"))
 		wm.GetWindow("gametype"):SetTitle(WStringConcat(t1, t2))
-	end
-	
-	if not LatestSessionInfo.RaceStatus.Finished then
-		local icon = wm.GetResource("steering_wheel")
-		local win=wm.GetWindow("racestatus")
-		local iconsize = wm.GetResourceSize(icon)
-		win:SetPosition(namex-iconsize[1]-3, Layout.GameTypePos[2]+3)
-		win:SetSize(iconsize[1], iconsize[2])
-		win:AttachResource(icon)
-		win:ShowWindow()	
-	else
-		wm.GetWindow("racestatus"):HideWindow()
 	end
 end
 
@@ -1208,7 +864,7 @@ local function UpdateTextChat(dt, force)
 		for i = 1, numlines do
 			local player = Session:GetPlayerById(textchat:GetLineSender(i))
 			if player then
-				ChatText = WStringConcat(ChatText, L"#33 ")
+				ChatText = WStringConcat(ChatText, L"#33")
 				ChatText = WStringConcat(ChatText, EscapeString(player.Name))
 				ChatText = WStringConcat(ChatText, L">#34 ")
 				ChatText = WStringConcat(ChatText, EscapeString(textchat:GetLineText(i)))
@@ -1258,7 +914,7 @@ menu_multiplayer_lobby.options.title = TITLE_LIVE_LOBBY
 menu_multiplayer_lobby.back = function() ConfirmExit() end
 
 BuildLobbyMenuButtons = function(creating)
-	if OptionsPopup.PopupActive or Exiting or VoiceSettingsActive then
+	if OptionsPopup.PopupActive or Exiting then
 		return
 	end
 	
@@ -1270,7 +926,7 @@ BuildLobbyMenuButtons = function(creating)
 	if Session:GetInfo().CarUpgrades == SessionInfo.CarUpgrades.Any and Session:GetInfo().Races[Session:GetInfo().NextRace].EventType ~= ReplicatedSession.GAMETYPE_STUNT then
 		table.insert(commonitems, { ICON_MULTIPLAYER_CHANGEUPGRADE, function() ChangeUpgrades() end, ICON(menu_multiplayer_lobby,"icon_change_upgrade_level") } )
 	end
-	if Session:GetNumPlayers() > 1 and MultiplayerMode ~= MPMODE_LAN then
+	if XBOX or (Session:IsHost() and Session:GetNumPlayers() > 1 and not Session:GetInfo().KickVote.VoteInProgress) then
 		table.insert(commonitems, { ICON_MULTIPLAYER_PLAYERDETAILS, function() SelectPlayer() end, ICON(menu_multiplayer_lobby,"icon_player_details") } )
 	end
 	
@@ -1297,10 +953,6 @@ BuildLobbyMenuButtons = function(creating)
 		end
 		PrevCanStart = canstart
 		
-		if PC then
-			table.insert(menu_multiplayer_lobby.items, { ICON_VOICE_SETTINGS, function() ChangeVoiceSettings() end, ICON(menu_multiplayer_lobby,"icon_sound_options") } )
-		end
-		
 		if canstart and Session:GetLocalPlayer(1).CarValid then
 			table.insert(menu_multiplayer_lobby.items, { ICON_MULTIPLAYER_STARTRACE, function() StartRace() end, ICON(menu_multiplayer_lobby,"icon_go_race") } )
 		else
@@ -1313,20 +965,12 @@ BuildLobbyMenuButtons = function(creating)
 			table.insert(menu_multiplayer_lobby.items, { ICON_MULTIPLAYER_VIEWQUEUE, entermenu("menu_multiplayer_view_tournament"), ICON(menu_multiplayer_lobby,"icon_event_queue") } )
 			table.insert(menu_multiplayer_lobby.items, { ICON_MULTIPLAYER_VIEWRANKING, entermenu("menu_multiplayer_tournament_standings"), ICON(menu_multiplayer_lobby,"icon_rankings") } )
 		end
-
-		if PC then
-			table.insert(menu_multiplayer_lobby.items, { ICON_VOICE_SETTINGS, function() ChangeVoiceSettings() end, ICON(menu_multiplayer_lobby,"icon_sound_options") } )
-		end
-
 		if Session:GetLocalPlayer(1).CarValid then
-			table.insert(menu_multiplayer_lobby.items, { ICON_MULTIPLAYER_READY, function() SetReady(true, true) end, ICON(menu_multiplayer_lobby,"icon_ready") } )
+			table.insert(menu_multiplayer_lobby.items, { ICON_MULTIPLAYER_READY, function() ToggleReady() end, ICON(menu_multiplayer_lobby,"icon_ready") } )
 		end
 	else
 		-- Special case for when exiting the online options popup
-		local win=wm.GetWindow("readyinputhandler")
-		if win then
-			win:SetFocus()
-		end
+		wm.GetWindow("readyinputhandler"):SetFocus()
 	end
 
 	GUI:InitMenuButtons(menu_multiplayer_lobby.items)
@@ -1396,9 +1040,6 @@ function menu_multiplayer_lobby.init(self)
 	Frame { Name="tracknamebg_cap", Position=Layout.TrackFramePos, Size=ressize, Layer=2 }:AttachResource(res)
 	res = self:getResource("upshop_top_n_bottom_infotxt_bar")
 	Frame { Name="tracknamebg", Position=POS(Layout.TrackFramePos[1] + ressize[1], Layout.TrackFramePos[2]), Size=SIZE(500,ressize[2]), Layer=2 }:AttachResource(res)
-	res = self:getResource("steering_wheel");
-	Frame { Name="racestatus", Position=POS(0, 0), Size=SIZE(0, 0), Layer=2 }:AttachResource(res)
-	
 
 	local gametype = StaticText { Name="gametype", Font=fontmedium(), Color=Layout.GameTypeColor, Position=Layout.GameTypePos, Size=SIZE(560, 12), Layer=2 }
 	local trackname = StaticText { Name="trackname", Font=fontlarge(), Color=Layout.TrackNameColor, Position=Layout.TrackNamePos, Size=SIZE(560, 12), Layer=2 }
@@ -1511,7 +1152,7 @@ function menu_multiplayer_lobby.init(self)
 			ScrollChatDown()
 		end
 
-		texteditor:SetTextBufferSize(79)
+		texteditor:SetTextBufferSize(80)
 		texteditor:HideWindow()
 	end
 	
@@ -1831,8 +1472,6 @@ function menu_multiplayer_lobby.init(self)
 	LobbyMessage			= nil
 	CurrentTime				= nil
 	KickBoxActive			= false
-	ChangeCarMessagePending	= false
-	ChangeCarMessage		= nil
 	ChangeCarMessageShowing = false
 	ShowChangeCarMessage	= false
 	LeavingLobby			= false
@@ -1850,11 +1489,7 @@ function menu_multiplayer_lobby.init(self)
 	DisconnectCounter		= 0
 	
 	ReadyState				= false
-	OldReadyState			= false
-	WaitReadyState			= false
-	AllowReadyIn			= -1
-	
-	VoiceSettingsActive		= false
+	ChangingReadyState		= false
 
 	SetLobbyHelpButtons()
 end
@@ -1867,9 +1502,6 @@ function menu_multiplayer_lobby.deinit(self)
 	LobbyMessages = { }
 	
 	HideThinkingWindow()
-	if VoiceSettingsActive then
-		hidevoice()
-	end
 end
 
 function menu_multiplayer_lobby.update(self, time)
@@ -1878,12 +1510,7 @@ function menu_multiplayer_lobby.update(self, time)
 	if Exiting and Session:GetLocalPlayer(1).Disconnected then
 		DisconnectCounter = DisconnectCounter + 1
 		if DisconnectCounter == 5 then
-			if SessionSearchParams then
-				StartSearchMatch()
-				EnterMenu("menu_multiplayer_optimatchresults")
-			else
-				EnterMenu(menu_multiplayer_lobby.backmenu)
-			end
+			EnterMenu(menu_multiplayer_lobby.backmenu)
 		end
 	end
 
@@ -1897,6 +1524,7 @@ function menu_multiplayer_lobby.update(self, time)
 	end
 	
 	LatestSessionInfo = Session:GetInfo()
+--	local info = Session:GetInfo()
 
 	if Session:GetLocalPlayer(1).Kicked and not KickBoxActive then
 		KickBoxActive = true
@@ -1904,50 +1532,43 @@ function menu_multiplayer_lobby.update(self, time)
 		if OptionsPopup.PopupActive then
 			OptionsPopup.Destroy()
 		end
-		
-		if VoiceSettingsActive then
-			hidevoice()
-		end
 					
 		MessageBox(MULTIPLAYER_LOBBY_KICKMESSAGE, MESSAGEBOX_OK, function(value) EnterMenu(menu_multiplayer_lobby.backmenu) end)
 	else	
 		if LatestSessionInfo.KickVote.VoteInProgress and LatestSessionInfo.KickVote.PlayerToBeKicked ~= Session:GetLocalPlayer(1).UId and not Session:IsHost() and not KickBoxActive and Session:GetLocalPlayer(1).Vote == ReplicatedPlayer.VOTE_NOTVOTED then
-			if not OptionsPopup.PopupActive and not VoiceSettingsActive then
-				KickBoxActive = true
-				local localuid = Session:GetLocalPlayer(1).UId
-				for i = 1, LatestSessionInfo.KickVote.KickVoters:Size() do
-					if localuid == LatestSessionInfo.KickVote.KickVoters[i] then
-						local playername = EscapeString(Session:GetPlayerById(LatestSessionInfo.KickVote.PlayerToBeKicked).Name)
-						local hostname = EscapeString(Session:GetPlayer(1).Name)
-						local msg = WStringConcat(hostname, L" ")
-						msg = WStringConcat(msg, MULTIPLAYER_LOBBY_KICK_RESPONSE1)
-						msg = WStringConcat(msg, L" ")
-						msg = WStringConcat(msg, playername)
-						msg = WStringConcat(msg, L". ")
-						msg = WStringConcat(msg, MULTIPLAYER_LOBBY_KICK_RESPONSE2)
-						msg = WStringConcat(msg, L" ")
-						msg = WStringConcat(msg, playername)
-						msg = WStringConcat(msg, L" ")
-						msg = WStringConcat(msg, MULTIPLAYER_LOBBY_KICK_RESPONSE3)
-						
-						MessageBox(
-							msg,
-							MESSAGEBOX_YESNO,
-							function(value)
-								if LatestSessionInfo.KickVote.VoteInProgress then
-									if value == TRUE then
-										Session:GetLocalPlayer(1).Vote = ReplicatedPlayer.VOTE_YES
-									else
-										Session:GetLocalPlayer(1).Vote = ReplicatedPlayer.VOTE_NO
-									end
+			KickBoxActive = true
+			local localuid = Session:GetLocalPlayer(1).UId
+			for i = 1, LatestSessionInfo.KickVote.KickVoters:Size() do
+				if localuid == LatestSessionInfo.KickVote.KickVoters[i] then
+					local playername = EscapeString(Session:GetPlayerById(LatestSessionInfo.KickVote.PlayerToBeKicked).Name)
+					local hostname = EscapeString(Session:GetPlayer(1).Name)
+					local msg = WStringConcat(hostname, MULTIPLAYER_LOBBY_KICK_RESPONSE1)
+					msg = WStringConcat(msg, L" ")
+					msg = WStringConcat(msg, playername)
+					msg = WStringConcat(msg, L". ")
+					msg = WStringConcat(msg, MULTIPLAYER_LOBBY_KICK_RESPONSE2)
+					msg = WStringConcat(msg, L" ")
+					msg = WStringConcat(msg, playername)
+					msg = WStringConcat(msg, L" ")
+					msg = WStringConcat(msg, MULTIPLAYER_LOBBY_KICK_RESPONSE3)
+					
+					MessageBox(
+						msg,
+						MESSAGEBOX_YESNO,
+						function(value)
+							if LatestSessionInfo.KickVote.VoteInProgress then
+								if value == TRUE then
+									Session:GetLocalPlayer(1).Vote = ReplicatedPlayer.VOTE_YES
+								else
+									Session:GetLocalPlayer(1).Vote = ReplicatedPlayer.VOTE_NO
 								end
-								KickBoxActive = false
 							end
-						)
+							KickBoxActive = false
+						end
+					)
 
-						KickBoxActive = true
-						break
-					end
+					KickBoxActive = true
+					break
 				end
 			end
 		elseif LastKickVoteActive == true and LatestSessionInfo.KickVote.VoteInProgress == false then
@@ -1981,8 +1602,6 @@ function menu_multiplayer_lobby.update(self, time)
 		if win ~= nil then
 			wm.RemoveWindow(win)
 		end
-		local list = wm.GetWindow("list")
-		list.onSelectedRowChanged = nil
 		BuildLobbyMenuButtons()
 	end
 	
@@ -2000,62 +1619,50 @@ function menu_multiplayer_lobby.update(self, time)
 	else
 		setbuttons = false
 	end
-	
-	if WaitReadyState then
-		if not player:IsReadyStatePending() then
-			WaitReadyState = false
-			HideThinkingWindow()
-			ReadyState=player:IsReady()
-		end	
-	end
-	
-	if OldReadyState ~= ReadyState then
-		OldReadyState = ReadyState
-		if ReadyState then
-			local handler = InputHandler { Name="readyinputhandler" }
-			handler.onKeyPressed = function(Self, Character, VirtualKey, ScanCode)
-				if VirtualKey == KeyCodes["BUTTON_SELECT"] then
-					SetReady(false, true)
-					playmenusound_back()
-				elseif PC and VirtualKey == KeyCodes["BUTTON_X"] then
-					Mode = CHAT
+
+	if ChangingReadyState then
+		if OldReadyState~=player:IsReady() then
+			-- The ready state was updated from the network
+			if ReadyState==OldReadyState then
+				-- We need to switch back to old state
+				player:SetReady(ReadyState)
+			else
+				-- We are at the target ready state			
+				HideThinkingWindow()
+				ChangingReadyState = false			
+				if ReadyState then
+					local handler = InputHandler { Name="readyinputhandler" }
+					handler.onKeyPressed = function(Self, Character, VirtualKey, ScanCode)
+						if VirtualKey == KeyCodes["BUTTON_SELECT"] and not player.RequestUnready then
+							ToggleReady()
+							playmenusound_back()
+						elseif PC and VirtualKey == KeyCodes["BUTTON_X"] then
+							Mode = CHAT
+							SetLobbyHelpButtons()
+							wm.GetWindow("texteditor"):ShowWindow()
+							wm.GetWindow("texteditor"):SetFocus()
+						end
+					end
+				
+					GUI:HideMenuButtons()
+					AddLobbyMessage(MULTIPLAYER_WAITINGFORHOSTSTART, GetPaletteColor(33), LOBBY_PERMANENT_MESSAGE, ANIM_PULSE)
+					wm.ActivateWindow(handler)
+					handler:SetFocus()
 					SetLobbyHelpButtons()
-					wm.GetWindow("texteditor"):ShowWindow()
-					wm.GetWindow("texteditor"):SetFocus()
+				else
+					-- Make sure the message is removed on next update
+					LobbyMessages[1].duration = 0
+					LobbyMessages[1].showtime = 0
+					wm.RemoveWindow(wm.GetWindow("readyinputhandler"))
+					HideThinkingWindow()
+					BuildLobbyMenuButtons()	
+					SetLobbyHelpButtons()
 				end
 			end
-		
-			GUI:HideMenuButtons()
-			AddLobbyMessage(MULTIPLAYER_WAITINGFORHOSTSTART, GetPaletteColor(33), LOBBY_PERMANENT_MESSAGE, ANIM_PULSE)
-			wm.ActivateWindow(handler)
-			handler:SetFocus()
-			SetLobbyHelpButtons()
-		else
-			-- Make sure the message is removed on next update
-			LobbyMessages[1].duration = 0
-			LobbyMessages[1].showtime = 0
-			HideThinkingWindow()
-			wm.RemoveWindow(wm.GetWindow("readyinputhandler"))
-			if not OptionsPopup.PopupActive and not VoiceSettingsActive then
-				BuildLobbyMenuButtons()
-			end
-			SetLobbyHelpButtons()
 		end
 	end
-	
-	if ChangeCarMessagePending and (not OptionsPopup.PopupActive and not VoiceSettingsActive) then
-		ChangeCarMessagePending = false
 
-		if Mode == LOBBY then
-			setbuttons = true
-		end
-		if not Session:IsHost() or eventTypeChanged then
-			MessageBox(ChangeCarMessage, MESSAGEBOX_OK, function() ChangeCarMessageShowing = false; end)
-			ChangeCarMessageShowing = true
-			ChangeCarMessage = nil
-		end
-	end
-	
+
 	local sessionchanged = Session:HasSessionChanged()
 
 	if sessionchanged or PrevNextRace == nil or PrevNextRace ~= LatestSessionInfo.NextRace then
@@ -2165,25 +1772,18 @@ function menu_multiplayer_lobby.update(self, time)
 		end
 		
 		if mustChangeCar then
-			if OptionsPopup.PopupActive or  VoiceSettingsActive then
-				ChangeCarMessagePending = true
-				ChangeCarMessage = changeCarMsg
-				player.CarValid = false
-				if not Session:IsHost() then
-					SetReady(false, false)
-				end
-			else
-				if ChangeCarMessageShowing then
-					GUI:CloseMessageBox()
-				end
-				player.CarValid = false
-				if Mode == LOBBY then
-					setbuttons = true
-				end
-				if not Session:IsHost() or eventTypeChanged then
-					MessageBox(changeCarMsg, MESSAGEBOX_OK, function() ChangeCarMessageShowing = false; end)
-					ChangeCarMessageShowing = true
-					SetReady(false, false)
+			if ChangeCarMessageShowing then
+				GUI:CloseMessageBox()
+			end
+			player.CarValid = false
+			if Mode == LOBBY then
+				setbuttons = true
+			end
+			if not Session:IsHost() or eventTypeChanged then
+				MessageBox(changeCarMsg, MESSAGEBOX_OK, function() ChangeCarMessageShowing = false; end)
+				ChangeCarMessageShowing = true
+				if ReadyState then
+					ToggleReady()
 				end
 			end
 		end
@@ -2192,7 +1792,10 @@ function menu_multiplayer_lobby.update(self, time)
 	if sessionchanged then
 		if not Session:IsHost() and time > ChangeOptionsWaitTime then
 			AddLobbyMessage(MULTIPLAYER_HOSTCHANGEOPTIONS, GetPaletteColor(33), LOBBY_OPTIONSCHANGED_MESSAGE_TIME, ANIM_BLINK)
-			SetReady(false, false)
+
+			if ReadyState then
+				ToggleReady()
+			end 
 --[[			
 			if player:IsReady() then
 				player:SetReady( false )
@@ -2222,10 +1825,6 @@ function menu_multiplayer_lobby.update(self, time)
 			player.UpgradeLevel = LatestSessionInfo.CarUpgrades
 		end
 	end
-	
-	if ReadyState ~= OldReadyState or WaitReadyState then
-		setbuttons = false
-	end
 
 	if setbuttons then
 		BuildLobbyMenuButtons()
@@ -2247,20 +1846,10 @@ function menu_multiplayer_lobby.update(self, time)
 			if found then
 				wm.GetWindow("list"):SetSelectedRow(i)
 				SetSelectPlayerButtons()
+				wm.GetWindow("selectplayer_handler"):SetFocus()
 			else
 				SetSelectPlayerButtons()
-			end
-			local win=wm.GetWindow("selectplayer_handler")
-			if win then
-				wm.SetFocus(win)
-			end
-			
-		end
-		
-		if not SelectedPlayerValid then
-			local selected = wm.GetWindow("list"):GetSelectedRow()
-			if Session:GetPlayer(selected).Valid then
-				SetSelectPlayerButtons()
+				wm.GetWindow("selectplayer_handler"):SetFocus()
 			end
 		end
 	end	
@@ -2361,10 +1950,6 @@ function menu_multiplayer_lobby.update(self, time)
 		CurrentTime=time
 	end
 	
-	if AllowReadyIn > 0 then
-		AllowReadyIn = AllowReadyIn - dt
-	end
-	
 	if MultiplayerMode == MPMODE_XBOXLIVE and LatestSessionInfo.RatedGame then
 		--Slow down time when entering the lobby
 		if NameCarTime < 1 then
@@ -2413,6 +1998,5 @@ function menu_multiplayer_lobby.update(self, time)
 
 	if PC then
 		UpdateTextChat(dt)
-		UpdateVoiceSettings()
 	end
 end

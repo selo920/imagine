@@ -236,11 +236,11 @@ function menu_stunt_racerewards.init(self)
 	
 	
 
-	StaticText{Title=TRANSLATOR(INGAME_SCORE_POSITION_TITLE),Position=POS(183,170),Align=FONTF_RIGHT,Font=fontsmall(),Color=GetPaletteColor(34)}
+	StaticText{Title=TRANSLATOR(TITLE_RACEPOSITION),Position=POS(183,170),Align=FONTF_RIGHT,Font=fontsmall(),Color=GetPaletteColor(34)}
 	StaticText{Title=TRANSLATOR(EVENT_FINAL_RESULT),Position=POS(183,194),Align=FONTF_RIGHT,Font=fontsmall(),Color=GetPaletteColor(34)}
-	StaticText{Title=TRANSLATOR(TITLE_REWARD),Position=POS(400,226),Font=fontlarge(),Align=FONTF_RIGHT,Color=GetPaletteColor(33)}
-	StaticText{Title=ConvertToWString(string.format("%d%s",player_pos,pos_text[p])),Position=POS(314,170),Font=fontsmall(),Color=GetPaletteColor(33)}
-	StaticText{Title=text,Position=POS(379,194),Align=FONTF_RIGHT,Font=fontsmall(),Color=GetPaletteColor(33)}
+	StaticText{Title=TRANSLATOR(TITLE_REWARD),Position=POS(400,226),Font=fontmedium(),Align=FONTF_RIGHT,Color=GetPaletteColor(33)}
+	StaticText{Title=ConvertToWString(string.format("%d%s",player_pos,pos_text[p])),Position=POS(314,170),Font=fonteng(),Color=GetPaletteColor(33)}
+	StaticText{Title=text,Position=POS(379,194),Align=FONTF_RIGHT,Font=fonteng(),Color=GetPaletteColor(33)}
 	StaticText{Title=MONEY(db.GameFlow.Awards.TotalCashAwarded),Position=POS(417,226),Font=fontlarge(),Color=GetPaletteColor(34)}
 
 
@@ -330,7 +330,7 @@ function menu_derby_racerewards.init(self)
 	local star=self:getResource("yellow_star")
 	local starsize=GetResourceSize(star)
 
-	StaticText{Position=POS(334,82),Title=ConvertToWString(string.format("%d%s",player_pos,pos_text[p])),Font=fontsmall(),Color=GetPaletteColor(33)}
+	StaticText{Position=POS(334,82),Title=ConvertToWString(string.format("%d%s",player_pos,pos_text[p])),Font=fonteng(),Color=GetPaletteColor(33)}
 
 	local pts=db.GameFlow.PostRace:GetProperty("DerbyDamagePoints",0)
 	pts = pts + db.GameFlow.PostRace:GetProperty("DerbyWreckPoints",0)
@@ -338,7 +338,7 @@ function menu_derby_racerewards.init(self)
 
 	local derbypoints=ConvertToWString(string.format("%d",pts))
 
-	StaticText{Position=POS(334,106),Title=derbypoints,Font=fontsmall(),Color=GetPaletteColor(33)}
+	StaticText{Position=POS(334,106),Title=derbypoints,Font=fonteng(),Color=GetPaletteColor(33)}
 
 
 	--//StaticText{Title=TRANSLATOR(TITLE_RACEREWARDS),Position=POS(249,160),Font=fontsmall(),Color=GetPaletteColor(33)}
@@ -349,8 +349,8 @@ function menu_derby_racerewards.init(self)
 	Frame{Position=POS(217,177+10),Size=SIZE(31,21)}:AttachResource(self:getResource("narrow_black_bar_tip_left"))
 	Frame{Position=POS(217+31,177+10),Size=SIZE(392,21)}:AttachResource(self:getResource("narrow_black_bar_main"))
 	Frame{Position=POS(228,177+10),Size=starsize}:AttachResource(star) --//"oh my god, it's full of stars!"
-	StaticText{Position=POS(256,178+10),Title=TRANSLATOR(INGAME_CRASHBONUS_WHAMMO),Font=fontsmall(),Color=GetPaletteColor(34)}
-	StaticText{Position=POS(434,178+10),Title=ConvertToWString(string.format("x%d",num_whammo)),Font=fontsmall(),Color=GetPaletteColor(33)}
+	StaticText{Position=POS(256,178+10),Title=TRANSLATOR(INGAME_CRASHBONUS_WHAMMO),Font=fonteng(),Color=GetPaletteColor(34)}
+	StaticText{Position=POS(434,178+10),Title=ConvertToWString(string.format("x%d",num_whammo)),Font=fonteng(),Color=GetPaletteColor(33)}
 	--//StaticText{Position=POS(580,178+10),Title=MONEY(awards.Whammo*num_whammo),Align=FONTF_RIGHT,Font=fontsmall(),Color=GetPaletteColor(33)}
 
 
@@ -358,8 +358,8 @@ function menu_derby_racerewards.init(self)
 	Frame{Position=POS(226,201+10),Size=SIZE(31,21)}:AttachResource(self:getResource("narrow_black_bar_tip_left"))
 	Frame{Position=POS(226+31,201+10),Size=SIZE(383,21)}:AttachResource(self:getResource("narrow_black_bar_main"))
 	Frame{Position=POS(237,201+10),Size=starsize}:AttachResource(star)
-	StaticText{Position=POS(265,202+10),Title=TRANSLATOR(INGAME_CRASHBONUS_POWERHIT),Font=fontsmall(),Color=GetPaletteColor(34)}
-	StaticText{Position=POS(434,202+10),Title=ConvertToWString(string.format("x%d",num_powerhit)),Font=fontsmall(),Color=GetPaletteColor(33)}
+	StaticText{Position=POS(265,202+10),Title=TRANSLATOR(INGAME_CRASHBONUS_POWERHIT),Font=fonteng(),Color=GetPaletteColor(34)}
+	StaticText{Position=POS(434,202+10),Title=ConvertToWString(string.format("x%d",num_powerhit)),Font=fonteng(),Color=GetPaletteColor(33)}
 	--//StaticText{Position=POS(580,202+10),Title=MONEY(awards.PowerHit*num_powerhit),Align=FONTF_RIGHT,Font=fontsmall(),Color=GetPaletteColor(33)}
 
 
@@ -367,8 +367,8 @@ function menu_derby_racerewards.init(self)
 	Frame{Position=POS(235,225+10),Size=SIZE(31,21)}:AttachResource(self:getResource("narrow_black_bar_tip_left"))
 	Frame{Position=POS(235+31,225+10),Size=SIZE(374,21)}:AttachResource(self:getResource("narrow_black_bar_main"))
 	Frame{Position=POS(246,225+10),Size=starsize}:AttachResource(star)
-	StaticText{Position=POS(274,226+10),Title=TRANSLATOR(INGAME_CRASHBONUS_SUPERFLIP),Font=fontsmall(),Color=GetPaletteColor(34)}
-	StaticText{Position=POS(434,226+10),Title=ConvertToWString(string.format("x%d",num_superflip)),Font=fontsmall(),Color=GetPaletteColor(33)}
+	StaticText{Position=POS(274,226+10),Title=TRANSLATOR(INGAME_CRASHBONUS_SUPERFLIP),Font=fonteng(),Color=GetPaletteColor(34)}
+	StaticText{Position=POS(434,226+10),Title=ConvertToWString(string.format("x%d",num_superflip)),Font=fonteng(),Color=GetPaletteColor(33)}
 	--//StaticText{Position=POS(580,226+10),Title=MONEY(awards.SuperFlip*num_superflip),Align=FONTF_RIGHT,Font=fontsmall(),Color=GetPaletteColor(33)}
 	
 
@@ -376,8 +376,8 @@ function menu_derby_racerewards.init(self)
 	Frame{Position=POS(244,249+10),Size=SIZE(31,21)}:AttachResource(self:getResource("narrow_black_bar_tip_left"))
 	Frame{Position=POS(244+31,249+10),Size=SIZE(365,21)}:AttachResource(self:getResource("narrow_black_bar_main"))
 	Frame{Position=POS(255,249+10),Size=starsize}:AttachResource(star)
-	StaticText{Position=POS(283,250+10),Title=TRANSLATOR(INGAME_CRASHBONUS_BLASTOUT),Font=fontsmall(),Color=GetPaletteColor(34)}
-	StaticText{Position=POS(434,250+10),Title=ConvertToWString(string.format("x%d",num_blastout)),Font=fontsmall(),Color=GetPaletteColor(33)}
+	StaticText{Position=POS(283,250+10),Title=TRANSLATOR(INGAME_CRASHBONUS_BLASTOUT),Font=fonteng(),Color=GetPaletteColor(34)}
+	StaticText{Position=POS(434,250+10),Title=ConvertToWString(string.format("x%d",num_blastout)),Font=fonteng(),Color=GetPaletteColor(33)}
 	--//StaticText{Position=POS(580,250+10),Title=MONEY(awards.BlastOut*num_blastout),Align=FONTF_RIGHT,Font=fontsmall(),Color=GetPaletteColor(33)}
 
 
@@ -385,8 +385,8 @@ function menu_derby_racerewards.init(self)
 	Frame{Position=POS(253,273+10),Size=SIZE(31,21)}:AttachResource(self:getResource("narrow_black_bar_tip_left"))
 	Frame{Position=POS(253+31,273+10),Size=SIZE(356,21)}:AttachResource(self:getResource("narrow_black_bar_main"))
 	Frame{Position=POS(264,273+10),Size=starsize}:AttachResource(star)
-	StaticText{Position=POS(292,274+10),Title=TRANSLATOR(INGAME_CRASHBONUS_RAGDOLLED),Font=fontsmall(),Color=GetPaletteColor(34)}
-	StaticText{Position=POS(434,274+10),Title=ConvertToWString(string.format("x%d",num_ragdolled)),Font=fontsmall(),Color=GetPaletteColor(33)}
+	StaticText{Position=POS(292,274+10),Title=TRANSLATOR(INGAME_CRASHBONUS_RAGDOLLED),Font=fonteng(),Color=GetPaletteColor(34)}
+	StaticText{Position=POS(434,274+10),Title=ConvertToWString(string.format("x%d",num_ragdolled)),Font=fonteng(),Color=GetPaletteColor(33)}
 	--//StaticText{Position=POS(580,274+10),Title=MONEY(awards.Ragdolled*num_ragdolled),Align=FONTF_RIGHT,Font=fontsmall(),Color=GetPaletteColor(33)}
 
 
@@ -394,8 +394,8 @@ function menu_derby_racerewards.init(self)
 	Frame{Position=POS(262,297+10),Size=SIZE(31,21)}:AttachResource(self:getResource("narrow_black_bar_tip_left"))
 	Frame{Position=POS(262+31,297+10),Size=SIZE(347,21)}:AttachResource(self:getResource("narrow_black_bar_main"))
 	Frame{Position=POS(273,297+10),Size=starsize}:AttachResource(star) 	
-	StaticText{Position=POS(301,298+10),Title=TRANSLATOR(INGAME_CRASHBONUS_WRECKED),Font=fontsmall(),Color=GetPaletteColor(34)}
-	StaticText{Position=POS(434,298+10),Title=ConvertToWString(string.format("x%d",num_wrecked)),Font=fontsmall(),Color=GetPaletteColor(33)}
+	StaticText{Position=POS(301,298+10),Title=TRANSLATOR(INGAME_CRASHBONUS_WRECKED),Font=fonteng(),Color=GetPaletteColor(34)}
+	StaticText{Position=POS(434,298+10),Title=ConvertToWString(string.format("x%d",num_wrecked)),Font=fonteng(),Color=GetPaletteColor(33)}
 	--//StaticText{Position=POS(580,298+10),Title=MONEY(awards.Wrecked*num_wrecked),Align=FONTF_RIGHT,Font=fontsmall(),Color=GetPaletteColor(33)}
 
 	--//total
@@ -502,9 +502,9 @@ function menu_career_cup_racerewards.init(self)
 	local star=self:getResource("yellow_star")
 	local starsize=GetResourceSize(star)
 
-	StaticText{Position=POS(334,82),Title=ConvertToWString(string.format("%d%s",player_pos,pos_text[p])),Font=fontsmall(),Color=GetPaletteColor(33)}
-	StaticText{Position=POS(334,106),Title=ConvertToWString(string.format("%d",player_cuppoints)),Font=fontsmall(),Color=GetPaletteColor(33)}
-	StaticText{Position=POS(334,130),Title=ConvertToWString(time_string),Font=fontsmall(),Color=GetPaletteColor(33)}
+	StaticText{Position=POS(334,82),Title=ConvertToWString(string.format("%d%s",player_pos,pos_text[p])),Font=fonteng(),Color=GetPaletteColor(33)}
+	StaticText{Position=POS(334,106),Title=ConvertToWString(string.format("%d",player_cuppoints)),Font=fonteng(),Color=GetPaletteColor(33)}
+	StaticText{Position=POS(334,130),Title=ConvertToWString(time_string),Font=fonteng(),Color=GetPaletteColor(33)}
 
 
 	StaticText{Title=TRANSLATOR(TITLE_RACEREWARDS),Position=POS(249,160),Font=fontsmall(),Color=GetPaletteColor(33)}
@@ -515,54 +515,54 @@ function menu_career_cup_racerewards.init(self)
 	Frame{Position=POS(217,177+10),Size=SIZE(31,21)}:AttachResource(self:getResource("narrow_black_bar_tip_left"))
 	Frame{Position=POS(217+31,177+10),Size=SIZE(392,21)}:AttachResource(self:getResource("narrow_black_bar_main"))
 	Frame{Position=POS(228,177+10),Size=starsize}:AttachResource(star) --//"oh my god, it's full of stars!"
-	StaticText{Position=POS(256,178+10),Title=TRANSLATOR(INGAME_CRASHBONUS_WHAMMO),Font=fontsmall(),Color=GetPaletteColor(34)}
-	StaticText{Position=POS(434,178+10),Title=ConvertToWString(string.format("x%d",num_whammo)),Font=fontsmall(),Color=GetPaletteColor(33)}
-	StaticText{Position=POS(580,178+10),Title=MONEY(awards.Whammo*num_whammo),Align=FONTF_RIGHT,Font=fontsmall(),Color=GetPaletteColor(33)}
+	StaticText{Position=POS(256,178+10),Title=TRANSLATOR(INGAME_CRASHBONUS_WHAMMO),Font=fonteng(),Color=GetPaletteColor(34)}
+	StaticText{Position=POS(434,178+10),Title=ConvertToWString(string.format("x%d",num_whammo)),Font=fonteng(),Color=GetPaletteColor(33)}
+	StaticText{Position=POS(580,178+10),Title=MONEY(awards.Whammo*num_whammo),Align=FONTF_RIGHT,Font=fonteng(),Color=GetPaletteColor(33)}
 
 
 	--//powerhit
 	Frame{Position=POS(226,201+10),Size=SIZE(31,21)}:AttachResource(self:getResource("narrow_black_bar_tip_left"))
 	Frame{Position=POS(226+31,201+10),Size=SIZE(383,21)}:AttachResource(self:getResource("narrow_black_bar_main"))
 	Frame{Position=POS(237,201+10),Size=starsize}:AttachResource(star)
-	StaticText{Position=POS(265,202+10),Title=TRANSLATOR(INGAME_CRASHBONUS_POWERHIT),Font=fontsmall(),Color=GetPaletteColor(34)}
-	StaticText{Position=POS(434,202+10),Title=ConvertToWString(string.format("x%d",num_powerhit)),Font=fontsmall(),Color=GetPaletteColor(33)}
-	StaticText{Position=POS(580,202+10),Title=MONEY(awards.PowerHit*num_powerhit),Align=FONTF_RIGHT,Font=fontsmall(),Color=GetPaletteColor(33)}
+	StaticText{Position=POS(265,202+10),Title=TRANSLATOR(INGAME_CRASHBONUS_POWERHIT),Font=fonteng(),Color=GetPaletteColor(34)}
+	StaticText{Position=POS(434,202+10),Title=ConvertToWString(string.format("x%d",num_powerhit)),Font=fonteng(),Color=GetPaletteColor(33)}
+	StaticText{Position=POS(580,202+10),Title=MONEY(awards.PowerHit*num_powerhit),Align=FONTF_RIGHT,Font=fonteng(),Color=GetPaletteColor(33)}
 
 
 	--//superflip
 	Frame{Position=POS(235,225+10),Size=SIZE(31,21)}:AttachResource(self:getResource("narrow_black_bar_tip_left"))
 	Frame{Position=POS(235+31,225+10),Size=SIZE(374,21)}:AttachResource(self:getResource("narrow_black_bar_main"))
 	Frame{Position=POS(246,225+10),Size=starsize}:AttachResource(star)
-	StaticText{Position=POS(274,226+10),Title=TRANSLATOR(INGAME_CRASHBONUS_SUPERFLIP),Font=fontsmall(),Color=GetPaletteColor(34)}
-	StaticText{Position=POS(434,226+10),Title=ConvertToWString(string.format("x%d",num_superflip)),Font=fontsmall(),Color=GetPaletteColor(33)}
-	StaticText{Position=POS(580,226+10),Title=MONEY(awards.SuperFlip*num_superflip),Align=FONTF_RIGHT,Font=fontsmall(),Color=GetPaletteColor(33)}
+	StaticText{Position=POS(274,226+10),Title=TRANSLATOR(INGAME_CRASHBONUS_SUPERFLIP),Font=fonteng(),Color=GetPaletteColor(34)}
+	StaticText{Position=POS(434,226+10),Title=ConvertToWString(string.format("x%d",num_superflip)),Font=fonteng(),Color=GetPaletteColor(33)}
+	StaticText{Position=POS(580,226+10),Title=MONEY(awards.SuperFlip*num_superflip),Align=FONTF_RIGHT,Font=fonteng(),Color=GetPaletteColor(33)}
 	
 
 	--//blastout
 	Frame{Position=POS(244,249+10),Size=SIZE(31,21)}:AttachResource(self:getResource("narrow_black_bar_tip_left"))
 	Frame{Position=POS(244+31,249+10),Size=SIZE(365,21)}:AttachResource(self:getResource("narrow_black_bar_main"))
 	Frame{Position=POS(255,249+10),Size=starsize}:AttachResource(star)
-	StaticText{Position=POS(283,250+10),Title=TRANSLATOR(INGAME_CRASHBONUS_BLASTOUT),Font=fontsmall(),Color=GetPaletteColor(34)}
-	StaticText{Position=POS(434,250+10),Title=ConvertToWString(string.format("x%d",num_blastout)),Font=fontsmall(),Color=GetPaletteColor(33)}
-	StaticText{Position=POS(580,250+10),Title=MONEY(awards.BlastOut*num_blastout),Align=FONTF_RIGHT,Font=fontsmall(),Color=GetPaletteColor(33)}
+	StaticText{Position=POS(283,250+10),Title=TRANSLATOR(INGAME_CRASHBONUS_BLASTOUT),Font=fonteng(),Color=GetPaletteColor(34)}
+	StaticText{Position=POS(434,250+10),Title=ConvertToWString(string.format("x%d",num_blastout)),Font=fonteng(),Color=GetPaletteColor(33)}
+	StaticText{Position=POS(580,250+10),Title=MONEY(awards.BlastOut*num_blastout),Align=FONTF_RIGHT,Font=fonteng(),Color=GetPaletteColor(33)}
 
 
 	--//ragdolled
 	Frame{Position=POS(253,273+10),Size=SIZE(31,21)}:AttachResource(self:getResource("narrow_black_bar_tip_left"))
 	Frame{Position=POS(253+31,273+10),Size=SIZE(356,21)}:AttachResource(self:getResource("narrow_black_bar_main"))
 	Frame{Position=POS(264,273+10),Size=starsize}:AttachResource(star)
-	StaticText{Position=POS(292,274+10),Title=TRANSLATOR(INGAME_CRASHBONUS_RAGDOLLED),Font=fontsmall(),Color=GetPaletteColor(34)}
-	StaticText{Position=POS(434,274+10),Title=ConvertToWString(string.format("x%d",num_ragdolled)),Font=fontsmall(),Color=GetPaletteColor(33)}
-	StaticText{Position=POS(580,274+10),Title=MONEY(awards.Ragdolled*num_ragdolled),Align=FONTF_RIGHT,Font=fontsmall(),Color=GetPaletteColor(33)}
+	StaticText{Position=POS(292,274+10),Title=TRANSLATOR(INGAME_CRASHBONUS_RAGDOLLED),Font=fonteng(),Color=GetPaletteColor(34)}
+	StaticText{Position=POS(434,274+10),Title=ConvertToWString(string.format("x%d",num_ragdolled)),Font=fonteng(),Color=GetPaletteColor(33)}
+	StaticText{Position=POS(580,274+10),Title=MONEY(awards.Ragdolled*num_ragdolled),Align=FONTF_RIGHT,Font=fonteng(),Color=GetPaletteColor(33)}
 
 
 	--//wrecked
 	Frame{Position=POS(262,297+10),Size=SIZE(31,21)}:AttachResource(self:getResource("narrow_black_bar_tip_left"))
 	Frame{Position=POS(262+31,297+10),Size=SIZE(347,21)}:AttachResource(self:getResource("narrow_black_bar_main"))
 	Frame{Position=POS(273,297+10),Size=starsize}:AttachResource(star) 	
-	StaticText{Position=POS(301,298+10),Title=TRANSLATOR(INGAME_CRASHBONUS_WRECKED),Font=fontsmall(),Color=GetPaletteColor(34)}
-	StaticText{Position=POS(434,298+10),Title=ConvertToWString(string.format("x%d",num_wrecked)),Font=fontsmall(),Color=GetPaletteColor(33)}
-	StaticText{Position=POS(580,298+10),Title=MONEY(awards.Wrecked*num_wrecked),Align=FONTF_RIGHT,Font=fontsmall(),Color=GetPaletteColor(33)}
+	StaticText{Position=POS(301,298+10),Title=TRANSLATOR(INGAME_CRASHBONUS_WRECKED),Font=fonteng(),Color=GetPaletteColor(34)}
+	StaticText{Position=POS(434,298+10),Title=ConvertToWString(string.format("x%d",num_wrecked)),Font=fonteng(),Color=GetPaletteColor(33)}
+	StaticText{Position=POS(580,298+10),Title=MONEY(awards.Wrecked*num_wrecked),Align=FONTF_RIGHT,Font=fonteng(),Color=GetPaletteColor(33)}
 
 	--//total
 	Frame{Position=POS(280,351+10),Size=SIZE(40,32)}:AttachResource(self:getResource("thick_black_bar_tip"))
@@ -900,13 +900,13 @@ function menu_career_cup_scorecard.init(self)
 
 	
 
-	StaticText{Title=TRANSLATOR(TITLE_CROSSHATCH),Position=POS(45,126),Font=fontsmall(),Color=GetPaletteColor(33)}
-	StaticText{Title=TRANSLATOR(TITLE_NAME),Position=POS(75,126),Font=fontsmall(),Color=GetPaletteColor(33)}
-	StaticText{Title=TRANSLATOR(TITLE_POINTS),Position=POS(550,126),Align=FONTF_CENTER,Font=fontsmall(),Color=GetPaletteColor(33)}
+	StaticText{Title=TRANSLATOR(TITLE_CROSSHATCH),Position=POS(45,126),Font=fonteng(),Color=GetPaletteColor(33)}
+	StaticText{Title=TRANSLATOR(TITLE_NAME),Position=POS(75,126),Font=fonteng(),Color=GetPaletteColor(33)}
+	StaticText{Title=TRANSLATOR(TITLE_POINTS),Position=POS(550,126),Align=FONTF_CENTER,Font=fonteng(),Color=GetPaletteColor(33)}
 
 	local pos=POS(353,126)
 	for i=1,results.num_races do
-		StaticText{Title=ConvertToWString(string.format("%d",i)),Position=pos,Font=fontsmall(),Align=FONTF_CENTER,Color=GetPaletteColor(33)}
+		StaticText{Title=ConvertToWString(string.format("%d",i)),Position=pos,Font=fonteng(),Align=FONTF_CENTER,Color=GetPaletteColor(33)}
 		pos[1] = pos[1] + 29
 	end
 
@@ -939,25 +939,25 @@ function menu_career_cup_scorecard.init(self)
 
 		--//position
 		--//if CupManager:IsCupPositionVisible(player) then
-			w=StaticText{Title=ConvertToWString(string.format("%d%s",player,pos_text[p])),Position=POS(barpos[1]+48+x_adj,2),Parent=bar,Font=fontsmall(),Color=GetPaletteColor(1)}
+			w=StaticText{Title=ConvertToWString(string.format("%d%s",player,pos_text[p])),Position=POS(barpos[1]+48+x_adj,2),Parent=bar,Font=fonteng(),Color=GetPaletteColor(1)}
 			AnimateWindowAlpha(w,0.0,1.0,0.1,name_start_delay+0.1)
 		--//end
 
 		--//player name
-		w=StaticText{Title=GameFlow.GetPlayerName(player_results.id),Position=POS(barpos[1]+82+x_adj,2),Parent=bar,Font=fontsmall(),Color=GetPaletteColor(34)}
+		w=StaticText{Title=GameFlow.GetPlayerName(player_results.id),Position=POS(barpos[1]+82+x_adj,2),Parent=bar,Font=fonteng(),Color=GetPaletteColor(34)}
 		AnimateWindowAlpha(w,0.0,1.0,0.3,name_start_delay+0.3)
 
 		
 		local point_pos=POS(353,2)
 		for race=1,results.num_races do
-			w=StaticText{Title=ConvertToWString(string.format("%d",player_results.points[race] or 0)),Position=point_pos,Align=FONTF_CENTER,Font=fontsmall(),Color=GetPaletteColor(34),Parent=bar}
+			w=StaticText{Title=ConvertToWString(string.format("%d",player_results.points[race] or 0)),Position=point_pos,Align=FONTF_CENTER,Font=fonteng(),Color=GetPaletteColor(34),Parent=bar}
 		
 			AnimateWindowAlpha(w,0.0,1.0,0.2,name_start_delay+0.6+points_start_delay)
 
 			point_pos[1]=point_pos[1] + 29
 		end
 
-		w=StaticText{Title=ConvertToWString(string.format("%d",player_results.totalpoints or 0)),Position=POS(563,2),Font=fontsmall(),Align=FONTF_CENTER,Color=GetPaletteColor(1),Parent=bar}
+		w=StaticText{Title=ConvertToWString(string.format("%d",player_results.totalpoints or 0)),Position=POS(563,2),Font=fonteng(),Align=FONTF_CENTER,Color=GetPaletteColor(1),Parent=bar}
 		AnimateWindowAlpha(w,0.0,1.0,0.2,name_start_delay+0.6+points_start_delay)
 
 		barpos[2] = barpos[2] + 25
@@ -1016,10 +1016,10 @@ function menu_career_subclass_unlock.init(self)
 
 
 	StaticText{Title=TRANSLATOR(MESSAGE_QUALIFIED),Position=POS(320,140),Align=FONTF_CENTER,Font=fontlarge(),Color=GetPaletteColor(34)}
-	StaticText{Title=TRANSLATOR(MESSAGE_QUALIFIED2),Position=POS(320,166),Align=FONTF_CENTER,Font=fontlarge(),Color=GetPaletteColor(34)}
+	StaticText{Title=TRANSLATOR(MESSAGE_QUALIFIED2),Position=POS(320,166),Align=FONTF_CENTER,Font=fontsmall(),Color=GetPaletteColor(34)}
 	StaticText{Title=subclasses[db.GameFlow.Awards.UnlockSubClass].name,Position=POS(320,208),Font=fontlarge(),Align=FONTF_CENTER,Color=GetPaletteColor(33)}
 	StaticText{Title=TRANSLATOR(TITLE_REWARD),Position=POS(318,242),Font=fontmedium(),Align=FONTF_RIGHT,Color=GetPaletteColor(33)}
-	StaticText{Title=MONEY(db.GameFlow.Awards.SubClassWinnings),Position=POS(322,242),Font=fontmedium(),Align=FONTF_LEFT,Color=GetPaletteColor(34)}
+	StaticText{Title=MONEY(db.GameFlow.Awards.SubClassWinnings),Position=POS(322,242),Font=fontlarge(),Align=FONTF_LEFT,Color=GetPaletteColor(34)}
 
 	local input=InputHandler{Name="inputhandler"}
 
@@ -1127,7 +1127,7 @@ function menu_career_final_unlock.init(self)
 
 	StaticText{Title=text,Position=POS(320,166),Align=FONTF_CENTER,Font=fontlarge(),Color=GetPaletteColor(33)}
 	StaticText{Title=TRANSLATOR(TITLE_REWARD),Position=POS(318,210),Font=fontmedium(),Align=FONTF_RIGHT,Color=GetPaletteColor(33)}
-	StaticText{Title=MONEY(db.GameFlow.Awards.SubClassWinnings),Position=POS(322,210),Font=fontmedium(),Align=FONTF_LEFT,Color=GetPaletteColor(34)}
+	StaticText{Title=MONEY(db.GameFlow.Awards.SubClassWinnings),Position=POS(322,210),Font=fontlarge(),Align=FONTF_LEFT,Color=GetPaletteColor(34)}
 
 	text=WStringConcat(clsname,L" ")
 	text=WStringConcat(text,TRANSLATOR(FINAL_UNLOCKED))

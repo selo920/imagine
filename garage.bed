@@ -92,14 +92,14 @@ function CreateCarInfoWindows(menu,pos,slidersonly,show_difference,show_class)
 		if not v.slider and not slidersonly then
 			pos[2] = pos[2]+height
 			local p=Frame{Position=pos,Name=string.format("%s_bar",v.name),Size=SIZE(137,22)}:AttachResource(menu:getResource("drive_bottom_bar"))
-			StaticText{Position=POS(2,2),Name=string.format("%s_text",v.name),Title=v.title,Font=fontmedium(),Color=GetPaletteColor(20),Parent=p}
-			StaticText{Position=POS(90,2),Name=string.format("%s_data",v.name),
+			StaticText{FontScale=0.9,Position=POS(2,3),Name=string.format("%s_text",v.name),Title=v.title,Font=fontmedium(),Color=GetPaletteColor(20),Parent=p}
+			StaticText{FontScale=0.9,Position=POS(90,3),Name=string.format("%s_data",v.name),
 						Title=ConvertToWString(string.format("%s data",k)),Font=fontmedium(),
 						Color=GetPaletteColor(3),Parent=p,
 			}
 		end
 		if v.slider then
-			StaticText{Position=pos,Name=string.format("%s_text",v.name),Title=v.title,Font=fontmedium(),Color=GetPaletteColor(20)}
+			StaticText{FontScale=0.9,Position={ pos[1],pos[2]+1 },Name=string.format("%s_text",v.name),Title=v.title,Font=fontmedium(),Color=GetPaletteColor(20)}
 			pos[2] = pos[2]+height
 
 			local p=Frame{Name=string.format("%s_bar",v.name),Position=pos,Size=SIZE(137,17)}:AttachResource(menu:getResource("shop_stats_bottom_bar"))
@@ -166,7 +166,7 @@ function CreateCarInfoWindows(menu,pos,slidersonly,show_difference,show_class)
 	end
 
 	if show_class then
-		StaticText{Name="car_class_text",Position=POS(587,246),Font=fontsmall(),Align=FONTF_RIGHT,Color=GetPaletteColor(1),Alpha=0.8}
+		StaticText{Name="car_class_text",Position=POS(587,246),Font=fonteng(),Align=FONTF_RIGHT,Color=GetPaletteColor(1),Alpha=0.8}
 	end
 end
 
@@ -602,7 +602,6 @@ local function garage_sellconfirmation()
 
 
 		local text=TRANSLATOR(GARAGE_SELL_CAR_CONFIRMATION)
-		text=WStringConcat(text,ConvertToWString(string.format(" %s?",car.Name)))
 		ConfirmationDialog(text,sellcar)
 	end
 end
@@ -655,10 +654,10 @@ function menu_career_garage_selection.init(self)
 	local _,height=wm.GetTextExtents(L"W",fontmedium())
 
 	StaticText{Name="car_value_text",Title=TRANSLATOR(TITLE_GARAGE_CAR),Font=fontmedium(),Position=POS(135,140),Align=FONTF_RIGHT,Color=GetPaletteColor(33)}:HideWindow()
-	StaticText{Name="car_value_data",Title=L"",Font=fontmedium(),Position=POS(135+8,140),Color=GetPaletteColor(34)}:HideWindow()
+	StaticText{Name="car_value_data",Title=L"",Font=fonteng(),Position=POS(135+8,140),Color=GetPaletteColor(34)}:HideWindow()
 
 	StaticText{Name="upgrade_value_text",Title=TRANSLATOR(TITLE_GARAGE_UPGRADES),Font=fontmedium(),Position=POS(135,140+height),Align=FONTF_RIGHT,Color=GetPaletteColor(33)}:HideWindow()
-	StaticText{Name="upgrade_value_data",Title=L"",Font=fontmedium(),Position=POS(135+8,140+height),Color=GetPaletteColor(34)}:HideWindow()
+	StaticText{Name="upgrade_value_data",Title=L"",Font=fonteng(),Position=POS(135+8,140+height),Color=GetPaletteColor(34)}:HideWindow()
 
 	StaticText{Name="total_price_text",Title=TRANSLATOR(TITLE_GARAGE_TOTALPRICE),Font=fontmedium(),Position=POS(135,212),Align=FONTF_CENTER,Color=GetPaletteColor(33)}:HideWindow()
 	StaticText{Name="total_price_data",Title=L"",Font=fontlarge(),Position=POS(135,212+height),Align=FONTF_CENTER,Color=GetPaletteColor(34)}:HideWindow()

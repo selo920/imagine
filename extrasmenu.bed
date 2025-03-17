@@ -80,7 +80,7 @@ function menu_extras_cheatcode.init(self)
 
 	wm.SetTextInput(L"")
 
-	local keyboard=VirtualKeyboard{Name="kb",Mode=VKMODE_CHEATCODES,Font=fontmedium(),Title=TRANSLATOR(EXTRAS_ENTERCODE),TitleFont=fontlarge(),MaxSize=16,
+	local keyboard=VirtualKeyboard{Name="kb",Mode=VKMODE_CHEATCODES,Font=fonteng(),Title=TRANSLATOR(EXTRAS_ENTERCODE),TitleFont=fontsmall(),InputFont=fontlarge(),MaxSize=16,
 		TitleResources={ self:getResource("keyboard_title_bars_tip"), self:getResource("keyboard_title_bars_main") },
 		InputResources={ self:getResource("keyboard_title_bars_tip2"), self:getResource("keyboard_title_bars_main2") },
 		KeyboardResources={ self:getResource("keyboard_bg_tip"), self:getResource("keyboard_bg_main")} }
