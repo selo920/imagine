@@ -39,7 +39,7 @@ menu_career = CreateMenuFromTemplate("template_career")
 
 
 menu_career.options.title=TRANSLATOR(TITLE_CAREER)
-menu_career.back = entermenu("menu_singleplayer")
+menu_career.back = function() EnterSinglePlayer() end --//entermenu("menu_singleplayer")
 
 local classnames = {
 	"ClassC",
@@ -203,7 +203,6 @@ function menu_career.create(self)
 	menu_career.items = {
 		MENUITEM(TRANSLATOR(ICON_CAREER_GORACE),enterrace_check,ICON(self,"icon_sp_single_race")), --//entermenu("menu_career_racemap")
 		MENUITEM(TRANSLATOR(ICON_CAREER_GARAGE),entergarage_check,ICON(self,"icon_garage")),
-		--//MENUITEM(L"STATISTICS",entermenu("menu_career_statistic"),ICON(self,"icon_statistics")),
 		MENUITEM(TRANSLATOR(ICON_CAREER_CARSHOP),entermenu("menu_career_carshop"),ICON(self,"icon_car_shop")),
 		MENUITEM(TRANSLATOR(ICON_CAREER_UPGRADESHOP),enterupgrade_check,ICON(self,"icon_upgrades")),
 	}
@@ -221,6 +220,9 @@ function menu_career.init(self)
 
 	local cup_active=false
 
+	categories=nil
+	menu_upgrade_categories.Categories=nil
+
 	if PlayerProfile:GetActiveCup() ~= 0 then
 		cup_active=true
 		GameFlow.PrepareCupFromProfile()
@@ -236,6 +238,9 @@ function menu_career.init(self)
 		GUI:SetCarPose(POSE_LEFT)
 	end
 
+	if not PlayerProfile:IsCareerWelcome1Displayed() then
+		MessageBox(TRANSLATOR(CAREER_WELCOME),MESSAGEBOX_OK,function() PlayerProfile:SetCareerWelcome1Displayed(true) end)
+	end
 
 	if cup_active then
 
@@ -268,9 +273,9 @@ function menu_career.init(self)
 
 			local id=GameFlow.GetPlayerIdByPosition(i)
 
-			if CupManager:IsCupPositionVisible(i) then
+			--//if CupManager:IsCupPositionVisible(i) then
 				StaticText{Title=ConvertToWString(string.format("%d.",i)),Position=POS(x+20,y+1),Align=FONTF_CENTER,Font=fontmedium(),Color=GetPaletteColor(33)}
-			end
+			--//end
 			StaticText{Title=GameFlow.GetPlayerName(id),Position=POS(x+35,y+1),Align=FONTF_LEFT,Font=fontmedium(),Color=GetPaletteColor(34)}
 			StaticText{Title=ConvertToWString(GameFlow.GetPlayerCupPoints(id)),Position=POS(555,y+1),Align=FONTF_CENTER,Font=fontsmall(),Color=GetPaletteColor(34)}
 
@@ -303,11 +308,11 @@ function menu_career.init(self)
 		for current_class=1,3 do
 			classes_completed[current_class]={}
 			classes_completed[current_class].num_completed=0
-			classes_completed[current_class].num_total=PlayerProfile:GetNumCups(current_class)-1
+			classes_completed[current_class].num_total=PlayerProfile:GetNumCups(current_class)
 
-			for i=1,PlayerProfile:GetNumCups(current_class)-1 do  --//-1 to exclude final cup
+			for i=1,PlayerProfile:GetNumCups(current_class) do 
 				local p=PlayerProfile:GetCupPosition(current_class,i)
-				if p > 0 and p < 4 then
+				if p > 0 and p <= 3 then
 					classes_completed[current_class].num_completed=classes_completed[current_class].num_completed+1
 				end
 			end
@@ -315,25 +320,25 @@ function menu_career.init(self)
 
 		local len=wm.GetTextWidth(TRANSLATOR(HEADER_DERBYCLASS),fontmedium())		
 		StaticText{Title=TRANSLATOR(HEADER_DERBYCLASS),Position=POS(325,123),Font=fontmedium(),Color=GetPaletteColor(33)}
-		StaticText{Position=POS(325+len+4,123),Title=ConvertToWString(string.format("%02d%%",(classes_completed[1].num_completed/classes_completed[1].num_total)*100)),Font=fontmedium(),Color=GetPaletteColor(34)}
+		StaticText{Position=POS(325+len+4,123),Title=ConvertToWString(string.format("%d%%",(classes_completed[1].num_completed/classes_completed[1].num_total)*100)),Font=fontmedium(),Color=GetPaletteColor(34)}
 
 		len=wm.GetTextWidth(TRANSLATOR(HEADER_RACINGCLASS),fontmedium())	
 		StaticText{Title=TRANSLATOR(HEADER_RACINGCLASS),Position=POS(332,144),Font=fontmedium(),Color=GetPaletteColor(33)}
-		StaticText{Position=POS(332+len+4,144),Title=ConvertToWString(string.format("%02d%%",(classes_completed[2].num_completed/classes_completed[2].num_total)*100)),Font=fontmedium(),Color=GetPaletteColor(34)}
+		StaticText{Position=POS(332+len+4,144),Title=ConvertToWString(string.format("%d%%",(classes_completed[2].num_completed/classes_completed[2].num_total)*100)),Font=fontmedium(),Color=GetPaletteColor(34)}
 
 		len=wm.GetTextWidth(TRANSLATOR(HEADER_STREETCLASS),fontmedium())	
 		StaticText{Title=TRANSLATOR(HEADER_STREETCLASS),Position=POS(339,165),Font=fontmedium(),Color=GetPaletteColor(33)}
-		StaticText{Position=POS(339+len+4,165),Title=ConvertToWString(string.format("%02d%%",(classes_completed[3].num_completed/classes_completed[3].num_total)*100)),Font=fontmedium(),Color=GetPaletteColor(34)}
+		StaticText{Position=POS(339+len+4,165),Title=ConvertToWString(string.format("%d%%",(classes_completed[3].num_completed/classes_completed[3].num_total)*100)),Font=fontmedium(),Color=GetPaletteColor(34)}
 
 		StaticText{Title=TRANSLATOR(HEADER_LASTCOMPLETEDCUP),Position=POS(353,199),Font=fontmedium(),Color=GetPaletteColor(33)}
 
 
 		local prevclass=PlayerProfile:GetPreviousRaceClass()
-		local prevclassname=L""
-		local prevsubclassname=L""
-		local prevthingiename=L""
+		local prevclassname
+		local prevsubclassname
+		local prevthingiename
 
-		if prevclass ~= 0 then
+		if prevclass > 0 and prevclass < 4 then
 			local prevsubclass=PlayerProfile:GetPreviousRaceSubClass()
 
 			local prevthingie=PlayerProfile:GetPreviousRaceCup()
@@ -363,25 +368,39 @@ function menu_career.init(self)
 				TRANSLATOR(SUBCLASS_FINALS),
 			}
 			
-			prevclassname=classnames[prevclass]
-			prevsubclassname=subclassnames[prevsubclass]
-			prevthingiename=ConvertToWString(Levels[cup_struct[previndex].Level].Name)
+			if cup_struct[previndex] and Levels[cup_struct[previndex].Level] then
+				prevclassname=classnames[prevclass]
+				prevsubclassname=subclassnames[prevsubclass]
+				prevthingiename=ConvertToWString(Levels[cup_struct[previndex].Level].Name)
+			else
+				prevclassname=classnames[4]
+				prevsubclassname=classnames[prevclass]
+				prevthingiename=subclassnames[4]
 
+				if not prevsubclassname then
+					prevsubclassname=classnames[4]
+					prevthingiename=classnames[4]
+				end
+			end
 		end
 
-		len=wm.GetTextWidth(TRANSLATOR(HEADER_CLASS),fontmedium())
-		StaticText{Title=TRANSLATOR(HEADER_CLASS),Position=POS(360,225),Font=fontmedium(),Color=GetPaletteColor(33)}
-		StaticText{Title=prevclassname,Position=POS(360+len+4,225),Font=fontmedium(),Color=GetPaletteColor(34)}
+		if prevclassname then
+			len=wm.GetTextWidth(TRANSLATOR(HEADER_CLASS),fontmedium())
+			StaticText{Title=TRANSLATOR(HEADER_CLASS),Position=POS(360,225),Font=fontmedium(),Color=GetPaletteColor(33)}
+			StaticText{Title=prevclassname,Position=POS(360+len+4,225),Font=fontmedium(),Color=GetPaletteColor(34)}
+		end
 
+		if prevsubclassname then
+			len=wm.GetTextWidth(TRANSLATOR(HEADER_LEVEL),fontmedium())
+			StaticText{Title=TRANSLATOR(HEADER_LEVEL),Position=POS(367,247),Font=fontmedium(),Color=GetPaletteColor(33)}
+			StaticText{Title=prevsubclassname,Position=POS(367+len+4,246),Font=fontmedium(),Color=GetPaletteColor(34)}
+		end
 
-		len=wm.GetTextWidth(TRANSLATOR(HEADER_LEVEL),fontmedium())
-		StaticText{Title=TRANSLATOR(HEADER_LEVEL),Position=POS(367,247),Font=fontmedium(),Color=GetPaletteColor(33)}
-		StaticText{Title=prevsubclassname,Position=POS(367+len+4,246),Font=fontmedium(),Color=GetPaletteColor(34)}
-
-
-		len=wm.GetTextWidth(TRANSLATOR(HEADER_CUP),fontmedium())
-		StaticText{Title=TRANSLATOR(HEADER_CUP),Position=POS(374,268),Font=fontmedium(),Color=GetPaletteColor(33)}
-		StaticText{Title=prevthingiename,Position=POS(374+len+4,268),Font=fontmedium(),Color=GetPaletteColor(34)}
+		if prevthingiename then
+			len=wm.GetTextWidth(TRANSLATOR(HEADER_CUP),fontmedium())
+			StaticText{Title=TRANSLATOR(HEADER_CUP),Position=POS(374,268),Font=fontmedium(),Color=GetPaletteColor(33)}
+			StaticText{Title=prevthingiename,Position=POS(374+len+4,268),Font=fontmedium(),Color=GetPaletteColor(34)}
+		end
 
 		GUI:SetBackground("data/menu/career_main_bg.tga")
 	end

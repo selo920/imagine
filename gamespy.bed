@@ -15,88 +15,8 @@ CableErrorMessageActive = false
 GameSpyErrorMessageActive = false
 InErrorState = false
 
-function OnlineOptionsCheckGameSpyErrors(inerrorstate)
-	local error
-	if GameSpyPresence.HasInstance() then
-		error = GameSpyPresence.GetLastError()
-	else
-		error = nil
-	end
-
-	if error == GameSpyPresence.GP_FORCED_DISCONNECT or error == GameSpyPresence.GP_CONNECTION_CLOSED then
-		if not GameSpyErrorMessageActive then
-			if CableErrorMessageActive then
-				CableErrorMessageActive = false
-			end
-
-			GameSpyErrorMessageActive = true
-			GUI:CloseMessageBox()
-			OptionsPopup.Destroy()
-		end
-		InErrorState = true
-		return true
-	elseif Network.CableDisconnected() then
-		if not InErrorState then
-			if GUI:IsMessageBoxActive() or wm.GetWindow("messagebox") ~= nil then
-				-- Things get confusing if we pop up the disconnect message when another message box is already active,
-				-- so don't show the dialog until the existing message box is closed
-				return
-			end
-			GameSpyErrorMessageActive = false
-			CableErrorMessageActive = true
-			MessageBox(
-				L"The network cable might be disconnected. Please check the cable and try again.",
-				MESSAGEBOX_OK,
-				function(value)
-					if value == TRUE then
-						OptionsPopup.Destroy()
-						CableErrorMessageActive = false
-						EnterMenu("menu_multiplayer_gamespy_disconnect")
-					end
-				end
-			)
-		end
-		InErrorState = true
-		return true
-	end
-	
-	if CableErrorMessageActive then
-		CableErrorMessageActive = false
-		GUI:CloseMessageBox()
-	end
-	
-	GameSpyErrorMessageActive = false
-	InErrorState = false
-	
-	return false
-end
-
 function CheckGameSpyErrors()
-	local error
-	if GameSpyPresence.HasInstance() then
-		error = GameSpyPresence.GetLastError()
-	else
-		error = nil
-	end
-
-	if error == GameSpyPresence.GP_FORCED_DISCONNECT or error == GameSpyPresence.GP_CONNECTION_CLOSED then
-		if CableErrorMessageActive then
-			CableErrorMessageActive = false
-		end
-		
-		GUI:CloseMessageBox()
-		HideMessageBox()
-		HideThinkingWindow()
-		
-		if MultiplayerWaitState then
-			FSM_init_state(MultiplayerWaitState)
-			MultiplayerWaitState=nil
-		end
-		
-		EnterMenu("menu_multiplayer_gamespy_error")
-		InErrorState = true
-		return true
-	elseif not NetworkConfiguration.IsCableConnected() then
+	if not NetworkConfiguration.IsCableConnected() then
 		if not InErrorState then
 			if GUI:IsMessageBoxActive() or wm.GetWindow("messagebox") ~= nil then
 				-- Things get confusing if we pop up the disconnect message when another message box is already active,
@@ -106,7 +26,7 @@ function CheckGameSpyErrors()
 			
 			CableErrorMessageActive = true
 			MessageBox(
-				L"The network cable might be disconnected. Please check the cable and try again.",
+				PS2_NET_CABLE_DISCONNECTED,
 				MESSAGEBOX_OK,
 				function(value)
 					if value == TRUE then
@@ -131,20 +51,15 @@ end
 local GameSpyAvailableFSM
 
 function EnterGameSpy()
-	if Network == nil then
-		StartNetworkConfiguration(true)
-	elseif not GameSpy.HasInstance() then
-		if CommandLine["-nodnas"] then
-			EnterMenu("menu_multiplayer_gamespy_checkavailability")
-		else
-			EnterMenu("menu_multiplayer_dnas")
-		end
-	elseif not GameSpyPresence.IsUserLoggedIn() then
-		EnterMenu("menu_multiplayer_gamespy_login")
+	StartNetwork()
+	
+	if NetworkConfiguration.IsAdapterPresent() then
+		EnterMenu("menu_checksavedevice_network")
 	else
-		EnterMenu("menu_multiplayer_gamespy")
+		MessageBox(GAMESPY_NETADAPTER_NOTCONNECTED, MESSAGEBOX_OK, function() end)
 	end
 end
+
 
 local Layout={
 	BoxPos=POS(21, 76),
@@ -168,6 +83,7 @@ local Controller=1
 
 local SigningOut
 local CurrentTime
+local CommandLineJoinOrCreateInProgress
 
 local function GetControllerId()
 	return Controller
@@ -175,7 +91,7 @@ end
 
 local function DoSignOut()
 	ShowThinkingWindow()
-	GUI:EnableOnlineOptionsMenu(false)
+	
 	SigningOut = true
 	
 	if Session ~= nil and Session:IsGameSpy() then
@@ -186,18 +102,12 @@ local function DoSignOut()
 	end
 
 	Network:StopMultiplayer()
-	if GameSpyPresence.HasInstance() then
-		GameSpyPresence.Logout()
-		Network:DeleteGameSpyPresence()
-	end
 	NetworkConfiguration.Disconnect()
 	if GameSpy.HasInstance() then
 		GameSpy.DeleteInstance()
 	end
 	
 	StopNetwork()
-	
-	GameSpyUpdateStatus()
 end
 
 menu_multiplayer_gamespy_disconnect = CreateMenuFromTemplate("template_basic")
@@ -215,7 +125,7 @@ local StartTime
 function menu_multiplayer_gamespy_disconnect.init(self)
 	self.parent:init(self)
 	
-	local w = StaticText { Title=L"Disconnecting from network...", Position=POS(320,230), Size=SIZE(640,20), Font=fontlarge(), Color=GetPaletteColor(34), Align=FONTF_CENTER }
+	local w = StaticText { Title=PS2_NET_DISCONNECTING, Position=POS(320,230), Size=SIZE(640,20), Font=fontlarge(), Color=GetPaletteColor(34), Align=FONTF_CENTER }
 
 	StartTime = nil
 	CurrentTime = 0
@@ -252,12 +162,12 @@ function menu_multiplayer_gamespy_disconnect.update(self, time)
 
 	if DiscoState == "READY" and time > StartTime + 2 then
 		HideThinkingWindow()
-		EnterMenu("menu_multiplayer")
+		EnterMenu("menu_mainmenu")
 	end	
 end
 
 local function SignOut()
-	MessageBox(AUTH_SIGNOUT, MESSAGEBOX_YESNO, function(value) if value == TRUE then DoSignOut() end end)
+	MessageBox(GAMESPY_LOGOUT, MESSAGEBOX_YESNO, function(value) if value == TRUE then DoSignOut() end end)
 end
 
 menu_multiplayer_gamespy = CreateMenuFromTemplate("template_multiplayer")
@@ -275,37 +185,72 @@ function menu_multiplayer_gamespy.create(self)
 
 	self:loadResources()
 
-	self.items = {
-		{ ICON_GAMESPY_QUICKRACE, entermenu("menu_gamespy_quickmatch"), ICON(self,"icon_quickmatch")},
-		{ ICON_GAMESPY_FINDGAMES, function() EnterOptimatchMenu("menu_multiplayer_gamespy") end, ICON(self,"icon_xbl_optimatch")},
-		{ ICON_GAMESPY_CREATEGAME, function() EnterCreateGameMenu("menu_multiplayer_gamespy") end, ICON(self,"icon_xbl_create_game")},
-		{ ICON_GAMESPY_PLAYERS, function() OptionsPopup.Create(); EnterPlayersList(MODE_PLAYERS, 1, function() OptionsPopup.Destroy(); EnterMenu("menu_multiplayer_gamespy"); end) end, ICON(self,"icon_xbl_recent_players")},
-		{ ICON_GAMESPY_SCOREBOARDS, entermenu("menu_multiplayer_scoreboards"), ICON(self,"icon_scoreboards")},
-		{ ICON_GAMESPY_BUDDIES, function() OptionsPopup.Create(); EnterPlayersList(MODE_FRIENDS, 1, function() OptionsPopup.Destroy(); EnterMenu("menu_multiplayer_gamespy"); end) end, ICON(self,"icon_xbl_friends")},
-		{ ICON_GAMESPY_LOGOUT, function() SignOut() end, ICON(self,"icon_xbl_logout")}
-	}
+	if not CommandLine["-host"] and not CommandLine["-join"] then
+		self.items = {
+			{ ICON_GAMESPY_QUICKRACE, entermenu("menu_gamespy_quickmatch"), ICON(self,"icon_quickmatch")},
+			{ ICON_GAMESPY_FINDGAMES, function() EnterOptimatchMenu("menu_multiplayer_gamespy") end, ICON(self,"icon_xbl_optimatch")},
+			{ ICON_GAMESPY_CREATEGAME, function() EnterCreateGameMenu("menu_multiplayer_gamespy") end, ICON(self,"icon_xbl_create_game")},
+		}
+		
+		if PS2 then
+			table.insert(self.items, { ICON_GAMESPY_LOGOUT, function() SignOut() end, ICON(self,"icon_xbl_logout") } )
+		end
+	end
 end
 
 function menu_multiplayer_gamespy.init(self)
 	self.parent:init(self)
+
+	GUI:SetBackgroundVideo("data/video/bg_main")
+	
+	--GameSpy.GetPlayersList():SetUserIndex(GUI:GetLastActiveController())
 	
 	SigningOut = false
 	CurrentTime = 0
+	StartTime = nil
 
-	if Session ~= nil and Session:IsGameSpy() then
+	Network:StopMultiplayer()
+	CommandLineJoinOrCreateInProgress=false
+	if CommandLine["-host"] or CommandLine["-join"]  then
+		ShowThinkingWindow()
+		GUI:SetHelpButtons()
+	end
+	
+--[[	if Session ~= nil and Session:IsGameSpy() then
 		GameSpy:StopUpdate()
 		Session:DeleteSession()
 		GameSpy:ResumeUpdate()
-	end
+	end--]]
 end
 	
 	
 function menu_multiplayer_gamespy.deinit(self)
 	self.parent:deinit(self)
+	GUI:SetMenuController(0)
 end
 	
 function menu_multiplayer_gamespy.update(self, time)
 	self.parent:update(self, time)
+	
+	if StartTime == nil then
+		StartTime = time
+	end	
+	
+	
+	if not GUI:IsMenuAnimating() and not CommandLineJoinOrCreateInProgress and ( CommandLine["-host"] or CommandLine["-join"] )  then
+		if CreateGameFromCommandLine then
+			CreateSessionFromCommandLine("menu_lan_modeselect")
+		elseif JoinGameFromCommandLine then
+			JoinSessionFromCommandLine()
+		else
+			Event:PostEvent(event(EVENT_QUIT))
+		end
+		CommandLineJoinOrCreateInProgress=true
+		CreateGameFromCommandLine = false
+		JoinGameFromCommandLine = false
+	elseif CommandLineJoinOrCreateInProgress then 
+		UpdateJoinSessionFromCommandLine(time-StartTime)	
+	end
 
 	if menu_multiplayer_gamespy.error then
 		return
@@ -323,7 +268,7 @@ function menu_multiplayer_gamespy.update(self, time)
 			SigningOut = false
 			HideThinkingWindow()
 			StopNetwork()
-			EnterMenu("menu_multiplayer")
+			EnterMenu("menu_mainmenu")
 		end
 	end
 end
@@ -337,37 +282,157 @@ function menu_multiplayer_gamespy.starthide(self)
 	self.parent:starthide(self)
 end
 
-function GameSpyUpdateStatus()
-	return
---[[	if GameSpyPresence.HasInstance() and GameSpyPresence.IsUserLoggedIn() then
-		GUI:SetStatusText(WStringConcat(AUTH_SIGNEDIN, L(GameSpyPresence.GetAccountProfileName())))
-	else
-		GUI:SetStatusText(AUTH_NOTSIGNEDIN)
-	end--]]
-end
+--
+-- GAMESPY AVAILABILITY CHECK
+--
 
-menu_multiplayer_gamespy_error = CreateMenuFromTemplate("template_basic")
-menu_multiplayer_gamespy_error.options.title = L"ERROR"
-menu_multiplayer_gamespy_error.back = function()EnterMenu("menu_multiplayer")end
+menu_multiplayer_gamespy_checkavailability = CreateMenuFromTemplate("template_multiplayer")
+menu_multiplayer_gamespy_checkavailability.options.title = GAMESPY_AVAILABILITY_CHECK
 
-function menu_multiplayer_gamespy_error.create(self)
+local StartTime
+local PrevTime
+
+function menu_multiplayer_gamespy_checkavailability.create(self)
 	self.parent:create(self)
-	self:loadResources()
-	items = { }
-end
 	
-function menu_multiplayer_gamespy_error.init(self)
+	self:loadResources()
+	
+	self.items = { }
+end
+
+function menu_multiplayer_gamespy_checkavailability.init(self)
 	self.parent:init(self)
 
-	GUI:SetMenuController(0)
-	local error = GameSpyPresence.GetLastError()
-	if error == GameSpyPresence.GP_FORCED_DISCONNECT then
-		MessageBox(L"GP_FORCED_DISCONNECT", MESSAGEBOX_OK, function(value) EnterMenu("menu_multiplayer_gamespy_disconnect") end)
-	elseif error == GameSpyPresence.GP_CONNECTION_CLOSED then
-		MessageBox(L"GP_CONNECTION_CLOSED", MESSAGEBOX_OK, function(value) EnterMenu("menu_multiplayer_gamespy_disconnect") end)
-	end
-end
+	GUI:SetBackgroundVideo("data/video/bg_main")
+
+	local w = StaticText { Title=GAMESPY_SEARCHING, Position=POS(320,230), Size=SIZE(640,20), Font=fontlarge(), Color=GetPaletteColor(34), Align=FONTF_CENTER }
+	ShowThinkingWindow()
+	GameSpy.CreateInstance()
+	GameSpy.StartAvailableCheck()
+
+	StartTime = nil
+	PrevTime = nil
+
+	State = "GAMESPY"
 	
-function menu_multiplayer_gamespy_error.deinit(self)
+	local handler = InputHandler{}
+	handler.onKeyPressed=function(Self, Character, VirtualKey, ScanCode)
+		if GUI:IsMenuAnimating() then
+			return
+		end
+		
+		if VirtualKey == KeyCodes["BUTTON_SELECT"] then
+			handler:HideWindow()
+			HideThinkingWindow()
+--			State = "IDLE"
+			GameSpy.CancelAvailableCheck()
+			GameSpy.DeleteInstance()
+			if PS2 then
+				NetworkConfiguration.Disconnect()
+				State = "DISCONNECT"
+			else
+				EnterMenu("menu_multiplayer")
+				State = "IDLE"
+			end
+		end
+	end
+	handler:SetFocus()
+	GUI:SetHelpButtons(BUTTON_BACK, UI_BACK)
+end
+
+function menu_multiplayer_gamespy_checkavailability.deinit(self)
 	self.parent:deinit(self)
+end
+
+function menu_multiplayer_gamespy_checkavailability.update(self,time)
+	self.parent:update(self,time)
+
+	if menu_multiplayer_gamespy_checkavailability.error and State ~= "DISCONNECT" then
+		return
+	end
+	
+	if StartTime == nil then
+		StartTime = time
+	end
+	
+	if State == "GAMESPY" then
+		if GameSpy.IsAvailableCheckReady() then
+			if GameSpy.NetworkError() then
+				State = "ERROR"
+				HideThinkingWindow()
+				MessageBox(
+					GENERIC_NETWORK_ERROR,
+					MESSAGEBOX_OK,
+					function(value)
+						if PS2 then
+							ShowThinkingWindow()
+							State = "DISCONNECT"
+							NetworkConfiguration.Disconnect()
+							GameSpy.DeleteInstance()
+						else
+							GameSpy.DeleteInstance()
+							EnterMenu("menu_mainmenu")
+						end
+					end
+				)
+			elseif GameSpy.IsTemporaryUnavailable() then
+				State = "ERROR"
+				HideThinkingWindow()
+				MessageBox(
+					GAMESPY_NOT_AVAILABLE,
+					MESSAGEBOX_OK,
+					function(value)
+						if PS2 then
+							ShowThinkingWindow()
+							State = "DISCONNECT"
+							NetworkConfiguration.Disconnect()
+							GameSpy.DeleteInstance()
+						else
+							GameSpy.DeleteInstance()
+							EnterMenu("menu_mainmenu")
+						end
+					end
+				)
+			elseif not GameSpy.IsAvailable() then
+				State = "ERROR"
+				HideThinkingWindow()
+				MessageBox(
+					GAMESPY_ONLINE_SUPPORT,
+					MESSAGEBOX_OK,
+					function(value)
+						if PS2 then
+							ShowThinkingWindow()
+							State = "DISCONNECT"
+							NetworkConfiguration.Disconnect()
+							GameSpy.DeleteInstance()
+						else
+							GameSpy.DeleteInstance()
+							EnterMenu("menu_mainmenu")
+						end
+					end
+				)
+			else
+				State = "READY"
+			end
+		end
+	elseif State == "DISCONNECT" then
+		if PrevTime == nil then
+			PrevTime = time
+		end
+		local dt = time - PrevTime
+		PrevTime = time
+		
+		local res = NetworkConfiguration.Update(dt*1000)
+		if res ~= NetworkConfiguration.RES_WAITING then
+			State = "IDLE"
+			HideThinkingWindow()
+			StopNetwork()
+			EnterMenu("menu_multiplayer_networkconfig")
+		end	
+	end
+	
+	if State == "READY" and time > StartTime + 2 then
+		HideThinkingWindow()
+		EnterMenu("menu_multiplayer_gamespy")
+	end	
 end

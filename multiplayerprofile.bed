@@ -20,9 +20,11 @@ local ModeWindows = { }
 local UpdateProfileFSM
 
 local BackAction
+local AddToFriendsEnabled
 local ProfileDataUpdated
 local ShowMultiPlayerProfileUI
 local HideMultiPlayerProfile
+local EventListener
 
 local PROFILE = 1
 local COMPARE = 2
@@ -43,40 +45,42 @@ local Layout = {
 	TitleSize = SIZE(400,22),
 	
 	TitleFont = fontlarge(),
-	TitleFontColor = GetPaletteColor(3),
+	TitleFontColor = GetPaletteColor(33),
 	
-	WinsTitlePos = POS(320-41,200-29),
-	WinsTitleFont = fontsmall(),
-	WinsTitleFontColor = GetPaletteColor(3),
+	WinsTitlePos = POS(320-41,178-29),
+	WinsTitleFont = fontmedium(),
+	WinsTitleFontColor = GetPaletteColor(33),
 	
-	GeneralLabels1Pos = POS(235-41,89-29),
-	GeneralLabels2Pos = POS(448-41,89-29),
+	GeneralLabels1Pos = POS(245-41,89-29),
+	GeneralLabels2Pos = POS(488-41,89-29),
 	GeneralRowHeight = 22,
 	
-	RankIconPos = POS(266-41, 89-29),
-	RatingPos = POS(296-41, 89),
+	RankIconPos = POS(260-41, 89-29),
+	RankTextPos = POS(274-41, 89-29),
+	RankFont = wm.GetResource("FontRank"),
+	RankColor = GetPaletteColor(0),
 	
-	WinsLabels1Pos = POS(235-41, 221-29),
-	WinsLabels2Pos = POS(235-41, 297-29),
-	WinsLabels3Pos = POS(448-41, 221-29),
-	WinsLabels4Pos = POS(448-41, 297-29),
+	WinsLabels1Pos = POS(245-41, 221-29),
+	WinsLabels2Pos = POS(245-41, 253-29),
+	WinsLabels3Pos = POS(488-41, 221-29),
+	WinsLabels4Pos = POS(488-41, 253-29),
 	WinsRowHeight = 16,
 	
-	LabelFont = fontsmall(),
-	LabelFontColor = GetPaletteColor(1),
+	LabelFont = fontmedium(),
+	LabelFontColor = GetPaletteColor(33),
 	LabelSize = SIZE(200, 13),
 	
-	ValueFontColor = GetPaletteColor(4),
+	ValueFontColor = GetPaletteColor(34),
 	ValueSize = SIZE(200, 13),
 }
 
 local LayoutC = 
 {
-	Flag1Pos = POS(256-41,53-29),
-	Flag2Pos = POS(475-41,53-29),
+	Flag1Pos = POS(314-41,53-29),
+	Flag2Pos = POS(465-41,53-29),
 
-	Title1Pos = POS(256-41,71-29),
-	Title2Pos = POS(475-41,71-29),
+	Title1Pos = POS(314-41,71-29),
+	Title2Pos = POS(465-41,71-29),
 	
 	CompareFramePos = POS(62-41,102-29),
 	CompareFrameSize = SIZE(495,302),
@@ -85,14 +89,14 @@ local LayoutC =
 	ScrollDownArrowPos = POS(576-41,396-29),
 	
 	RankRowHeight = 22,
-	LabelsPos = POS(167-62, 0),
-	RankIcon1Pos = POS(248-62, -4),
-	RankIcon2Pos = POS(466-62, -4),
-	Rating1Pos = POS(278-62, 0),
-	Rating2Pos = POS(496-62, 0),
-	Value1Left = 225-62,
+	LabelsPos = POS(245-62, 0),
+	RankIcon1Pos = POS(298-62, -4),
+	RankText1Pos = POS(312-62, -4),
+	RankIcon2Pos = POS(449-62, -4),
+	RankText2Pos = POS(463-62, -4),
+	Value1Left = 293-62,
 	Value2Left = 444-62,
-	WinsTitle1Left = 240-62,
+	WinsTitle1Left = 308-62,
 	WinsTitle2Left = 460-62,
 	WinsRowHeight = 16,
 }
@@ -101,20 +105,16 @@ local GeneralLabels1 = {
 	MULTIPLAYER_PROFILE_RACINGRANK,
 	MULTIPLAYER_PROFILE_DERBYRANK,
 	MULTIPLAYER_PROFILE_STUNTRANK,
-	MULTIPLAYER_PROFILE_MIXEDRANK,
 }
 
 local GeneralLabels2 = {
-	MULTIPLAYER_PROFILE_TIMEPLAYED,
-	MULTIPLAYER_PROFILE_FAVORITECAR,
+	--MULTIPLAYER_PROFILE_TIMEPLAYED,
 	MULTIPLAYER_PROFILE_CARSWRECKED,
 	MULTIPLAYER_PROFILE_DISCONNECTS
 }
 
 local WinsLabels1 = {
 	MULTIPLAYER_GAMEMODE_RACE,
-	MULTIPLAYER_GAMEMODE_PONGRACE,
-	MULTIPLAYER_GAMEMODE_WRECKINGDERBY,
 }
 
 local WinsLabels2 = {
@@ -127,9 +127,7 @@ local WinsLabels2 = {
 }
 
 local WinsLabels3 = {
-	MULTIPLAYER_GAMEMODE_SURVIVORDERBY,
-	MULTIPLAYER_GAMEMODE_FRAGDERBY,
-	MULTIPLAYER_GAMEMODE_TAG,
+	MULTIPLAYER_GAMEMODE_WRECKINGDERBY,
 }
 
 local WinsLabels4 = {
@@ -146,6 +144,7 @@ HideMultiPlayerProfile = function()
 	wm.RemoveWindow(wm.GetWindow("pp_contentbox2"))
 	Profile=nil
 	FSM_init_state(UpdateProfileFSM)
+	UpdateProfileFSM:Remove()
 	UpdateProfileFSM=nil
 end
 
@@ -187,9 +186,54 @@ local function ClipWindows()
 		__,h = w:GetSize()
 		if wy + y < LayoutC.CompareFramePos[2] or wy + h + y > LayoutC.CompareFramePos[2] + LayoutC.CompareFrameSize[2] then
 			w:HideWindow()
-		else
+		elseif not w.DontShow then
 			w:ShowWindow()
 		end
+	end
+end
+
+local function ProfileEvents(event)
+	if event.id == EVENT_FRIEND_REQUEST_COMPLETE then
+		Event:RemoveListener(EventListener)
+		HideThinkingWindow()
+		if event.data == Friends.FRR_SUCCESS then
+			wm.GetWindow("pp_inputhandler"):SetFocus()
+		else
+			local msg = L""
+			if event.data == Friends.FRR_SELF then
+				msg = LIVE_IMAGINARY_FRIEND
+--			elseif event.data == Friends.FRR_LIST_FULL then
+--				msg = L"UNABLE TO ADD THE SPECIFIED FRIEND SINCE YOUR FRIENDS LIST IS FULL."
+			elseif event.data == Friends.FRR_USER_NOT_FOUND then
+				msg = WStringConcat(MULTIPLAYER_PLAYER, L" ")
+				msg = WStringConcat(msg, wm.GetTextInput())
+				msg = WStringConcat(msg, L" ")
+				msg = WStringConcat(msg, MULTIPLAYER_WASNOTFOUND)
+			end
+			MessageBox(msg, MESSAGEBOX_OK,
+				function()
+					wm.GetWindow("pp_inputhandler"):SetFocus()
+				end
+			)
+		end
+	end
+end
+
+local function UpdateHelpButtons()
+	local addfriend = nil
+	local compare = nil
+	
+	if XBoxLive.Auth.GetSignedInUserId(1) ~= UserId then
+		compare = UI_COMPARE
+		if AddToFriendsEnabled then
+			addfriend = ICON_LIVE_ADDFRIEND
+		end
+	end
+
+	if Mode == PROFILE then
+		OptionsPopup.SetHelpButtons(UI_BACK, nil, compare, addfriend)
+	else
+		OptionsPopup.SetHelpButtons(UI_BACK, nil, UI_PROFILE, addfriend)
 	end
 end
 
@@ -203,8 +247,18 @@ ShowMultiPlayerProfileUI = function()
 	ModeWindows[COMPARE] = contentbox2
 	
 	OptionsPopup.SetMenuTitle(TITLE_MULTIPLAYER_PLAYERPROFILE)
-	
-	OptionsPopup.SetHelpButtons(UI_BACK, nil, UI_COMPARE)
+
+	AddToFriendsEnabled = false
+	Mode = PROFILE
+
+	if XBoxLive.Auth.GetSignedInUserId(1) == UserId then
+		OptionsPopup.SetHelpButtons(UI_BACK)
+	else
+		if Friends.IsResultsReady() and Friends.GetNumFriends() < 100 and Friends.GetFriendByUserId(UserId) == nil then
+			AddToFriendsEnabled = true
+		end
+		UpdateHelpButtons()
+	end
 
 	-- Profile	
 	local flagiconsize = SIZE(32,16)
@@ -216,15 +270,17 @@ ShowMultiPlayerProfileUI = function()
 	win = StaticText { Name="pp_winstitle", Title=MULTIPLAYER_PROFILE_WINS, Position=Layout.WinsTitlePos, Size=Layout.LabelSize, Font=Layout.WinsTitleFont, Color=Layout.WinsTitleFontColor, Align=FONTF_CENTER, Layer=5, Parent=contentbox1 }
 	w,h = wm.GetTextExtents(win:GetTitle(), Layout.WinsTitleFont)
 	Frame { Name="pp_div_1", Position=POS(50,Layout.WinsTitlePos[2]+h/2), Size=SIZE(Layout.WinsTitlePos[1]-w/2-50-10, 1), Color=GetPaletteColor(1), DrawBackgroundColor=TRUE, Layer=5, Parent=contentbox1 }
-	Frame { Name="pp_div_2", Position=POS(Layout.WinsTitlePos[1]+w,Layout.WinsTitlePos[2]+h/2), Size=SIZE(Layout.WinsTitlePos[1]-w/2-50-10, 1), Color=GetPaletteColor(1), DrawBackgroundColor=TRUE, Layer=5, Parent=contentbox1 }
+	Frame { Name="pp_div_2", Position=POS(Layout.WinsTitlePos[1]+w/2+12,Layout.WinsTitlePos[2]+h/2), Size=SIZE(Layout.WinsTitlePos[1]-w/2-50-10, 1), Color=GetPaletteColor(1), DrawBackgroundColor=TRUE, Layer=5, Parent=contentbox1 }
 	
 	CreateLabels(Layout.GeneralLabels1Pos, Layout.GeneralRowHeight, GeneralLabels1, "pp_general1", contentbox1)
-	
-	local rankiconsize = wm.GetResourceSize("rank_icon_1")
+
+	local rankicon = wm.GetResource("rank_value_bottom")
+	local rankiconsize = wm.GetResourceSize(rankicon)
 	local y = Layout.RankIconPos[2]
 	for i = 1, table.getn(GeneralLabels1) do
-		Frame { Name="pp_rankicon_1_"..i, Position=POS(Layout.RankIconPos[1], y), Size=rankiconsize, Layer=5, Parent=contentbox1 }
-		StaticText { Name="pp_rating_1_"..i, Position=POS(Layout.RatingPos[1], y), Size=Layout.LabelSize, Font=Layout.LabelFont, Color=Layout.ValueFontColor, Layer=5, Parent=contentbox1 }
+		win = Frame { Name="pp_rankicon_1_"..i, Position=POS(Layout.RankIconPos[1], y), Size=rankiconsize, Layer=5, Parent=contentbox1 }:AttachResource(rankicon)
+		win:HideWindow()
+		StaticText { Name="pp_ranktext_1_"..i, Position=POS(Layout.RankTextPos[1], y+1), Size=Layout.LabelSize, Font=Layout.RankFont, Color=Layout.RankColor, Layer=5, Align=FONTF_CENTER, Parent=contentbox1 }
 		y = y + Layout.GeneralRowHeight
 	end
 	
@@ -241,17 +297,13 @@ ShowMultiPlayerProfileUI = function()
 	local flagicon2 = Frame { Name="ppc_flagicon2", Position=LayoutC.Flag2Pos, Size=flagiconsize, Layer=5, Parent=contentbox2 }
 
 	win = StaticText { Position=LayoutC.Title1Pos, Size=Layout.LabelSize, Font=Layout.LabelFont, Color=Layout.TitleFontColor, Align=FONTF_CENTER, Layer=5, Parent=contentbox2 }
-	if XBOX then
-		win:SetTitle(XBoxLive.Auth.GetSignedInUserName(1))
-	else
-		win:SetTitle(L(GameSpyPresence.GetProfileUniqueNick()))
-	end
+	win:SetTitle(TRANSLATOR(MULTIPLAYER_PROFILE_YOU))
 	StaticText { Title=PlayerName, Position=LayoutC.Title2Pos, Size=Layout.LabelSize, Font=Layout.LabelFont, Color=Layout.TitleFontColor, Align=FONTF_CENTER, Layer=5, Parent=contentbox2 }
 
-	local arrowsize = wm.GetResourceSize("scroll_arrow_up")
-	win = Frame { Name="ppc_scrollup", Position=LayoutC.ScrollUpArrowPos, Size=arrowsize, Layer=5, Parent=contentbox2 }:AttachResource(wm.GetResource("scroll_arrow_up"))
+	local arrowsize = wm.GetResourceSize("scroll_arrow_orange_up")
+	win = Frame { Name="ppc_scrollup", Position=LayoutC.ScrollUpArrowPos, Size=arrowsize, Layer=5, Parent=contentbox2 }:AttachResource(wm.GetResource("scroll_arrow_orange_up"))
 	win:HideWindow()
-	Frame { Name="ppc_scrolldown", Position=LayoutC.ScrollDownArrowPos, Size=arrowsize, Layer=5, Parent=contentbox2 }:AttachResource(wm.GetResource("scroll_arrow_down"))
+	Frame { Name="ppc_scrolldown", Position=LayoutC.ScrollDownArrowPos, Size=arrowsize, Layer=5, Parent=contentbox2 }:AttachResource(wm.GetResource("scroll_arrow_orange_down"))
 
 	local compareFrame = Frame { Name="ppc_compareframe", Position=LayoutC.CompareFramePos, Size=LayoutC.CompareFrameSize, Layer=5, Parent=contentbox2 }
 	
@@ -260,13 +312,17 @@ ShowMultiPlayerProfileUI = function()
 	
 	local y = LayoutC.LabelsPos[2]
 	for i = 1, table.getn(GeneralLabels1) do
-		win = Frame { Name="ppc_rankicon_1_"..i, Position=POS(LayoutC.RankIcon1Pos[1], y), Size=rankiconsize, Layer=5, Parent=compareFrame }
+		win = Frame { Name="ppc_rankicon_1_"..i, Position=POS(LayoutC.RankIcon1Pos[1], y), Size=rankiconsize, Layer=5, Parent=compareFrame }:AttachResource(rankicon)
+		win:HideWindow()
+		win.DontShow = true
 		AddWindow(win)
-		win = Frame { Name="ppc_rankicon_2_"..i, Position=POS(LayoutC.RankIcon2Pos[1], y), Size=rankiconsize, Layer=5, Parent=compareFrame }
+		win = StaticText { Name="ppc_ranktext_1_"..i, Position=POS(LayoutC.RankText1Pos[1], y+1), Size=Layout.LabelSize, Font=Layout.RankFont, Color=Layout.RankColor, Layer=5, Align=FONTF_CENTER, Parent=compareFrame }
 		AddWindow(win)
-		win = StaticText { Name="ppc_rating_1_"..i, Position=POS(LayoutC.Rating1Pos[1], y), Size=Layout.LabelSize, Font=Layout.LabelFont, Color=Layout.ValueFontColor, Layer=5, Parent=compareFrame }
+		win = Frame { Name="ppc_rankicon_2_"..i, Position=POS(LayoutC.RankIcon2Pos[1], y), Size=rankiconsize, Layer=5, Parent=compareFrame }:AttachResource(rankicon)
+		win:HideWindow()
+		win.DontShow = true
 		AddWindow(win)
-		win = StaticText { Name="ppc_rating_2_"..i, Position=POS(LayoutC.Rating2Pos[1], y), Size=Layout.LabelSize, Font=Layout.LabelFont, Color=Layout.ValueFontColor, Layer=5, Parent=compareFrame }
+		win = StaticText { Name="ppc_ranktext_2_"..i, Position=POS(LayoutC.RankText2Pos[1], y+1), Size=Layout.LabelSize, Font=Layout.RankFont, Color=Layout.RankColor, Layer=5, Align=FONTF_CENTER, Parent=compareFrame }
 		AddWindow(win)
 		y = y + LayoutC.RankRowHeight
 	end
@@ -281,7 +337,7 @@ ShowMultiPlayerProfileUI = function()
 	win = StaticText { Name="ppc_winstitle_1", Title=MULTIPLAYER_PROFILE_WINS, Position=POS(LayoutC.WinsTitle1Left,y), Size=Layout.LabelSize, Font=Layout.WinsTitleFont, Color=Layout.WinsTitleFontColor, Align=FONTF_CENTER, Layer=5, Parent=compareFrame }
 	AddWindow(win)
 	local w1,h = wm.GetTextExtents(win:GetTitle(), Layout.WinsTitleFont)
-	win = StaticText { Name="ppc_winstitle_2", Title=L"WINS", Position=POS(LayoutC.WinsTitle2Left,y), Size=Layout.LabelSize, Font=Layout.WinsTitleFont, Color=Layout.WinsTitleFontColor, Align=FONTF_CENTER, Layer=5, Parent=compareFrame }
+	win = StaticText { Name="ppc_winstitle_2", Title=MULTIPLAYER_PROFILE_WINS, Position=POS(LayoutC.WinsTitle2Left,y), Size=Layout.LabelSize, Font=Layout.WinsTitleFont, Color=Layout.WinsTitleFontColor, Align=FONTF_CENTER, Layer=5, Parent=compareFrame }
 	AddWindow(win)
 	local w2,_ = wm.GetTextExtents(win:GetTitle(), Layout.WinsTitleFont)
 	
@@ -306,67 +362,86 @@ ShowMultiPlayerProfileUI = function()
 
 	ClipWindows()
 
-	Mode = PROFILE
 	ModeWindows[COMPARE]:HideWindow()
 	
 	local handler=InputHandler { Name="pp_inputhandler", Parent=contentbox1 }
 	handler.onKeyPressed = function(Self, Character, VirtualKey, ScanCode)
 		if VirtualKey == KeyCodes["BUTTON_SELECT"] then
-			HideMultiPlayerProfile()
 			BackAction()
+			playmenusound_back()
 		elseif VirtualKey == KeyCodes["BUTTON_Y"] then
-			ModeWindows[Mode]:HideWindow()
-			if Mode == PROFILE then
-				Mode = COMPARE
-				OptionsPopup.SetHelpButtons(UI_BACK, nil, UI_PROFILE)
-			else
-				Mode = PROFILE
-				OptionsPopup.SetHelpButtons(UI_BACK, nil, UI_COMPARE)
+			if XBoxLive.Auth.GetSignedInUserId(1) ~= UserId then
+				ModeWindows[Mode]:HideWindow()
+				if Mode == PROFILE then
+					Mode = COMPARE
+					UpdateHelpButtons()
+				else
+					Mode = PROFILE
+					UpdateHelpButtons()
+				end
+				ModeWindows[Mode]:ShowWindow()
+				playmenusound_action()
 			end
-			ModeWindows[Mode]:ShowWindow()
+		elseif VirtualKey == KeyCodes["BUTTON_X"] then
+			if AddToFriendsEnabled then
+				local localVoicePlayer = Network:GetVoiceManager():GetPlayerByPort(ControllerId)
+				if XBOX and localVoicePlayer:GetHeadsetConnected() and not localVoicePlayer:IsVoiceBanned() then
+					local msg = WStringConcat(TRANSLATOR(LIVE_ADDFRIEND_VOICEMESSAGE), L" ")
+					msg = WStringConcat(msg, PlayerName)
+					msg = WStringConcat(msg, L"?")
+					
+					MessageBox(
+						msg,
+						MESSAGEBOX_YESNO,
+						function(value)
+							if value == TRUE then
+								HideMultiPlayerProfile()
+								ControllerId = XBoxLive.Auth.GetSignedInUserPort(1)
+								SendVoiceRequestByName(ConvertFromWString(PlayerName), function() EnterMultiPlayerProfile(PlayerName, UserId, BackAction) end)
+							else
+								AddToFriendsEnabled = false
+								UpdateHelpButtons()
+								ShowThinkingWindow()
+								EventListener = Event:AddListener(ProfileEvents, EVENTTYPE_NETWORK)
+								Friends.SendRequest(ConvertFromWString(PlayerName))
+							end
+						end
+					)
+				else
+					AddToFriendsEnabled = false
+					UpdateHelpButtons()
+					ShowThinkingWindow()
+					EventListener = Event:AddListener(ProfileEvents, EVENTTYPE_NETWORK)
+					Friends.SendRequest(ConvertFromWString(PlayerName))
+				end
+			end
 		elseif Mode == COMPARE then
 			if VirtualKey == KeyCodes["BUTTON_UP"] then
 				local x,y = wm.GetWindow("ppc_compareframe"):GetPosition()
 				local _,h = wm.GetWindow("ppc_compareframe"):GetSize()
 				
-				if y < winsrowy then
-					y = y + LayoutC.RankRowHeight
-				else
-					y = y + LayoutC.WinsRowHeight
-				end
-				
-				if y >= LayoutC.CompareFramePos[2] then
-					y = LayoutC.CompareFramePos[2]
-					wm.GetWindow("ppc_scrollup"):HideWindow()
-				end
+				y = LayoutC.CompareFramePos[2]
+				wm.GetWindow("ppc_scrollup"):HideWindow()
 				wm.GetWindow("ppc_scrolldown"):ShowWindow()
 				wm.GetWindow("ppc_compareframe"):SetPosition(x, y)
 				
 				ClipWindows()
+				playmenusound_move()
 			elseif VirtualKey == KeyCodes["BUTTON_DOWN"] then
 				local x,y = wm.GetWindow("ppc_compareframe"):GetPosition()
 				local _,h = wm.GetWindow("ppc_compareframe"):GetSize()
 
-				if y <= winsrowy then
-					y = y - LayoutC.RankRowHeight
-				else
-					y = y - LayoutC.WinsRowHeight
-				end
-
-				if y <= LayoutC.CompareFramePos[2] + LayoutC.CompareFrameSize[2] - h then
-					y = LayoutC.CompareFramePos[2] + LayoutC.CompareFrameSize[2] - h
-					wm.GetWindow("ppc_scrolldown"):HideWindow()
-				end
+				y = LayoutC.CompareFramePos[2] + LayoutC.CompareFrameSize[2] - h
+				wm.GetWindow("ppc_scrolldown"):HideWindow()
 				wm.GetWindow("ppc_scrollup"):ShowWindow()
 				wm.GetWindow("ppc_compareframe"):SetPosition(x, y)
 				
 				ClipWindows()
+				playmenusound_move()
 			end
 		end
 	end
 
---	handler:SetFocus()
-	
 	ProfileDataUpdated = false
 
 	Profile=MultiplayerProfile{1, UserId}
@@ -383,11 +458,15 @@ end
 local PrevTime=nil
 
 local function SetRaceStat(winname, wins, started)
-	if wins and started then
-		wm.GetWindow(winname):SetTitle(L(wins.." / "..started))
-	else
-		wm.GetWindow(winname):SetTitle(L"0 / 0")
+	if wins==nil then
+		wins=0
 	end
+	
+	if started==nil then
+		started=0
+	end
+	
+	wm.GetWindow(winname):SetTitle(L(wins.." / "..started))
 end
 
 local function V(value)
@@ -400,21 +479,21 @@ end
 
 local function GetWinsTitle(profile)
 	local numstarted =
-		V(profile.NumNormalRacesStarted) + V(profile.NumPongRacesStarted) +
-		V(profile.NumWreckingDerbiesStarted) + V(profile.NumSurvivorDerbiesStarted) + V(profile.NumFragDerbiesStarted) + V(profile.NumTagsStarted) + 
+		V(profile.NumNormalRacesStarted) +
+		V(profile.NumWreckingDerbiesStarted) + 
 		V(profile.NumBowlingStarted) + V(profile.NumFieldGoalStarted) + V(profile.NumSoccerStarted) + V(profile.NumCurlingStarted) +
 		V(profile.NumHighJumpStarted) + V(profile.NumStoneSkippingStarted) + V(profile.NumDartsStarted) + V(profile.NumBlackDannyStarted) +
 		V(profile.NumSkiJumpStarted) + V(profile.NumRingOfFireStarted) + V(profile.NumBasketBallStarted) + V(profile.NumBaseBallStarted)	
 	
 	local numwins =
-		V(profile.NumNormalRacesWon) + V(profile.NumPongRacesWon) +
-		V(profile.NumWreckingDerbiesWon) + V(profile.NumSurvivorDerbiesWon) + V(profile.NumFragDerbiesWon) + V(profile.NumTagsWon) + 
+		V(profile.NumNormalRacesWon) +
+		V(profile.NumWreckingDerbiesWon) + 
 		V(profile.NumBowlingWon) + V(profile.NumFieldGoalWon) + V(profile.NumSoccerWon) + V(profile.NumCurlingWon) +
 		V(profile.NumHighJumpWon) + V(profile.NumStoneSkippingWon) + V(profile.NumDartsWon) + V(profile.NumBlackDannyWon) +
 		V(profile.NumSkiJumpWon) + V(profile.NumRingOfFireWon) + V(profile.NumBasketBallWon) + V(profile.NumBaseBallWon)
 
-	local title = WStringConcat(L"#3", LIVE_PROFILE_WINS)
-	title = WStringConcat(title, L("#4 "..numwins.." / "..numstarted))
+	local title = WStringConcat(L"#33", MULTIPLAYER_PROFILE_WINS)
+	title = WStringConcat(title, L("#34 "..numwins.." / "..numstarted))
 
 	return title
 end
@@ -425,11 +504,11 @@ local function SetWinsTitles(localProfile, remoteProfile)
 	local title = GetWinsTitle(remoteProfile)
 	win:SetTitle(title)
 	local w,h = wm.GetTextExtents(win:GetTitle(), Layout.WinsTitleFont)
-	local w2,_ = wm.GetTextExtents(L"#3#4", Layout.WinsTitleFont)
+	local cw,_ = wm.GetTextExtents(L"#33#34", Layout.WinsTitleFont)
 	wm.GetWindow("pp_div_1"):SetPosition(50,Layout.WinsTitlePos[2]+h/2)
-	wm.GetWindow("pp_div_1"):SetSize(Layout.WinsTitlePos[1]-w/2-50-10, 1)
-	wm.GetWindow("pp_div_2"):SetPosition(Layout.WinsTitlePos[1]+w-w2,Layout.WinsTitlePos[2]+h/2)
-	wm.GetWindow("pp_div_2"):SetSize(Layout.WinsTitlePos[1]-w/2+w2/2-50-10, 1)
+	wm.GetWindow("pp_div_1"):SetSize(Layout.WinsTitlePos[1]-w/2+cw/2-50-10, 1)
+	wm.GetWindow("pp_div_2"):SetPosition(Layout.WinsTitlePos[1]+w/2-cw/2+12,Layout.WinsTitlePos[2]+h/2)
+	wm.GetWindow("pp_div_2"):SetSize(Layout.BoxSize[1]-(Layout.WinsTitlePos[1]+w/2-cw/2)-50-12, 1)
 
 	-- Compare screen
 	title = GetWinsTitle(localProfile)
@@ -443,12 +522,33 @@ local function SetWinsTitles(localProfile, remoteProfile)
 	
 	local _,y = win:GetPosition()
 	wm.GetWindow("ppc_div_1"):SetPosition(0, y+h/2)
-	wm.GetWindow("ppc_div_1"):SetSize(LayoutC.WinsTitle1Left-w1/2-10, 1)
-	wm.GetWindow("ppc_div_2"):SetPosition(LayoutC.WinsTitle1Left+w1/2+10, y+h/2)
-	wm.GetWindow("ppc_div_2"):SetSize(LayoutC.WinsTitle2Left-w2/2-10 - (LayoutC.WinsTitle1Left+w1/2+10), 1)
-	wm.GetWindow("ppc_div_3"):SetPosition(LayoutC.WinsTitle2Left+w2/2+10, y+h/2)
-	wm.GetWindow("ppc_div_3"):SetSize(LayoutC.CompareFrameSize[1]-LayoutC.WinsTitle2Left-w2/2-10, 1)
+	wm.GetWindow("ppc_div_1"):SetSize(LayoutC.WinsTitle1Left-w1/2+cw/2-10, 1)
+	wm.GetWindow("ppc_div_2"):SetPosition(LayoutC.WinsTitle1Left+w1/2-cw/2+12, y+h/2)
+	wm.GetWindow("ppc_div_2"):SetSize(LayoutC.WinsTitle2Left-w2/2+cw/2-10 - (LayoutC.WinsTitle1Left+w1/2-cw/2+12), 1)
+	wm.GetWindow("ppc_div_3"):SetPosition(LayoutC.WinsTitle2Left+w2/2-cw/2+12, y+h/2)
+	wm.GetWindow("ppc_div_3"):SetSize(LayoutC.CompareFrameSize[1]-LayoutC.WinsTitle2Left-w2/2+cw/2-12, 1)
 end	
+
+local function SetPosAndScore(wp, colnum, rownum, ranking, level)
+	local win
+	local w = 0
+	if ranking then
+		win = wm.GetWindow(wp.."general1_"..colnum.."_"..rownum)
+		win:SetTitle(WStringConcat(ranking, L"."))
+		w = win:GetTitleWidth()
+		if level then
+			win = wm.GetWindow(wp.."rankicon_"..colnum.."_"..rownum)
+			win.DontShow = false
+			win:ShowWindow()
+			local x,y = win:GetPosition()
+			win:SetPosition(x + w, y)
+			win = wm.GetWindow(wp.."ranktext_"..colnum.."_"..rownum)
+			win:SetTitle(L(level))
+			x,y = win:GetPosition()
+			win:SetPosition(x + w, y)
+		end
+	end
+end
 
 local function SetProfileData(mode, num, profile)
 	local wp
@@ -457,58 +557,35 @@ local function SetProfileData(mode, num, profile)
 	else
 		wp = "ppc_"
 	end
-	
-	if profile.RaceRanking then
-		wm.GetWindow(wp.."general1_"..num.."_1"):SetTitle(profile.RaceRanking)
-	end
-	if profile.DerbyRanking then
-		wm.GetWindow(wp.."general1_"..num.."_2"):SetTitle(profile.DerbyRanking)
-	end
-	if profile.StuntRanking then
-		wm.GetWindow(wp.."general1_"..num.."_3"):SetTitle(profile.StuntRanking)
-	end
-	if profile.MixedRanking then
-		wm.GetWindow(wp.."general1_"..num.."_4"):SetTitle(profile.MixedRanking)
-	end
 
-	if profile.RaceLevel then
-		wm.GetWindow(wp.."rankicon_"..num.."_1"):AttachResource(wm.GetResource("rank_icon_"..profile.RaceLevel))
+	SetPosAndScore(wp, num, 1, profile.RaceRanking, profile.RaceLevel)	
+	SetPosAndScore(wp, num, 2, profile.DerbyRanking, profile.DerbyLevel)
+	SetPosAndScore(wp, num, 3, profile.StuntRanking, profile.StuntLevel)
+
+--[[	if profile.DerbyRanking then
+		wm.GetWindow(wp.."general1_"..num.."_2"):SetTitle(WStringConcat(profile.DerbyRanking, L"."))
 	end
 	if profile.DerbyLevel then
-		wm.GetWindow(wp.."rankicon_"..num.."_2"):AttachResource(wm.GetResource("rank_icon_"..profile.DerbyLevel))
+		win = wm.GetWindow(wp.."rankicon_"..num.."_2")
+		win.DontShow = false
+		win:ShowWindow()
+		wm.GetWindow(wp.."ranktext_"..num.."_2"):SetTitle(L(profile.DerbyLevel))
+	end
+
+	if profile.StuntRanking then
+		wm.GetWindow(wp.."general1_"..num.."_3"):SetTitle(WStringConcat(profile.StuntRanking, L"."))
 	end
 	if profile.StuntLevel then
-		wm.GetWindow(wp.."rankicon_"..num.."_3"):AttachResource(wm.GetResource("rank_icon_"..profile.StuntLevel))
-	end
-	if profile.MixedLevel then
-		wm.GetWindow(wp.."rankicon_"..num.."_4"):AttachResource(wm.GetResource("rank_icon_"..profile.MixedLevel))
-	end
-
-	if profile.RaceRating then
-		wm.GetWindow(wp.."rating_"..num.."_1"):SetTitle(profile.RaceRating)
-	end
-	if profile.DerbyRating then
-		wm.GetWindow(wp.."rating_"..num.."_2"):SetTitle(profile.DerbyRating)
-	end
-	if profile.StuntRating then
-		wm.GetWindow(wp.."rating_"..num.."_3"):SetTitle(profile.StuntRating)
-	end
-	if profile.MixedRating then
-		wm.GetWindow(wp.."rating_"..num.."_4"):SetTitle(profile.MixedRating)
-	end
-
-	if profile.TotalRacingTime then
-		wm.GetWindow(wp.."general2_"..num.."_1"):SetTitle(L(math.floor(profile.TotalRacingTime/3600).." H "..math.floor(math.mod(profile.TotalRacingTime/60, 60)).." MIN"))
-	else
-		wm.GetWindow(wp.."general2_"..num.."_1"):SetTitle(L("0 H 0 MIN"))
-	end
-	wm.GetWindow(wp.."general2_"..num.."_2"):SetTitle(L"TORQUEMADA")
-	wm.GetWindow(wp.."general2_"..num.."_3"):SetTitle(L(V(profile.CarsWrecked)))
-	wm.GetWindow(wp.."general2_"..num.."_4"):SetTitle(L(V(profile.DisconnectRatio).." %"))
+		win = wm.GetWindow(wp.."rankicon_"..num.."_3")
+		win.DontShow = false
+		win:ShowWindow()
+		wm.GetWindow(wp.."ranktext_"..num.."_3"):SetTitle(L(profile.StuntLevel))
+	end--]]
+	
+	wm.GetWindow(wp.."general2_"..num.."_1"):SetTitle(L(V(profile.CarsWrecked)))
+	wm.GetWindow(wp.."general2_"..num.."_2"):SetTitle(L(V(profile.DisconnectRatio).." %"))
 
 	SetRaceStat(wp.."wins1_"..num.."_1", profile.NumNormalRacesWon, profile.NumNormalRacesStarted)
-	SetRaceStat(wp.."wins1_"..num.."_2", profile.NumPongRacesWon, profile.NumPongRacesStarted)
-	SetRaceStat(wp.."wins1_"..num.."_3", profile.NumWreckingDerbiesWon, profile.NumWreckingDerbiesStarted)
 
 	SetRaceStat(wp.."wins2_"..num.."_1", profile.NumBowlingWon, profile.NumBowlingStarted)
 	SetRaceStat(wp.."wins2_"..num.."_2", profile.NumFieldGoalWon, profile.NumFieldGoalStarted)
@@ -517,9 +594,7 @@ local function SetProfileData(mode, num, profile)
 	SetRaceStat(wp.."wins2_"..num.."_5", profile.NumHighJumpWon, profile.NumHighJumpStarted)
 	SetRaceStat(wp.."wins2_"..num.."_6", profile.NumStoneSkippingWon, profile.NumStoneSkippingStarted)
 
-	SetRaceStat(wp.."wins3_"..num.."_1", profile.NumSurvivorDerbiesWon, profile.NumSurvivorDerbiesStarted)
-	SetRaceStat(wp.."wins3_"..num.."_2", profile.NumFragDerbiesWon, profile.NumFragDerbiesStarted)
-	SetRaceStat(wp.."wins3_"..num.."_3", profile.NumTagsWon, profile.NumTagsStarted)
+	SetRaceStat(wp.."wins3_"..num.."_1", profile.NumWreckingDerbiesWon, profile.NumWreckingDerbiesStarted)
 
 	SetRaceStat(wp.."wins4_"..num.."_1", profile.NumDartsWon, profile.NumDartsStarted)
 	SetRaceStat(wp.."wins4_"..num.."_2", profile.NumBlackDannyWon, profile.NumBlackDannyStarted)
@@ -530,6 +605,16 @@ local function SetProfileData(mode, num, profile)
 end
 
 function UpdateProfile()
+	if Friends.IsResultsReady() then
+		if Friends.GetNumFriends() < 100 and Friends.GetFriendByUserId(UserId) == nil and XBoxLive.Auth.GetSignedInUserId(1) ~= UserId then
+			AddToFriendsEnabled = true
+			UpdateHelpButtons()
+		else
+			AddToFriendsEnabled = false
+			UpdateHelpButtons()
+		end
+	end
+	
 	local time = wm.GetTime()
 	if PrevTime == nil then
 		dt = 20

@@ -147,7 +147,6 @@ function menu_lan_results.init(self)
 --	StartNetwork()
 	EventListener = Event:AddListener(NetworkEvents, EVENTTYPE_NETWORK)
 	Network:StartMultiplayer()
-	Network:CreateLanSession()
 	Network:StartSearchLanSessions()
 	
 --	GameFlow.SetGameMode("JOIN")

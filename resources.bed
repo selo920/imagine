@@ -161,4 +161,8 @@ function fonttitle()
 	return wm.GetResource("Title")
 end
 
+function fonthuge()
+	return wm.GetResource("FontHuge")
+end
+
 

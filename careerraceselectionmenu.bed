@@ -53,7 +53,7 @@ function EnterRace(data,is_career_stunt)
 	GameFlow.ClearRace()
 	if data.event_type == TYPE_CUP then
 		db.GameFlow.PreRace.Mode=GM_CAREER
-		db.GameFlow.PreRace.Rules=GR_RACE
+		db.GameFlow.PreRace.Rules=GR_DEFAULT
 		db.GameFlow.PreRace.Cup=data.event_id
 		db.GameFlow.PreRace.Event=0
 		db.GameFlow.PreRace.Class=data.class_id
@@ -115,10 +115,6 @@ local function OnKeyPressed(self,character,virtualkey,scancode)
 		local c=state.selected_race
 		if c > 1 then
 			c = c - 1
-
---//			if c == 3 then
---//				MenuMap:SetMapPosition(0,0)
---//			end
 		end
 
 		state.selected_race = c
@@ -127,34 +123,17 @@ local function OnKeyPressed(self,character,virtualkey,scancode)
 		local c=state.selected_race
 		if c < table.getn(state.racewindows) then
 			c = c + 1
---//			if c == 5 then
---//				MenuMap:SetMapPosition(380,0)
---//			end
 		end
 		state.selected_race = c
 		UpdateData()
 	elseif virtualkey == KeyCodes.BUTTON_START then
---//		local window=state.racewindows[state.selected_race]
---//		if not window.locked then
 		if state.cupmode then
 			EnterRace()
 		elseif Garage:GetCarClass(PlayerProfile:GetActiveCar()) ~= state.class_id then
-			print(string.format("carclass=%d selected_class=%d",Garage:GetCarClass(PlayerProfile:GetActiveCar()) or -2,state.class_id or -2))
 			playmenusound_error()
-			MessageBox(L"HAHA YOU SELECTED WRONG\nCAR FROM GARAGE!\nGO BACK AND TRY AGAIN",MESSAGEBOX_OK,function() end)
 		else
 			EnterRace()
 		end
---[[--/*
-			local cars=CarlistAllPurchased()
-			if table.getn(cars) > 0 then
-				EnterCarSelection(function(car) PlayerProfile:SetActiveCar(car); EnterRace(); end,backmenu(),cars) --//CarlistFromClass(state.class_id,true)) --//state.class_id
-			else
-				playmenusound_error()
-			end
-		end
---]]--*/
-		--//EnterRace()
 	elseif virtualkey == KeyCodes.BUTTON_SELECT then
 		if state.cupmode then
 			EnterMenu("menu_career")

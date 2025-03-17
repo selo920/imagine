@@ -187,7 +187,7 @@ function menu_career_cup_results.init(self)
 
 	local current_class=db.GameFlow.PreRace.Class
 	local current_cup=db.GameFlow.PreRace.Cup
-	local position = PlayerProfile:GetCupPosition(current_class,current_cup) or 1
+	local position = CupManager:GetCupPosition(0) or 1 --//PlayerProfile:GetCupPosition(current_class,current_cup) or 1
 	local awards = db.GameFlow.Awards
 	local money_reward = awards:GetProperty("CupWinnings",position-1)
 	
@@ -200,7 +200,7 @@ function menu_career_cup_results.init(self)
 
 
 	Frame{Position=POS(326,87),Size=SIZE(13,31)}:AttachResource(self:getResource("cup_title_bot_ang"))
-	Frame{Position=POS(325+13,87),Size=SIZE(302,31)}:AttachResource(self:getResource("cup_title_bot"))
+	Frame{Position=POS(326+13,87),Size=SIZE(302,31)}:AttachResource(self:getResource("cup_title_bot"))
 
 	Frame{Position=POS(335,122),Size=SIZE(28,82)}:AttachResource(self:getResource("congrats_bottom_ang"))
 	Frame{Position=POS(363,122),Size=SIZE(277,82)}:AttachResource(self:getResource("congrats_bottom"))
@@ -225,17 +225,21 @@ function menu_career_cup_results.init(self)
 	LOG("class=%d, cup=%d,reward=%d",current_class,current_cup,money_reward)
 
 
-	local places = { "st", "nd", "rd", "th" }
+	local places = { TRANSLATOR(HEADER_1ST), TRANSLATOR(HEADER_2ND), TRANSLATOR(HEADER_3RD), TRANSLATOR(HEADER_TH) }
 
 	if position == 0 then
 		position=1
 	end
 
+	local position_text
 	local suffix = position
-	if suffix > 4 then
+	if suffix >= 4 then
 		suffix=4
+		position_text=WStringConcat(ConvertToWString(string.format("%d",position)),places[4])
+
+	else
+		position_text=places[position]
 	end
-	local position_text = string.format("%d%s",position,places[suffix])
 
 	local cup_data = _G[classnames[current_class]].Cups[current_cup]
 
@@ -244,14 +248,20 @@ function menu_career_cup_results.init(self)
 	local place_text
 
 	if position > 3 then
-		place_text=string.format("YOU PLACED %s\nBETTER LUCK NEXT TIME!",position_text)
+		place_text=WStringConcat(TRANSLATOR(CAREER_CUP_SUCK_MESSAGE),L" ")   --//string.format("YOU PLACED %s\nBETTER LUCK NEXT TIME!",position_text)
+		place_text=WStringConcat(place_text,position_text)
+		place_text=WStringConcat(place_text,L"\n")
+		place_text=WStringConcat(place_text,TRANSLATOR(CAREER_CUP_SUCK_MESSAGE2))
 	else
-		place_text=string.format("CONGRATULATIONS!\nYOU HAVE PLACED %s",position_text)
+		place_text=WStringConcat(TRANSLATOR(CAREER_CUP_COMPLETION_MESSAGE),L" ")
+		place_text=WStringConcat(place_text,position_text)
+		place_text=WStringConcat(place_text,L" ")
+		place_text=WStringConcat(place_text,TRANSLATOR(CAREER_CUP_COMPLETION_MESSAGE2))
 	end
 
-	StaticText{Title=ConvertToWString(place_text),Position=POS(363,138),Font=fontsmall(),Color=GetPaletteColor(34)}
+	StaticText{Title=place_text,Position=POS(343,138),TextLineAdjust=7,Font=fontsmall(),Color=GetPaletteColor(34)}
 
-	StaticText{Title=TRANSLATOR(TITLE_CUPTROPHIES),Position=POS(367,236),Font=fontsmall(),Color=GetPaletteColor(33)}
+	StaticText{Title=TRANSLATOR(TITLE_CUPTROPHIES),Position=POS(372,236),Font=fontsmall(),Color=GetPaletteColor(33)}
 
 	local num_gold=0
 	local num_silver=0
@@ -298,14 +308,16 @@ function menu_career_cup_results.init(self)
 			GameFlow.ClearCup()
 			PlayerProfile:ResetActiveCup()
 
-			NextCupRewardMenu()
+			NextRewardMenu()
 		end
 	end
 
 
 	GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_CONTINUE))
-	GUI:SetBackground("data/menu/cup_results_bg.tga")
+	GUI:SetBackgroundVideo("data/video/flag")
+	--//GUI:SetBackground("data/menu/cup_results_bg.tga")
 
+	PlayerProfile:AddMoney(money_reward)
 end
 
 

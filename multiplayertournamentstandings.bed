@@ -44,26 +44,23 @@ local Layout = {
 	ListRowPadding=3,
 	
 	ListTop3Font=fontlarge(),
-	ListFont=fontsmall(),
-	ListFontColor=GetPaletteColor(4),
+	ListFont=fontmedium(),
+	ListFontColor=GetPaletteColor(34),
 
-	ListTitleFont=fontsmall(),
-	ListTitleFontColor=GetPaletteColor(1),
+	ListTitleFont=fontmedium(),
+	ListTitleFontColor=GetPaletteColor(33),
 	
 	ListTitleY=129,
 	ListNumX=79,
-	ListFlagX=92,
 	ListNameX=122,
 	ListCarX=382,
 	ListTournamentPointsX=521,
 	ListRacePointsX=551,
-	
-	ListFlagY=6,
 }
 
 local SortedPlayers = { }
 
-local function CreateListRow(num)
+local function CreateListRow(menu, num)
 	local player=Session:GetPlayer(SortedPlayers[num])
 	local font
 	local y
@@ -79,38 +76,40 @@ local function CreateListRow(num)
 		font = Layout.ListFont
 	end
 	
-	local bg = Frame { Position=POS(Layout.ListPos[1], y), Size=SIZE(640, h), DrawBackgroundColor=TRUE, Color={0,0,0,128,false} }
+	local bg = Frame { Position=POS(Layout.ListPos[1], y), Size=SIZE(640, h), DrawBackgroundColor=TRUE, Color={0,0,0,0.5*MAX_VERTEXCOLOR_A} }
 	StaticText { Position=POS(Layout.ListNumX, 0), Size=SIZE(12, h), Title=L(num.."."), Font=font, Color=Layout.ListFontColor, Parent=bg, Align=FONTF_CENTER }
---	Frame { Position=POS(Layout.ListFlagX, Layout.ListFlagY), Size=SIZE(30, h), Parent=bg }:AttachResource(wm.GetResource(flag))
 	StaticText { Position=POS(Layout.ListNameX, 0), Size=SIZE(260, h), Title=player.Name, Font=font, Color=Layout.ListFontColor, Parent=bg }
 	local cardata = db.FlatOut2.Cars:GetProperty("Car", player.Car)
 	StaticText { Position=POS(Layout.ListCarX, 0), Size=SIZE(169, h), Title=L(cardata.Name), Font=font, Color=Layout.ListFontColor, Parent=bg }
-	if AfterRace then
-		StaticText { Name="tournamentpoints_"..num, Position=POS(Layout.ListTournamentPointsX, 0), Size=SIZE(50, h), Title=L(player.TournamentPoints - GameFlow.GetPlayerRacePoints(SortedPlayers[num])), Font=font, Color=Layout.ListFontColor, Parent=bg, Align=FONTF_CENTER }
+--[[	if AfterRace then
+		local racePoints = GameFlow.GetPlayerRacePoints(num)
+		StaticText { Name="tournamentpoints_"..num, Position=POS(Layout.ListTournamentPointsX, 0), Size=SIZE(50, h), Title=L(player.TournamentPoints - racePoints), Font=font, Color=Layout.ListFontColor, Parent=bg, Align=FONTF_CENTER }
 		local win = StaticText { Name="racepoints_"..num, Position=POS(Layout.ListRacePointsX, 0), Size=SIZE(50, h), Font=font, Color=Layout.ListFontColor, Parent=bg, Align=FONTF_CENTER }
 		win:HideWindow()	
-	else
+	else--]]
 		StaticText { Name="tournamentpoints_"..num, Position=POS(Layout.ListTournamentPointsX, 0), Size=SIZE(50, h), Title=L(player.TournamentPoints), Font=font, Color=Layout.ListFontColor, Parent=bg, Align=FONTF_CENTER }
-	end
+	--end
 end
 
 local function ComparePlayers(p1num, p2num)
 	local p1 = Session:GetPlayer(p1num)
 	local p2 = Session:GetPlayer(p2num)
 	
-	if p1.TournamentPoints < p2.TournamentPoints then
+	if p1.TournamentPoints > p2.TournamentPoints then	
+		return true
+	elseif p1.TournamentPoints < p2.TournamentPoints then
 		return false
 	elseif p1.PeerId < p2.PeerId then
-		return false
-	else
 		return true
+	else
+		return false
 	end
 end
 
 function menu_multiplayer_tournament_standings.init(self)
 	self.parent:init(self)
 
-	GUI:SetBackground("data/menu/menu_background.tga")
+	GUI:SetBackground("data/menu/career_race_rewards_background.tga")
 	
 	StaticText { Title=HEADER_MULTIPLAYER_LOBBY_VIEWRANKING, Position=Layout.TitlePos, Size=SIZE(400,22), Font=Layout.TitleFont, Color=Layout.TitleColor }
 
@@ -119,6 +118,8 @@ function menu_multiplayer_tournament_standings.init(self)
 	StaticText { Title=MULTIPLAYER_CAR, Position=POS(Layout.ListCarX, Layout.ListTitleY), Size=SIZE(169,13), Font=Layout.ListTitleFont, Color=Layout.ListTitleFontColor }
 	StaticText { Title=MULTIPLAYER_POINTS, Position=POS(Layout.ListTournamentPointsX, Layout.ListTitleY), Size=SIZE(50,13), Font=Layout.ListTitleFont, Color=Layout.ListTitleFontColor, Align=FONTF_CENTER }
 	
+	SortedPlayers = { }
+	
 	for i = 1, Session:GetNumPlayers() do
 		SortedPlayers[i] = i
 	end
@@ -126,7 +127,7 @@ function menu_multiplayer_tournament_standings.init(self)
 	table.sort(SortedPlayers, ComparePlayers)
 	
 	for i = 1, Session:GetNumPlayers() do
-		CreateListRow(i)
+		CreateListRow(self, i)
 	end
 	
 	local handler=InputHandler{ Name="inputhandler" }
@@ -137,17 +138,10 @@ function menu_multiplayer_tournament_standings.init(self)
 		end
 	end
 	if AfterRace then
---[[		ScoreAnimationFSM=FSM()
-		FSM_init_state(ScoreAnimationFSM)
-		FSM_add_function(ScoreAnimationFSM, ShowRaceScores, false, {})
-		FSM_add_delay_state(ScoreAnimationFSM, 1.0)
-		FSM_add_function(ScoreAnimationFSM, StartRaceScoreAnimation, false, {})
-		FSM_add_delay_state(ScoreAnimationFSM, 1.0)
-		FSM_add_function(ScoreAnimationFSM, UpdateTournamentScores, false, {})--]]
-		AnimateScore = true
-		GUI:SetHelpButtons(BUTTON_OK, L"CONTINUE")
+		--AnimateScore = true
+		GUI:SetHelpButtons(BUTTON_OK, TRANSLATOR(UI_CONTINUE)) --//L"CONTINUE")
 	else
-		GUI:SetHelpButtons(BUTTON_BACK, L"BACK")
+		GUI:SetHelpButtons(BUTTON_BACK, TRANSLATOR(UI_BACK)) --//L"BACK")
 	end
 end
 	

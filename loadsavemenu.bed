@@ -98,7 +98,7 @@ end
 function menu_save_wait.init(self)
 	self.parent:init(self)
 
-	GUI:SetHelpButtons(nil,nil,nil,nil,nil,nil,TRUE)
+	GUI:SetHelpButtons()
 	timerhandle=Event:AddTimer(saveflow_wait,500)
 end
 

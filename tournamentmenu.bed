@@ -126,7 +126,7 @@ function menu_tournament_selection.init(self)
 	bar:onButtonChange(state.selected_tournament)
 
 
-	GUI:SetHelpButtons(BUTTON_BACK,L"BACK",BUTTON_OK,L"SELECT")
+	GUI:SetHelpButtons(BUTTON_BACK,TRANSLATOR(UI_BACK),BUTTON_OK,TRANSLATOR(UI_SELECT)) --//L"BACK",BUTTON_OK,L"SELECT")
 
 end
 
@@ -277,7 +277,7 @@ local function resign_tournament_confirmation()
 			EnterMenu("menu_singleplayer");
 		else
 			GUI:ShowMenuButtons()
-			GUI:SetHelpButtons(BUTTON_OK,L"SELECT")
+			GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT)) --//L"SELECT")
 		end
 	end
 	GUI:HideMenuButtons()
@@ -487,7 +487,7 @@ function menu_tournament_scorecard.init(self)
 
 	handler:SetFocus()
 
-	GUI:SetHelpButtons(BUTTON_OK,L"CONTINUE")
+	GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_CONTINUE)) --//L"CONTINUE")
 
 	GUI:SetBackground("data/menu/canvas_bg.tga")
 

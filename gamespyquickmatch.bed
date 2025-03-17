@@ -27,12 +27,12 @@ local function JoinNextSession()
 		State = "ERROR"
 		HideThinkingWindow()
 		ShowMessageBox(SAFEPOS(154, 70), nil,
-					L"NO GAMES WERE FOUND",
-					L"SEARCH AGAIN",
+					OPTIRESULTS_NOGAME,
+					OPTIRESULTS_SEARCH,
 					entermenu("menu_gamespy_quickmatch"),
-					L"BACK",
+					UI_BACK,
 					menu_gamespy_quickmatch.back,
-					L"CREATE GAME",
+					UI_CREATEGAME,
 					function() EnterCreateGameMenu("menu_multiplayer_gamespy") end
 					)
 	end
@@ -48,40 +48,44 @@ end
 local function NetworkEvents(event)
 	if event.id==EVENT_NETWORK_REQUEST_PLAYERUPDATE then
 		local player=Session:GetLocalPlayer(1)
-		player.UId = GameSpyPresence.GetLoggedInProfileID()
-		player.Name=L(GameSpyPresence.GetProfileUniqueNick())
+		player:GenerateUserId()
+		player.Name=PlayerProfile:GetName()
 		local info = Session:GetInfo()
 
 		if info.CarClass > 4 then
 			player.Car = info.CarClass - 5
+			player.CarValid = true
+		elseif info.CarClass == SessionInfo.CarClass.Stunt or info.Races[info.NextRace].EventType == ReplicatedSession.GAMETYPE_STUNT then
+			player.Car = CarlistStuntCars()[1].index		
+			player.CarValid = false
 		elseif info.CarClass ~= SessionInfo.CarClass.Any then
 			player.Car = CarlistFromClass(info.CarClass, false, true)[1].index
+			player.CarValid = false
 		else
 			player.Car = 0
+			player.CarValid = false
 		end
 		
 		player.CarSkin=1
-		player.Score = 0
+		player.CharacterType = PlayerProfile:GetGender()
 		player.TournamentPoints = 0
 
 		if info.CarUpgrades ~= SessionInfo.CarUpgrades.Any then
 			player.UpgradeLevel = info.CarUpgrades
 		else
-			player.UpgradeLevel = SessionInfo.CarUpgrades.Full
+			player.UpgradeLevel = SessionInfo.CarUpgrades.All
 		end
-
-		player.SessionChanged = false
 	elseif event.id==EVENT_FIND_SESSIONS_COMPLETED then
 		if SessionList:GetNumSessions()==0 then
 			State="ERROR"
 			HideThinkingWindow()
 			ShowMessageBox(SAFEPOS(154, 70), nil,
-						L"NO GAMES WERE FOUND",
-						L"SEARCH AGAIN",
+						OPTIRESULTS_NOGAME,
+						OPTIRESULTS_SEARCH,
 						entermenu("menu_gamespy_quickmatch"),
-						L"BACK",
+						UI_BACK,
 						menu_gamespy_quickmatch.back,
-						L"CREATE GAME",
+						UI_CREATEGAME,
 						function() EnterCreateGameMenu("menu_multiplayer_gamespy") end
 						)
 		else
@@ -107,33 +111,31 @@ end
 
 function menu_gamespy_quickmatch.init(self)
 	self.parent:init(self)
+
+	GUI:SetBackgroundVideo("data/video/bg_main")
+
 	EventListener = Event:AddListener(NetworkEvents, EVENTTYPE_NETWORK)
 	
 	
 	GameSpy:StopUpdate()
-	Network:StartMultiplayer()
-	Network:CreateGameSpySession()
+	--Network:StartMultiplayer()
 	GameSpy:ResumeUpdate()
 		
 	local handler = InputHandler { Name="inputhandler" }
 	handler.onKeyPressed = function( Self, Character, VirtualKey, ScanCode )
 		if VirtualKey == KeyCodes["BUTTON_START"] then
 		elseif VirtualKey == KeyCodes["BUTTON_SELECT"] then
+			HideThinkingWindow()
+			State="NONE"
+			Network:StopMultiplayer()
 			menu_gamespy_quickmatch.back()
 		end
 	end
-	handler:SetFocus()
 			
 	ShowThinkingWindow()
-	--KLUDGE should set allow guests to true if guests are logged in
-	--should probably set rated game to false too
---	SessionList:SetParameter("EventType", EventType.RACE)
---	SessionList:SetParameter("SubEventType", SubEventType.RACE_NORMAL)
-	--SessionList:SetParameter("SimulationLevel", SessionInfo.SimulationLevel.Easy)
-	--SessionList:SetParameter("RatedGame", 1)
---	SessionList:SetParameter("Language", 1)
-	
 	SearchGames()
+
+	handler:SetFocus()
 
 	State="SEARCHING"
 	CurrentSession=0
@@ -171,7 +173,7 @@ function menu_gamespy_quickmatch.update(self, time)
 			JoinNextSession()
 		elseif Session:GetProgress()=="SUCCESS" then
 			HideThinkingWindow()
-			ShowLobby("menu_multiplayer_gamespy")
+			EnterLobby("menu_multiplayer_gamespy")
 		end
 	end
 end

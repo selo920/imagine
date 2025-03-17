@@ -56,62 +56,39 @@ template_multiplayer.options = {
 			title = L"template_multiplayer",
 		}
 
-template_multiplayer.init = function(self,child)
-			child.error = false
-			
-			--//upper bar
-			local p=Frame{Name="menubar_top",Layer=4,IgnoreGlobalAlpha=1,Size=SIZE(640,menu_bars.menu_bar_top[4]),Position=POS(0,0)}
-			p:AttachResource(child:getResource("menu_bar_top"))
+function template_multiplayer.init(self,child)
+	child.error = false
 
-			Frame{Name="menubar_gamespy_logo",IgnoreGlobalAlpha=TRUE,Layer=4,Position=POS(422,40),Parent=p,Size=GetResourceSize(child:getResource("gamespy_logo"))}:AttachResource(child:getResource("gamespy_logo"))
-			if XBOX or MultiplayerMode == MPMODE_LAN then
-				-- Kludge: this window is used in live error handling for detecting if we are in a multiplayer menu
-				wm.GetWindow("menubar_gamespy_logo"):HideWindow()
-			end
-	
-			if DEV then
-				StaticText{Name="debug_string",Title=L"",IgnoreGlobalAlpha=1,Position=POS(0,0),Layer=5,Parent=p,Font=fontsmall(),Size=SIZE(600,480)}
-			end
-				
-			--//bottom bar
-			p=Frame{Name="menubar_bottom",Layer=4,IgnoreGlobalAlpha=1,Size=SIZE(640,menu_bars.menu_bar_bottom[4]),Position=POS(0,480-menu_bars.menu_bar_bottom[4])}
-			p:AttachResource(child:getResource("menu_bar_bottom"))
+	StandardBarsAndButtons(child,false,false)
 
-			
+	local p = wm.GetWindow("menubar_top")
+	Frame{Name="menubar_gamespy_logo",IgnoreGlobalAlpha=TRUE,Layer=4,Position=POS(422,36),Parent=p,Size=GetResourceSize(child:getResource("gamespy_logo"))}:AttachResource(child:getResource("gamespy_logo"))
+	if XBOX or MultiplayerMode == MPMODE_LAN then
+		-- Kludge: this window is used in online options popup error handling for detecting if we are in a multiplayer menu
+		wm.GetWindow("menubar_gamespy_logo"):HideWindow()
+	end
 
+end
 
-			--//help bar buttons
-			local help_buttons={}
-
-			table.insert(help_buttons,BUTTON_OK)
-			table.insert(help_buttons,TRANSLATOR(UI_SELECT))
-
-			if child.back then
-				table.insert(help_buttons,BUTTON_BACK)
-				table.insert(help_buttons,TRANSLATOR(UI_BACK))
-			end
-
-			GUI:SetHelpButtons(unpack(help_buttons))
-			wm.SetGlobalAlpha(0.0)
-		end
-
-template_multiplayer.update = function(self,child,time)
+function template_multiplayer.update(self,child,time)
 	if GUI:IsMenuAnimating() or Network == nil then
 		return
 	end
-	
+
 	if OptionsPopup.PopupActive then
 		child.error = OptionsPopup.InErrorState
 		return
 	end
 	
-	if MultiplayerMode == MPMODE_XBOXLIVE then
-		child.error = CheckXBoxLiveErrors()
-	elseif MultiplayerMode == MPMODE_GAMESPY then
-		child.error = CheckGameSpyErrors()
-	elseif MultiplayerMode == MPMODE_LAN then
-		child.error = CheckSystemLinkErrors()
-	end	
+	if not PC then
+		if MultiplayerMode == MPMODE_XBOXLIVE then
+			child.error = CheckXBoxLiveErrors()
+		elseif MultiplayerMode == MPMODE_GAMESPY then
+			child.error = CheckGameSpyErrors()
+		elseif MultiplayerMode == MPMODE_LAN then
+			child.error = CheckSystemLinkErrors()
+		end
+	end
 end
 
 --//end template_multiplayer

@@ -9,6 +9,8 @@
 --// @Author Mikko Sivulainen (mikko.sivulainen@bugbear.fi)
 --///////////////////////////////////////////////////////////////////////////
 
+dofile("data/menu/profile_elements.bed")
+
 
 local state
 local tracks
@@ -35,15 +37,61 @@ local stunt_goals = {
 	[STUNT_SOCCER] = TRACK_DESCRIPTION_SOCCER_GOAL,
 }
 
+local party_presets = 
+{
+	{ 
+		name=TRANSLATOR(PRESETS_NAME_STUNTEASY),
+		description=TRANSLATOR(PRESETS_STUNTEASY),
+		events = {	LevelIndex.RINGOFFIRE,LevelIndex.SKIJUMP,LevelIndex.BOWLING,
+					LevelIndex.SOCCER, LevelIndex.CURLING, LevelIndex.BASKETBALL,
+		},
+	},
 
-function EnterPartyModeMenu(splitscreen)
+	{ 
+		name=TRANSLATOR(PRESETS_NAME_STUNTCOMPLEX),
+		description=TRANSLATOR(PRESETS_STUNTCOMPLEX),
+		events = {	LevelIndex.STONESKIPPING,LevelIndex.DARTS,LevelIndex.ROYALFLUSH,
+					LevelIndex.FIELDGOAL, LevelIndex.BASEBALL, LevelIndex.HIGHJUMP,
+		},
+	},
+
+	{ 
+		name=TRANSLATOR(PRESETS_NAME_STUNT),
+		description=TRANSLATOR(PRESETS_STUNT),
+		events = {	LevelIndex.SOCCER, LevelIndex.DARTS, LevelIndex.RINGOFFIRE,
+					LevelIndex.FIELDGOAL, LevelIndex.BASKETBALL, LevelIndex.STONESKIPPING,
+					LevelIndex.HIGHJUMP, LevelIndex.SKIJUMP, LevelIndex.BOWLING,
+					LevelIndex.ROYALFLUSH, LevelIndex.CURLING, LevelIndex.BASEBALL, 
+		},
+	},
+}
+
+function EnterPartyModeMenu(splitscreen,okaction,backaction)
+	state = nil
 	SplitScreen = splitscreen
+	OkAction = okaction
+	BackAction = backaction
 	EnterMenu("menu_partymode")
+end
+
+-- Needed when event selection is entered after a splitscreen race
+function SetPlayerSetupParams(splitscreen,okaction,backaction)
+	SplitScreen = splitscreen
+	OkAction = okaction
+	BackAction = backaction
 end
 
 menu_partymode = CreateMenuFromTemplate("template_basic")
 menu_partymode.options.title=TRANSLATOR(TITLE_PARTYMODE)
-menu_partymode.back = function() state=nil; EnterMenu("menu_mainmenu") end
+menu_partymode.back = function()
+	state=nil
+	CupManager:Clear()
+	if BackAction then
+		BackAction()
+	else
+		EnterMenu("menu_multiplayer")
+	end
+end
 
 
 local remove_player
@@ -51,40 +99,114 @@ local add_player
 local go_race
 local start_removeplayer
 
-local function start_splitscreen()
+local function select_splitscreen_event()
+	OkAction(state)
+end
 
-	GameFlow.ClearRace()
-
-	for i=1,state.num_players do
-		local playerinfo=db.GameFlow[string.format("PlayerInfo[%d]",i-1)]
+local function select_party_events()
 
 
-		playerinfo.Name=state.players[i].name
-		playerinfo.Car=state.players[i].car
-		playerinfo.CarSkin=1
-		playerinfo.Type=PLAYERTYPE_LOCAL
-		playerinfo.CharType=0
-		playerinfo.Controller=i-1
+	EnterBuildPartyTournamentMenu(
+		function(tournamentEvents)
+			local cup = { Races={} }
+			for i = 1, table.getn(tournamentEvents) do
+				cup.Races[i] = {
+					Level = tournamentEvents[i].trackid,
+					Rules = GR_STUNT,
+					EventType = Levels[tournamentEvents[i].trackid].StuntType,
+					AIHandicapLevel = 1,
+					AIUpgradeLevel = 1,
+					StartPosition = 1,
+				}
+			end
+			
+			GameFlow.ClearRace()
+			CupManager:PrepareFromScript(cup)
+			
+			for i=1,state.num_players do
+				local playerinfo=db.GameFlow[string.format("PlayerInfo[%d]",i-1)]
 
-		db.GameFlow.PreRace.Mode=GM_SPLITSCREEN
+				playerinfo.Name=state.players[i].name
+				playerinfo.Car=state.players[i].car
+				playerinfo.CarSkin=state.players[i].carskin or 1
+				playerinfo.Controller=1 --//state.players[1].controller --//all use same controller as player 1
+				playerinfo.Type=PLAYERTYPE_LOCAL
+				playerinfo.CharType=0
+			end
+
+			db.GameFlow.PreRace.Mode=GM_PARTY
+			db.GameFlow.PreRace.CupChoice=0
+				
+			Event:PostEvent(event(EVENT_RACE_BEGIN))
+
+		end,
+		function()
+			CupManager:Clear()
+			EnterMenu("menu_partymode_stuntselect")
+		end
+	)	
+
+end
+
+
+local function go_party_preset(x)
+	local f=function()
+		local x=x
+		local preset=party_presets[x]
+
+		local cup = { Races={} }
+		for k,v in pairs(preset.events) do
+			table.insert(cup.Races,{
+				Level = v,
+				Rules = GR_STUNT,
+				EventType = Levels[v].StuntType,
+				AIHandicapLevel = 1,
+				AIUpgradeLevel = 1,
+				StartPosition = 1,
+			})
+		end
+
+		GameFlow.ClearRace()
+		CupManager:PrepareFromScript(cup)
+
+		for i=1,state.num_players do
+			local playerinfo=db.GameFlow[string.format("PlayerInfo[%d]",i-1)]
+
+			playerinfo.Name=state.players[i].name
+			playerinfo.Car=state.players[i].car
+			playerinfo.Controller=1 --//state.players[1].controller --//all use same controller as player 1
+			playerinfo.CarSkin=state.players[i].carskin or 1
+			playerinfo.Type=PLAYERTYPE_LOCAL
+			playerinfo.CharType=0
+		end
+
+		db.GameFlow.PreRace.Mode=GM_PARTY
 		db.GameFlow.PreRace.CupChoice=0
-		
+			
 		Event:PostEvent(event(EVENT_RACE_BEGIN))
 	end
+
+	return f
 end
+
+
 
 local function set_buttons()
 	menu_partymode.items={}
 
+	local maxplayers = 8
+	if SplitScreen then
+		maxplayers = 2
+	end
 	if state.num_players == 0 then
 		menu_partymode.items[1]=MENUITEM(TRANSLATOR(ICON_PARTY_ADDPLAYER),add_player,ICON(menu_partymode,"icon_add_player"))
 		menu_partymode.items[2]=MENUITEM(TRANSLATOR(ICON_PARTY_REMOVEPLAYER),disabled(),ICON(menu_partymode,"icon_remove_player_grayed"))
 		menu_partymode.items[3]=MENUITEM(TRANSLATOR(ICON_PARTY_GORACE),disabled(),ICON(menu_partymode,"icon_go_race_grayed"))
-	elseif state.num_players == 8 or (SplitScreen and state.num_players == 2) then
+	elseif state.num_players == maxplayers then
 		menu_partymode.items[1]=MENUITEM(TRANSLATOR(ICON_PARTY_ADDPLAYER),disabled(),ICON(menu_partymode,"icon_add_player_grayed"))
 		menu_partymode.items[2]=MENUITEM(TRANSLATOR(ICON_PARTY_REMOVEPLAYER),start_removeplayer,ICON(menu_partymode,"icon_remove_player"))
 		if SplitScreen then
-			menu_partymode.items[3]=MENUITEM(TRANSLATOR(ICON_SPLITSCREEN_GORACE),start_splitscreen,ICON(menu_partymode,"icon_go_race"))
+			menu_partymode.items[3]=MENUITEM(TRANSLATOR(ICON_SPLITSCREEN_GORACE),select_splitscreen_event,ICON(menu_partymode,"icon_go_race"))
 		else
 			menu_partymode.items[3]=MENUITEM(TRANSLATOR(ICON_PARTY_GORACE),entermenu("menu_partymode_stuntselect"),ICON(menu_partymode,"icon_go_race"))
 		end
@@ -92,7 +214,11 @@ local function set_buttons()
 		menu_partymode.items[1]=MENUITEM(TRANSLATOR(ICON_PARTY_ADDPLAYER),add_player,ICON(menu_partymode,"icon_add_player"))
 		menu_partymode.items[2]=MENUITEM(TRANSLATOR(ICON_PARTY_REMOVEPLAYER),start_removeplayer,ICON(menu_partymode,"icon_remove_player"))
 		if SplitScreen then
-			menu_partymode.items[3]=MENUITEM(TRANSLATOR(ICON_SPLITSCREEN_GORACE),disabled(),ICON(menu_partymode,"icon_go_race_grayed"))
+			if state.num_players == 2 or state.num_players == 4 then
+				menu_partymode.items[3]=MENUITEM(TRANSLATOR(ICON_SPLITSCREEN_GORACE),select_splitscreen_event,ICON(menu_partymode,"icon_go_race"))
+			else
+				menu_partymode.items[3]=MENUITEM(TRANSLATOR(ICON_SPLITSCREEN_GORACE),disabled(),ICON(menu_partymode,"icon_go_race_grayed"))
+			end
 		else
 			menu_partymode.items[3]=MENUITEM(TRANSLATOR(ICON_PARTY_GORACE),entermenu("menu_partymode_stuntselect"),ICON(menu_partymode,"icon_go_race"))
 		end
@@ -214,7 +340,7 @@ go_race = function()
 
 		playerinfo.Name=state.players[i].name
 		playerinfo.Car=state.players[i].car
-		playerinfo.CarSkin=1
+		playerinfo.CarSkin=state.players[i].carskin or 1
 		playerinfo.Type=PLAYERTYPE_LOCAL
 		playerinfo.CharType=0
 
@@ -226,14 +352,51 @@ go_race = function()
 end
 
 
+
+
 function menu_partymode.create(self)
 	self.parent:create(self)
 
+	self:addResource("profile_elements.tga",profile_elements,profile_elements_size)
 
-	state=state or {}
-	state.total_players=state.total_players or 0
-	state.num_players=state.num_players or 0
-	state.players = state.players or {}
+	if not state then
+		state={}
+		state.total_players= 0
+		state.num_players= 0
+		state.players={}
+
+		for i=1,8 do
+			local playerinfo=db.GameFlow[string.format("PlayerInfo[%d]",i-1)]
+
+			if playerinfo.Type == PLAYERTYPE_LOCAL then
+				state.players[i]={}
+				state.players[i].name=playerinfo.Name
+				state.players[i].car=playerinfo.Car
+				state.players[i].carskin=playerinfo.CarSkin
+				state.players[i].controller=0
+				
+				local cardata=db.FlatOut2.Cars:GetProperty("Car",state.players[i].car)
+				state.players[i].carname=ConvertToWString(cardata.Name)
+
+
+				state.num_players = state.num_players + 1
+				state.total_players = state.total_players + 1
+			end
+		end
+	end
+	GameFlow.ClearRace()
+
+
+	if SplitScreen then
+		menu_partymode.options.title=TRANSLATOR(ICON_MULTIPLAYER_SPLITSCREEN)
+	else
+		menu_partymode.options.title=TRANSLATOR(TITLE_PARTYMODE)
+	end
+
+	--state=state or {}
+	--state.total_players=state.total_players or 0
+	--state.num_players=state.num_players or 0
+	--state.players = state.players or {}
 
 	self:loadResources()
 
@@ -249,21 +412,25 @@ end
 function menu_partymode.init(self)
 	self.parent:init(self)
 
+	GUI:SetBackgroundVideo("data/video/bg_main")
 
-	StaticText{Title=TRANSLATOR(TITLE_PLAYERSETUP),Color=GetPaletteColor(3),Position=POS(180,84),Font=fontlarge()}
-	
-	StaticText{Title=TRANSLATOR(TITLE_NAME),Font=fontsmall(),Position=POS(180,131)}
-	StaticText{Title=TRANSLATOR(TITLE_CAR),Font=fontsmall(),Position=POS(400,131)}
+	Frame{Position=POS(0,78),Size=SIZE(279,24)}:AttachResource(self:getResource("party_mode_title_bar"))
+	StaticText{Title=TRANSLATOR(TITLE_PLAYERSETUP),Color=GetPaletteColor(33),Position=POS(268,80),Align=FONTF_RIGHT,Font=fontlarge()}
 
-	local pos=POS(0,131+22)
+
+	StaticText{Title=TRANSLATOR(TITLE_NAME),Font=fontsmall(),Position=POS(278,110),Color=GetPaletteColor(33),Align=FONTF_RIGHT}
+	StaticText{Title=TRANSLATOR(TITLE_CAR),Font=fontsmall(),Position=POS(293,110),Color=GetPaletteColor(33)}
+
+	local pos=POS(290,131)
 
 	for i=1,8 do
 		local prefix=string.format("player%d",i)
-		Frame{Name=prefix.."_bar",Position=pos,Size=SIZE(640,20)}:AttachResource(self:getResource("black_transparent_50"))
-		StaticText{Name=prefix.."_name",Position=POS(180,pos[2]),Font=fontsmall(),Color=GetPaletteColor(34)}
-		StaticText{Name=prefix.."_car",Position=POS(400,pos[2]),Font=fontsmall(),Color=GetPaletteColor(34)}
+		Frame{Name=prefix.."_bar",Position=POS(0,pos[2]),Size=SIZE(640,20)}:AttachResource(self:getResource("black_transparent_50"))
+		StaticText{Name=prefix.."_name",Position=POS(pos[1]-9,pos[2]),Font=fontsmall(),Color=GetPaletteColor(34),Align=FONTF_RIGHT}
+		StaticText{Name=prefix.."_car",Position=POS(pos[1]+9,pos[2]),Font=fontsmall(),Color=GetPaletteColor(34)}
 
-		pos[2] = pos[2] + 22
+		pos[1] = pos[1] + 8
+		pos[2] = pos[2] + 26
 	end
 
 	SetPlayerBars()
@@ -334,11 +501,11 @@ function menu_partymode_addplayer_name.init(self)
 	self.parent:init(self)
 
 
-	local title=ConvertToWString(string.format("PLAYER %d NAME",state.total_players))
+	local title=WSPrintStringWithInteger(TRANSLATOR(TITLE_PARTYMODE_PLAYERNAME),state.total_players)
 
 	wm.SetTextInput(state.players[state.num_players].name)
 
-	local keyboard=VirtualKeyboard{Font=fontmedium(),Title=title,TitleFont=fontlarge(),MaxSize=8,
+	local keyboard=VirtualKeyboard{Name="kb",Font=fontmedium(),Title=title,TitleFont=fontlarge(),MaxSize=8,
 		TitleResources={ self:getResource("keyboard_title_bars_tip"), self:getResource("keyboard_title_bars_main") },
 		InputResources={ self:getResource("keyboard_title_bars_tip2"), self:getResource("keyboard_title_bars_main2") },
 		KeyboardResources={ self:getResource("keyboard_bg_tip"), self:getResource("keyboard_bg_main")} }
@@ -353,8 +520,34 @@ function menu_partymode_addplayer_name.init(self)
 	end
 
 	function keyboard.onAction(self)
-		state.players[state.num_players].name=wm.GetTextInput()	
-		EnterMenu("menu_partymode_addplayer_car")
+		state.players[state.num_players].name=wm.GetTextInput()
+		if SplitScreen then
+			local carlist = CarlistAllUnlocked()
+			EnterCarSelection(
+				function(car, skin)
+					local cardata = db.FlatOut2.Cars:GetProperty("Car", car)
+					state.players[state.num_players].car = car
+					state.players[state.num_players].carskin = skin
+					state.players[state.num_players].carname = L(cardata.Name)
+					state.players[state.num_players].controller = GUI:GetLastActiveController()
+					EnterMenu("menu_partymode")
+				end,
+				function()
+					EnterMenu("menu_partymode_addplayer_name")
+				end,
+				carlist,
+				false,
+				true,
+				false,
+				false,
+				nil,
+				nil,
+				true,
+				TRANSLATOR(TITLE_SELECTCAR)
+			)			
+		else
+			EnterMenu("menu_partymode_addplayer_car")
+		end
 	end
 
 	--//GUI:SetBackground("data/menu/canvas_bg.tga")
@@ -369,6 +562,12 @@ function menu_partymode_addplayer_name.deinit(self)
 
 end
 
+function menu_partymode_addplayer_name.update(self)
+	if PC then
+		W("kb"):ProcessKeyQueue()
+	end
+end
+
 
 
 --// ---------------------------------------------------------------------------------------------------------------------------------
@@ -377,18 +576,20 @@ end
 function SetCarDescription(car)
 	local w=W("car_description")
 
-	local descriptions = {
-		[35] = TRANSLATOR(CAR35_DESCRIPTION),
-		[36] = TRANSLATOR(CAR36_DESCRIPTION),
-		[37] = TRANSLATOR(CAR37_DESCRIPTION),
-		[38] = TRANSLATOR(CAR38_DESCRIPTION),
-		[39] = TRANSLATOR(CAR39_DESCRIPTION),
-		[1000] = TRANSLATOR(TARINA_STUNTCARISTA_NIMELTA_LINDA),
-	}
+	if w then
 
-	w:SetTitle(descriptions[car+1])
-	w:WordWrap()
+		local descriptions = {
+			[35] = TRANSLATOR(CAR35_DESCRIPTION),
+			[36] = TRANSLATOR(CAR36_DESCRIPTION),
+			[37] = TRANSLATOR(CAR37_DESCRIPTION),
+			[38] = TRANSLATOR(CAR38_DESCRIPTION),
+			[39] = TRANSLATOR(CAR39_DESCRIPTION),
+			[1000] = TRANSLATOR(TARINA_STUNTCARISTA_NIMELTA_LINDA),
+		}
 
+		w:SetTitle(descriptions[car+1])
+		w:WordWrap()
+	end
 end
 
 
@@ -400,15 +601,11 @@ menu_partymode_addplayer_car.options.title=TRANSLATOR(TITLE_STUNTCARSELECTION)
 function menu_partymode_addplayer_car.create(self)
 	self.parent:create(self)
 
-
 	self:addResource("garage_elements1.tga",garage_elements1,garage_elements1_size)
 	self:addResource("car_icons.tga",car_icons,car_icons_size)
 --//	self:addResource("car_icons_2.tga",car_icons_2,car_icons_2_size)
 --//	self:addResource("car_icons_locked.tga",car_icons_locked,car_icons_locked_size)
 --//	self:addResource("car_icons_2_locked.tga",car_icons_2_locked,car_icons_2_locked_size)
-	self:addResource("car_logos.tga",car_logos,car_logos_size)
-	self:addResource("car_logos_2.tga",car_logos_2,car_logos_2_size)
-	self:addResource("car_logos_3.tga",car_logos_3,car_logos_3_size)
 
 	self:loadResources()
 
@@ -426,28 +623,47 @@ function menu_partymode_addplayer_car.init(self)
 							}
 
 
+	parent.goingback=nil
+	parent.goingforward=nil
+
 	parent.onButtonChange = function(self,id)
+		if self.goingback or self.goingforward then
+			return
+		end
+
+		playmenusound_move()
 		state.players[state.num_players].car=menu_partymode_addplayer_car.GarageCars[id].index
 		UpdateCarInfo(state.players[state.num_players].car,menu_partymode_addplayer_car)
 		SetCarDescription(state.players[state.num_players].car)
 	end
 
 	parent.onChildAction = function(self,id)
+		if self.goingback or self.goingforward then
+			return 
+		end
+		
+		playmenusound_action()
 		state.players[state.num_players].car=menu_partymode_addplayer_car.GarageCars[id].index
 		state.players[state.num_players].carname=menu_partymode_addplayer_car.GarageCars[id].name
+		state.players[state.num_players].controller=GUI:GetLastActiveController()
+		self.goingforward=true
 
 		EnterMenu("menu_partymode")
 	end
 
 	function parent.onBack(self)
+		if self.goingback or self.goingforward then
+			return
+		end
+		playmenusound_back()
+		self.goingback=true
 		EnterMenu("menu_partymode_addplayer_name")
 	end
 
 
-	Frame{Name="car_logo",Position=POS(592,68),Size=GetResourceSize(self:getResource("car_0_logo"))}:AttachResource(self:getResource("car_0_logo"))
-	--//StaticText{Name="car_name",Position=POS(-100,86),Font=fontlarge(),Color=GetPaletteColor(3)}
+	StaticText{Name="car_logo",Position=POS(580,257),Align=FONTF_RIGHT,Font=fonthuge()}
 
-	local w=StaticText{Name="car_description",Position=POS(70,142),Size=SIZE(200,400),Font=fontsmall()}
+	--//local w=StaticText{Name="car_description",Position=POS(70,142),Size=SIZE(200,400),Font=fontsmall()}
 
 	local pos=POS(50,66)
 
@@ -484,17 +700,16 @@ function menu_partymode_addplayer_car.init(self)
 	end
 	self.GarageCars=cars
 
-	local cur_car=state.players[state.num_players].car or -1
+	local cur_car=-1
 	if cur_car < 0 then
 		cur_car=self.GarageCars[first].index
 	end
 	state.players[state.num_players].car=cur_car
 
-	UpdateCarInfo(cur_car,self)
-	SetCarDescription(1)
 
 	parent:SetSelectedButton(0,FALSE)
 	parent:onButtonChange(1)
+
 
 	GUI:SetBackground("data/menu/stunt_car_selection_bg.tga")
 
@@ -521,115 +736,45 @@ end
 
 
 --// ---------------------------------------------------------------------------------------------------------------------------------
---// stunt select
+--// stunt preset select
 --// ---------------------------------------------------------------------------------------------------------------------------------
-local function select_stunt(x,y)
-
-	local w=state.stunts[state.selection.y][state.selection.x]
-
-	w:deactivate()
-
-	state.selection.x=x
-	state.selection.y=y
-
-	w=state.stunts[y][x]
-
-	GUI:SwitchButtonText(w.name)
-	
-	w:activate()
-
-end
-
-
-
 menu_partymode_stuntselect = CreateMenuFromTemplate("template_basic")
 
 menu_partymode_stuntselect.options.title=TRANSLATOR(TITLE_SELECTSTUNT)
+menu_partymode_stuntselect.back=entermenu("menu_partymode")
 
+local function show_preset_description(desc)
+	local preset=party_presets[desc]
 
-local function UpdateHighScores()
+	if not preset then
+		W("preset_name"):SetTitle(TRANSLATOR(PRESETS_CUSTOM))
+		W("preset_description"):SetTitle(TRANSLATOR(PRESETS_NAME_CUSTOM))
+		W("preset_description"):WordWrap()
+		for k,v in ipairs(menu_partymode_stuntselect.eventwindows) do
+			v:SetAlpha(0)
+		end
+	else
+		W("preset_name"):SetTitle(preset.name)
+		W("preset_description"):SetTitle(preset.description)
+		W("preset_description"):WordWrap()
 
-	hs_title=GameFlow.GetStuntScoreType(Levels[state.selected_stunt].StuntType)
-
-	W("hs_title"):SetTitle(hs_title)
-
-	for i=1,10 do
-		local wname=string.format("hs_%d",i)
-
-		if i < table.getn(state.highscores) and state.highscores[i].valid then
-			local w=W(wname.."_number")
-			w:ShowWindow()
-			w:SetTitle(ConvertToWString(string.format("%d.",i)))
-
-			w=W(wname.."_name")
-			w:ShowWindow()
-			w:SetTitle(state.highscores[i].name)
-
-			w=W(wname.."_score")
-			w:ShowWindow()
-			w:SetTitle(FormatHighScoreScore(state.highscores[i]))
-		else
-			W(wname.."_number"):HideWindow()
-			W(wname.."_name"):HideWindow()
-			W(wname.."_score"):HideWindow()
+		for k,v in ipairs(menu_partymode_stuntselect.eventwindows) do
+			local p=preset.events[k]
+			if p then
+				local l=Levels[p]
+				if l then
+					v:AttachResource(menu_partymode_stuntselect:getResource(l.TrackIcon))
+					v:SetAlpha(1)
+				else
+					v:SetAlpha(0)
+				end
+			else
+				v:SetAlpha(0)
+			end
 		end
 	end
-
 end
 
-
-
-
-local function SwitchTrackInfo(self,direction,id)
-
-	local leveldata=Levels[tracks[id].level_id]
-	local w=W("track_name")
-	W("track_name"):SetTitle(ConvertToWString(leveldata.Name))
-
-	if W("lapcount") then
-		W("lap_icon"):ShowWindow()
-		W("lapcount"):ShowWindow()
-		W("lapcount"):SetTitle(ConvertToWString(string.format("%d LAPS",leveldata.Laps or 0)))
-	end
-
-	if W("stunt_goal") then
-		if W("lap_icon") then W("lap_icon"):HideWindow() end
-		if W("lapcount") then W("lapcount"):HideWindow() end
-
-		W("stunt_goal"):ShowWindow()
-		W("stunt_goal"):SetTitle(TRANSLATOR(stunt_goals[leveldata.StuntType]))
-	end
-
-	W("track_description"):SetTitle(TRANSLATOR(leveldata.Description))
-	W("track_description"):WordWrap()
-
-	local icon=leveldata.TrackIcon or ""
-	W("track_image"):AttachResource(self:getResource(icon.."_sp"))
-
-	state.highscores=GetLevelHighScores(tracks[id].level_id)
-
-	UpdateHighScores()
-
-
-end
-
-local function ToggleHighScores()
-	if state.show_highscores then
-		AnimateWindowPos(W("highscore_windows"),{ W("highscore_windows"):GetPosition() },POS(350,0),0.3)
-
-		AnimateWindowPos(W("info_windows"),{ W("info_windows"):GetPosition() },POS(0,0),0.3,0.3)
-
-		state.show_highscores=nil
-		GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK),BUTTON_INFO,TRANSLATOR(UI_HIGHSCORES))
-	else
-		AnimateWindowPos(W("info_windows"),{ W("info_windows"):GetPosition() },POS(350,0),0.3)
-
-		AnimateWindowPos(W("highscore_windows"),{ W("highscore_windows"):GetPosition() },POS(0,0),0.3,0.3)
-
-		state.show_highscores=true
-		GUI:SetHelpButtons(BUTTON_OK,L"SELECT",BUTTON_BACK,L"BACK",BUTTON_INFO,L"DESCRIPTION")
-	end
-end
 
 
 
@@ -637,204 +782,85 @@ end
 function menu_partymode_stuntselect.create(self)
 	self.parent:create(self)
 
---//	self:addResource("track_icons.tga",track_icons,track_icons_size)
---//	self:addResource("track_icons_2.tga",track_icons_2,track_icons_2_size)
 	self:addResource("selection_elements.tga",selection_elements,selection_elements_size)
 	self:addResource("cup_final_results_elements1.tga",cup_final_results_elements1,cup_final_results_elements1_size)
 	self:addResource("garage_elements1.tga",garage_elements1,garage_elements1_size)
-
-	self:addResource("track_images.tga",track_images,track_images_size)
-	self:addResource("track_images2.tga",track_images2,track_images2_size)
-
+	self:addResource("backdrops1.tga",backdrops1,backdrops1_size)
 	self:addResource("backdrops2.tga",backdrops2,backdrops2_size)
-	self:addResource("backdrops3.tga",backdrops3,backdrops3_size)
-
-	local files=trackfiles[TRACKTYPE_STUNT]
-
-	for k,v in ipairs(files) do
-		self:addResource(v..".tga",_G[v],_G[v.."_size"])
-	end
---//	self:addResource("track_logos.tga",track_logos,track_logos_size)
---//	self:addResource("track_logos2.tga",track_logos2,track_logos2_size)
---//	self:addResource("track_logos3.tga",track_logos3,track_logos3_size)
+	self:addResource("track_images.tga",track_images,track_images_size)
 
 	self:loadResources()
 
-	if not state then
-		state={}
-		state.total_players= 0
-		state.num_players= 0
-		state.players={}
+	self.items={}
 
-		for i=1,8 do
-			local playerinfo=db.GameFlow[string.format("PlayerInfo[%d]",i-1)]
-
-			if playerinfo.Type == PLAYERTYPE_LOCAL then
-				state.players[i]={}
-				state.players[i].name=playerinfo.Name
-				state.players[i].car=playerinfo.Car
-				
-				local cardata=db.FlatOut2.Cars:GetProperty("Car",state.players[i].car)
-				state.players[i].carname=ConvertToWString(cardata.Name)
-
-
-				state.num_players = state.num_players + 1
-				state.total_players = state.total_players + 1
-			end
-		end
+	for k,v in pairs(party_presets) do
+		table.insert(self.items,MENUITEM(v.name,go_party_preset(k),ICON(self,string.format("icon_profile_%d",k))))
 	end
 
+	table.insert(self.items,MENUITEM(TRANSLATOR(PRESETS_NAME_CUSTOM),select_party_events,ICON(self,"icon_profile_x")))
 end
-
-
-
-
 
 function menu_partymode_stuntselect.init(self)
 	self.parent:init(self)
 
-	Frame{Name="race_bar_bg",Position=POS(0,335),Size=SIZE(640,64)}:AttachResource(self:getResource("selection_bg"))
-	local bar=ButtonBar{ Slots=7,Name="race_bar",Padding=0,SlotSize=SIZE(107,56),
-							SelectedSlotSize=SIZE(107,56),Position=POS(-60,337),Size=SIZE(640+50,60),
-							ButtonBackground=self:getResource("selection_window"),
-							ButtonSelection=self:getResource("buttonbar_select_glow"),
-							}
 
-	function bar.onBack(self)
-		playmenusound_back()
-		--//RaceSelectionState:prevPhase()
-		EnterMenu("menu_partymode")
-	end
+	Frame{Position=POS(284,72+12),Size=SIZE(58,32)}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar_ang"))
+	Frame{Position=POS(342,72+12),Size=SIZE(298,32)}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar"))
 
-	tracks=GetTracksByType(TRACKTYPE_STUNT) --//kludge_gettracks(track_types[RaceSelectionState.RaceType].name)
+	StaticText{Name="preset_name",Position=POS(441,79+12),Align=FONTF_CENTER,Font=fontlarge(),Color=GetPaletteColor(33)}
 
+	Frame{Position=POS(295,109+12),Size=SIZE(49,130)}:AttachResource(self:getResource("upshop_mid_infotxt_bar_ang"))
+	Frame{Position=POS(344,109+12),Size=SIZE(296,130)}:AttachResource(self:getResource("upshop_mid_infotxt_bar"))
 
---//	Frame{Name="trackmap_1",Position=POS(80,57),Size=SIZE(290,270)}
---//	Frame{Name="trackmap_2",Position=POS(641,57),Size=SIZE(290,270)}
+	Frame{Position=POS(332,251),Size=SIZE(48,77)}:AttachResource(self:getResource("upshop_mid_infotxt_bar_ang2"))
+	Frame{Position=POS(380,251),Size=SIZE(260,77)}:AttachResource(self:getResource("upshop_mid_infotxt_bar2"))
 
-	
---//	Frame{Name="track_logo",Position=POS(400,70),Size=SIZE(160,64)}
-
-	Frame{Position=POS(284,72),Size=SIZE(58,32)}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar_ang"))
-	Frame{Position=POS(342,72),Size=SIZE(298,32)}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar"))
-
-	StaticText{Name="track_name",Position=POS(441,79),Align=FONTF_CENTER,Font=fontlarge(),Color=GetPaletteColor(33)}
-
-	local p=Frame{Name="info_windows",Position=POS(0,0),Size=SIZE(640,480)}
-
-	Frame{Position=POS(295,109),Size=SIZE(49,130),Parent=p}:AttachResource(self:getResource("upshop_mid_infotxt_bar_ang"))
-	Frame{Position=POS(344,109),Size=SIZE(296,130),Parent=p}:AttachResource(self:getResource("upshop_mid_infotxt_bar"))
-
-	StaticText{Name="track_description",Position=POS(329,120),Size=SIZE(261,110),Font=fontmedium(),Color=GetPaletteColor(34),Parent=p}
-
-	Frame{Position=POS(333,244),Size=SIZE(55,72),Parent=p}:AttachResource(self:getResource("info_box_detailed_tip"))
-	Frame{Position=POS(333+55,244),Size=SIZE(252,72),Parent=p}:AttachResource(self:getResource("info_box_detailed_strech"))
-
-	StaticText{Title=TRANSLATOR(HEADER_TRACKINFORMATION),Position=POS(346,251),Font=fontmedium(),Color=GetPaletteColor(33),Parent=p}
+	StaticText{Name="preset_description",Position=POS(310,120+12),TextLineAdjust=6,Size=SIZE(270,300),Font=fontmedium(),Color=GetPaletteColor(34)}
 
 
-	local lap_size=GetResourceSize(self:getResource("lap"))
-	local clock_size=GetResourceSize(self:getResource("clock"))
-	
-	Frame{Name="clock_icon",Position=POS(358,273),Size=clock_size,Parent=p}:AttachResource(self:getResource("clock"))
-	--//Frame{Name="lap_icon",Position=POS(358,294),Size=lap_size,Parent=p}:AttachResource(self:getResource("lap"))
+	--//backdrop
+	local resource = self:getResource("backdrop_normal")
+	local size = GetResourceSize(resource)
 
-	StaticText{Name="highscore",Title=L"0'00'00  MUTSIS",Font=fontsmall(),Position=POS(358+clock_size[1]+4,275),Color=GetPaletteColor(34),Parent=p}
-	--//StaticText{Name="lapcount",Title=L"3 LAPS",Font=fontsmall(),Position=POS(358+lap_size[1]+4,295),Color=GetPaletteColor(34),Parent=p}
-	StaticText{Name="stunt_goal",Position=POS(358+lap_size[1]+4,294),Font=fontsmall(),Color=GetPaletteColor(33),Parent=p}:HideWindow()
-	
-	
-	--//highscores
-	p=Frame{Name="highscore_windows",Position=POS(350,0),Size=SIZE(640,480)}
+	Frame { Position=POS(56-10,84), Size=size}:AttachResource(resource)
+	Frame { Position=POS(81-10,169), Size=size}:AttachResource(resource)
+	Frame { Position=POS(106-10,254), Size=size}:AttachResource(resource)
+	Frame { Position=POS(131-10,339), Size=size}:AttachResource(resource)
 
-	StaticText{Title=TRANSLATOR(TITLE_CROSSHATCH),Position=POS(324,111),Fontf=fontmedium(),Align=FONTF_RIGHT,Parent=p,Color=GetPaletteColor(33)}
-	StaticText{Title=TRANSLATOR(TITLE_NAME),Position=POS(330,111),Parent=p,Font=fontmedium(),Color=GetPaletteColor(33)}
+	--//races
+	menu_partymode_stuntselect.eventwindows={}
 
-	local hs_title=TRANSLATOR(TITLE_TIME)
+	local rowpositions={
+		POS(82-10,128),
+		POS(94-10,170),
+		POS(105-10,212),
+		POS(117-10,254),
+	}
 
-	StaticText{Name="hs_title",Title=hs_title,Position=POS(474,111),Parent=p,Font=fontmedium(),Color=GetPaletteColor(33)}
+	local imgsize = wm.GetResourceSize(self:getResource("track_images_forest1"))
+	for i=1,12 do
+		local pos = rowpositions[math.floor((i-1)/3)+1]
+		local x = pos[1] + 71 * math.mod(i-1,3)
 
+		local w = Frame { Name="event_icon_"..i, Position=POS(x,pos[2]), Size=imgsize }
+		
+		w:AttachResource(self:getResource("track_images1_empty_box"))
+		w:SetAlpha(0)
 
-	Frame{Position=POS(301,129),Size=SIZE(31,92),Parent=p}:AttachResource(self:getResource("sr_highscore_bar_ang"))
-	Frame{Position=POS(331,129),Size=SIZE(309,92),Parent=p}:AttachResource(self:getResource("sr_highscore_bar_str"))
-
-	Frame{Position=POS(328,224),Size=SIZE(31,92),Parent=p}:AttachResource(self:getResource("sr_highscore_bar_ang"))
-	Frame{Position=POS(358,224),Size=SIZE(282,92),Parent=p}:AttachResource(self:getResource("sr_highscore_bar_str"))
-
-	local hs_pos=POS(329,130)
-	for i=1,10 do
-		StaticText{Name=string.format("hs_%d_number",i),Position=POS(hs_pos[1],hs_pos[2]-1),Align=FONTF_RIGHT,Font=fontmedium(),Color=GetPaletteColor(34),Parent=p}
-		StaticText{Name=string.format("hs_%d_name",i),Position=POS(hs_pos[1]+6,hs_pos[2]-1),Font=fontmedium(),Color=GetPaletteColor(34),Parent=p}
-		StaticText{Name=string.format("hs_%d_score",i),Position=POS(hs_pos[1]+150,hs_pos[2]-1),Font=fontmedium(),Color=GetPaletteColor(34),Parent=p}
-
-		hs_pos[1] = hs_pos[1] + 5
-		hs_pos[2] = hs_pos[2] + 19
-	end
-
-	--//end highscores
-
-
-	Frame{Position=POS(0,72),Size=SIZE(273,143)}:AttachResource(self:getResource("big_bottom"))
-	Frame{Position=POS(273,72),Size=SIZE(45,143)}:AttachResource(self:getResource("big_bottom_ang"))
-
-	Frame{Position=POS(0,215),Size=SIZE(313,101)}:AttachResource(self:getResource("big_bottom_race_sel"))
-	Frame{Position=POS(313,215),Size=SIZE(34,101)}:AttachResource(self:getResource("big_bottom_race_sel_ang"))
-
-	Frame{Name="track_image",Position=POS(0,84),Size=SIZE(332,219)}
-
-	bar.onButtonChange = function(self,id)
-
-		playmenusound_move()
-		--//db.GameFlow.PreRace.Level=tracks[id].level_id
-		state.selected_stunt=tracks[id].level_id
-
-		GUI:SwitchButtonText(tracks[id].name)
-
-		local menu=menu_partymode_stuntselect
-
-		if not old_id then
-			SwitchTrackInfo(menu,DIRECTION_NONE,id)
-		elseif id > old_id then
-			if old_id == 1 and id == table.getn(tracks) then
-				SwitchTrackInfo(menu,DIRECTION_NONE,id)
-			else
-				SwitchTrackInfo(menu,DIRECTION_LEFT,id)
-			end
-		elseif id < old_id then
-			if old_id == table.getn(tracks) and id == 1 then
-				SwitchTrackInfo(menu,DIRECTION_NONE,id)
-			else
-				SwitchTrackInfo(menu,DIRECTION_RIGHT,id)
-			end
-		end
-
-	end
-
-	bar.onChildAction = function(self,id)
-		playmenusound_action()
-		go_race()
-	end
-
-	bar.onButtonY = function(self,id)
-		playmenusound_move()
-		ToggleHighScores()
+		table.insert(menu_partymode_stuntselect.eventwindows,w)
 	end
 
 
-	for k,v in ipairs(tracks) do
-		local data=Levels[v.level_id]
-		bar:AddButton(self:getResource(data.TrackIcon or ""))
-	end
 
-	bar:SetFocus()
-	
-	bar:onButtonChange(1)
-	
-	--//GUI:SetBackground("data/menu/menu_background.tga")
 	GUI:SetBackgroundVideo("data/video/bg_main")
 	GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK))
 
 end
+
+function menu_partymode_stuntselect.buttonChange(self,oldbutton,newbutton)
+	show_preset_description(newbutton)
+end
+
 
 function menu_partymode_stuntselect.deinit(self)
 	self.parent:deinit(self)
@@ -843,5 +869,115 @@ end
 
 
 
+local Layout = {
+	TitlePos=POS(72,86),
+	TitleFont=fontlarge(),
+	TitleColor=GetPaletteColor(3),
+	
+	ListPos=POS(0,151),
+	ListRowWidth=640,
+	ListTop3RowHeight=25,
+	ListRowHeight=22,
+	ListRowPadding=3,
+	
+	ListTop3Font=fontlarge(),
+	ListFont=fontmedium(),
+	ListFontColor=GetPaletteColor(4),
+
+	ListTitleFont=fontsmall(),
+	ListTitleFontColor=GetPaletteColor(1),
+	
+	ListTitleY=129,
+	ListNumX=79,
+	ListNameX=122,
+	ListTournamentPointsX=521,
+}
+
+menu_partymode_results = CreateMenuFromTemplate("template_basic")
+menu_partymode_results.options.title = L"STANDINGS"
+menu_partymode_results.back = entermenu("menu_partymode")
 
 
+function menu_partymode_results.create(self)
+	self.parent:create(self)
+
+	self:loadResources()
+
+	self.items = { }
+end
+
+local function CreateListRow(num)
+	local font
+	local y
+	local h
+	
+	if num < 4 then
+		y = Layout.ListPos[2] + (num - 1) * (Layout.ListTop3RowHeight + Layout.ListRowPadding)
+		h = Layout.ListTop3RowHeight
+		font = Layout.ListTop3Font
+	else
+		y = Layout.ListPos[2] + 3 * (Layout.ListTop3RowHeight + Layout.ListRowPadding) + (num - 4) * (Layout.ListRowHeight + Layout.ListRowPadding)
+		h = Layout.ListRowHeight
+		font = Layout.ListFont
+	end
+	
+	
+	local id = GameFlow.GetPlayerIdByPosition(num)
+	local pos = CupManager:GetCupPosition(id-1)
+	local bg = Frame { Position=POS(Layout.ListPos[1], y), Size=SIZE(640, h), DrawBackgroundColor=TRUE, Color={0,0,0,0.5*MAX_VERTEXCOLOR_A,false} }
+	StaticText { Position=POS(Layout.ListNumX, 0), Size=SIZE(12, h), Title=L(pos.."."), Font=font, Color=Layout.ListFontColor, Parent=bg, Align=FONTF_CENTER }
+	StaticText { Position=POS(Layout.ListNameX, 0), Size=SIZE(260, h), Title=GameFlow.GetPlayerName(id), Font=font, Color=Layout.ListFontColor, Parent=bg }
+	StaticText { Name="tournamentpoints_"..num, Position=POS(Layout.ListTournamentPointsX, 0), Size=SIZE(50, h), Title=L(GameFlow.GetPlayerCupPoints(id)), Font=font, Color=Layout.ListFontColor, Parent=bg, Align=FONTF_CENTER }
+end
+
+function menu_partymode_results.init(self)
+	self.parent:init(self)
+	
+	GUI:SetBackgroundVideo("data/video/bg_main")
+	
+	local text=WStringConcat(GetPhrase(TRANSLATOR(PARTYMODE_STANDINGS)),L" ")
+	WStringConcat(text,ConvertToWString(CupManager:GetCurrentRaceIndex()))
+	WStringConcat(text,L" / ")
+	WStringConcat(text,ConvertToWString(CupManager:GetCupSize()))
+
+	StaticText { Title=text, Position=Layout.TitlePos, Size=SIZE(400,22), Font=Layout.TitleFont, Color=Layout.TitleColor }
+
+	StaticText { Title=MULTIPLAYER_LOBBY_VIEWRANKING_CROSSHATCH, Position=POS(Layout.ListNumX, Layout.ListTitleY), Size=SIZE(12,13), Font=Layout.ListTitleFont, Color=Layout.ListTitleFontColor, Align=FONTF_CENTER }
+	StaticText { Title=MULTIPLAYER_NAME, Position=POS(Layout.ListNameX, Layout.ListTitleY), Size=SIZE(260,13), Font=Layout.ListTitleFont, Color=Layout.ListTitleFontColor}
+	StaticText { Title=MULTIPLAYER_POINTS, Position=POS(Layout.ListTournamentPointsX, Layout.ListTitleY), Size=SIZE(50,13), Font=Layout.ListTitleFont, Color=Layout.ListTitleFontColor, Align=FONTF_CENTER }
+	
+	for i = 1, CupManager:GetNumDrivers() do
+		--//if CupManager:IsCupPositionVisible(i) then
+			CreateListRow(i)
+		--//end
+	end
+	
+	local input=InputHandler{Name="inputhandler"}
+	input.onKeyPressed = function(self,character,virtualkey,scancode)
+		if CupManager:IsCupFinished() then
+			if virtualkey == KeyCodes.BUTTON_START then
+				EnterMenu("menu_partymode")
+			end
+		else		
+			if virtualkey == KeyCodes.BUTTON_SELECT then
+				playmenusound_back()
+				local function okpartymode(value)
+					if value == TRUE then
+						CupManager:Clear()
+						state=nil
+						EnterMenu("menu_multiplayer")
+					end
+				end
+				MessageBox(TRANSLATOR(PARTYMODE_QUITCONFIRM),MESSAGEBOX_YESNO,okpartymode)
+			elseif virtualkey == KeyCodes.BUTTON_START then
+				Event:PostEvent(event(EVENT_RACE_BEGIN))			
+			end
+		end
+	end
+
+	if CupManager:IsCupFinished() then
+		GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_CONTINUE))
+	else
+		GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_CONTINUE),BUTTON_BACK,TRANSLATOR(UI_BACK))
+	end
+end

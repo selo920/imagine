@@ -24,20 +24,57 @@ end
 
 function CarlistAllCars()
 	local cars={}
+	local locked={}
 
 	for i=0,Garage:GetNumCars()-1 do
 		local t={}
 		t.index=i
-		table.insert(cars,t)
+		if Garage:IsCarLocked(i) then
+			table.insert(locked,t)
+		else
+			table.insert(cars,t)
+		end
+	end
+
+	for k,v in pairs(locked) do
+		table.insert(cars,v)
 	end
 
 	return cars	
 end
 
+function CarlistUnpurchasedFromClass(index)
+	local cars=Classes[index].ClassCars
+
+	local t={}
+	local locked={}
+
+	if not cars then LOG("CarlistUnpurchasedFromClass: class %d doesn't have ClassCars",index); return t; end
+
+	for k,v in pairs(cars) do
+		if not Garage:IsCarPurchased(v) then
+			if Garage:IsCarLocked(v) then
+				table.insert(locked,{index=v})
+			else
+				table.insert(t,{ index=v })
+			end
+		end
+	end
+
+	for k,v in pairs(locked) do
+		table.insert(t,v)
+	end
+
+	return t
+end
+
+
 function CarlistFromClass(index,only_purchased,all_cars)
 	local cars=Classes[index].ClassCars
 
 	local t={}
+	local locked={}
+
 
 	if not cars then LOG("CarlistFromClass: class %d doesn't have ClassCars",index); return t; end
 
@@ -48,9 +85,17 @@ function CarlistFromClass(index,only_purchased,all_cars)
 			end
 		else
 			if all_cars or not Garage:IsCarLocked(v) then
-				table.insert(t,{ index=v })
+				if Garage:IsCarLocked(v) then
+					table.insert(locked,{index=v})
+				else
+					table.insert(t,{ index=v })
+				end
 			end
 		end
+	end
+
+	for k,v in pairs(locked) do
+		table.insert(t,v)
 	end
 
 	return t
@@ -59,16 +104,10 @@ end
 function CarlistAllUnlocked()
 	local t={}
 
-	for index=1,3 do
+	for i=0,db.FlatOut2.Cars:GetPropertyArraySize("Car")-1 do
 
-		local cars=Classes[index].ClassCars
-
-		if not cars then LOG("CarlistFromClass: class %d doesn't have ClassCars",index); return t; end
-
-		for k,v in pairs(cars) do
-			if not Garage:IsCarLocked(v) and not IsStuntCar(v) then
-				table.insert(t,{ index=v })
-			end
+		if not Garage:IsCarLocked(i) and not IsStuntCar(i) then
+			table.insert(t,{ index=i })
 		end
 	end
 
@@ -116,15 +155,19 @@ function GetCarDataIndex(car_idx)
 end
 
 
-function EnterCarSelection(okaction,backaction,carlist,purchase,all_available,only_description,show_tutorial,background)
+function EnterCarSelection(okaction,backaction,carlist,purchase,all_available,only_description,show_tutorial,background,testtrack_menudata,show_class,title,hide_menubar_car)
 	menu_carselection.carlist=carlist or CarlistAllCars()
 	menu_carselection.back=backaction
 	menu_carselection.okaction=okaction
 	menu_carselection.shop_mode=purchase
+	menu_carselection.show_class=show_class
 	menu_carselection.show_tutorial=show_tutorial
 	menu_carselection.all_available=all_available
 	menu_carselection.only_description=only_description
 	menu_carselection.background=background
+	menu_carselection.testtrack_menudata=testtrack_menudata
+	menu_carselection.title=title
+	menu_carselection.hide_menubar_car=hide_menubar_car
 	EnterMenu("menu_carselection")
 end
 
@@ -222,8 +265,6 @@ end
 --// 
 --// ---------------------------------------------------------------------------------------------------------------------------------
 
-menu_carselection.options.title=TRANSLATOR(TITLE_GARAGE)
-
 
 local classes = { TRANSLATOR(TITLE_DERBYCLASS),TRANSLATOR(TITLE_STREETCLASS),TRANSLATOR(TITLE_RACINGCLASS),TRANSLATOR(TITLE_BONUS),TRANSLATOR(TITLE_STUNT) }
 local drive = { TRANSLATOR(TITLE_RWD), TRANSLATOR(TITLE_FWD), TRANSLATOR(TITLE_4WD) }
@@ -234,14 +275,15 @@ function menu_carselection.create(self)
 
 	self:addResource("car_icons.tga",car_icons,car_icons_size)
 	self:addResource("car_icons_locked.tga",car_icons_locked,car_icons_locked_size)
---//	self:addResource("car_icons_2.tga",car_icons_2,car_icons_2_size)
---//	self:addResource("car_icons_2_locked.tga",car_icons_2_locked,car_icons_2_locked_size)
-	self:addResource("car_logos.tga",car_logos,car_logos_size)
-	self:addResource("car_logos_2.tga",car_logos_2,car_logos_2_size)
-	self:addResource("car_logos_3.tga",car_logos_3,car_logos_3_size)
 	self:addResource("garage_elements1.tga",garage_elements1,garage_elements1_size)
 
 	self:loadResources()
+
+	if menu_carselection.shop_mode then
+		menu_carselection.options.title=TRANSLATOR(TITLE_SELECTCAR)
+	else
+		menu_carselection.options.title=menu_carselection.title or TRANSLATOR(TITLE_GARAGE)
+	end
 
 	self.items = {}
 
@@ -259,26 +301,36 @@ function menu_carselection.init(self)
 							}
 
 	
+	menu_carselection.goingforward=nil
+	menu_carselection.goingback=nil
 
 	parent.HideButtons = function(self)
 		local pos={ self:GetPosition() }
-		self.origpos={ parent:GetPosition() }
-		AnimateWindowPos(self,pos,POS(pos[1],pos[2]+150),0.2)
+		self.origpos={ -60,337 }
+		AnimateWindowPos(self,pos,POS(self.origpos[1],self.origpos[2]+150),0.2)
 		local w=W("garage_cars_bg")
-		w.origpos={ w:GetPosition() }
-		AnimateWindowPos(w,pos,POS(pos[1],pos[2]+150),0.2)
+		w.origpos={ 0,335 }
+		AnimateWindowPos(w,pos,POS(w.origpos[1],w.origpos[2]+150),0.2)
 	end
 
 	parent.ShowButtons = function(self)
 		local pos={ self:GetPosition() }
-		AnimateWindowPos(self,{ self:GetPosition() },self.origpos or POS(pos[1],pos[2]-150),0.3)
+		AnimateWindowPos(self,{ self:GetPosition() },self.origpos or POS(-60,337),0.3)
 
 		local w=W("garage_cars_bg")
-		AnimateWindowPos(w,{ w:GetPosition() },w.origpos,0.3)
+		AnimateWindowPos(w,{ w:GetPosition() },w.origpos or POS(0,335),0.3)
 	end
 
 	parent.onButtonChange = function(self,id)
-		Garage:SetCarSkinIndex(menu_carselection.SelectedCar,1)
+		if menu_carselection.goingback or menu_carselection.goingforward then
+			return
+		end
+
+
+		playmenusound_move()
+		if not Garage:IsCarPurchased(menu_carselection.SelectedCar) then
+			Garage:SetCarSkinIndex(menu_carselection.SelectedCar,1)
+		end
 
 		menu_carselection.SelectedCar=menu_carselection.GarageCars[id].index
 		menu_carselection.SelectedSkin=1 --//Garage:GetCarSkinIndex(menu_carselection.SelectedCar)+1
@@ -286,11 +338,23 @@ function menu_carselection.init(self)
 
 		if menu_carselection.only_description then
 			SetCarDescription(menu_carselection.SelectedCar)
-		end		
-		UpdateCarInfo(menu_carselection.SelectedCar,menu_carselection)
+		end
+
+		if menu_carselection.testtrack_menudata and not Garage:IsCarLocked(menu_carselection.SelectedCar) then
+			GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK),BUTTON_EXTRA,TRANSLATOR(UI_TESTCAR),TRUE)
+		else
+			GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK))
+		end
+
+
+		UpdateCarInfo(menu_carselection.SelectedCar,menu_carselection,false,menu_carselection.SelectedSkin)
 	end
 
 	parent.onMoveUp = function(self,id)
+		if menu_carselection.goingforward or menu_carselection.goingback then
+			return
+		end
+
 		if menu_carselection.only_description then return end
 
 		if menu_carselection.SelectedSkin then
@@ -308,6 +372,10 @@ function menu_carselection.init(self)
 	end
 
 	parent.onMoveDown = function(self,id)
+		if menu_carselection.goingforward or menu_carselection.goingback then
+			return 
+		end
+
 		if menu_carselection.only_description then return end
 
 		if menu_carselection.SelectedSkin then
@@ -326,6 +394,10 @@ function menu_carselection.init(self)
 	end
 
 	parent.onChildAction = function(self,id)
+		if menu_carselection.goingforward or menu_carselection.goingback then
+			return
+		end
+
 		local menucar=menu_carselection.GarageCars[id]
 		local index=menucar.index
 
@@ -339,49 +411,89 @@ function menu_carselection.init(self)
 
 					local function confirmation_end(value)
 						if value==TRUE then
+							menu_carselection.goingforward=true
 							menu_carselection.okaction(index,menu_carselection.SelectedSkin)
 						else
 							W("garage_cars"):ShowButtons()
-							GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK),BUTTON_EXTRA,TRANSLATOR(UI_CARINFO),TRUE)
+							if menu_carselection.testtrack_menudata then
+								GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK),BUTTON_EXTRA,TRANSLATOR(UI_TESTCAR))
+							else
+								GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK))
+							end
 						end
 					end
 					W("garage_cars"):HideButtons()
+					GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_YES),BUTTON_BACK,TRANSLATOR(UI_NO))
 					ConfirmationDialog(TRANSLATOR(MESSAGE_BUYCARQUERY),confirmation_end)
 				else
 					playmenusound_error()
 					W("garage_cars"):HideButtons()
-					MessageBox(TRANSLATOR(MESSAGE_NOTENOUGHMONEY),MESSAGEBOX_OK,function() W("garage_cars"):ShowButtons() end)
+					MessageBox(TRANSLATOR(MESSAGE_NOTENOUGHMONEY),MESSAGEBOX_OK,function() ShowCarInfoWindows(); W("garage_cars"):ShowButtons() end)
 				end
 			end
 		else
 			if (menu_carselection.all_available or not Garage:IsCarLocked(index)) and menu_carselection.okaction then
 				playmenusound_action()
+				menu_carselection.goingforward=true
 				menu_carselection.okaction(index, menu_carselection.SelectedSkin)
 			end
 		end
 	end
 
 	function parent.onBack(self)
-		if menu_carselection.show_tutorial then
-			playmenusound_error()
+		if menu_carselection.goingback or menu_carselection.goingforward then
+			return
+		end
+
+		--//Garage:SetCarSkinIndex(menu_carselection.SelectedCar,1)
+		if menu_carselection.show_tutorial and Garage:GetNumCarsPurchased() == 0 then
+			playmenusound_back()
+			menu_carselection.goingback=true
+			EnterMenu("menu_singleplayer")
 		else
 			playmenusound_back()
+			menu_carselection.goingback=true
 			menu_carselection.SelectedCar=nil
 			menu_carselection.SelectedSkin=nil
 			menu_carselection.back()
 		end
 	end
 
+	function parent.onButtonY(self)
+		if menu_carselection.goingforward or menu_carselection.goingback then
+			return
+		end
 
-	Frame{Name="car_logo",Position=POS(592,68),Size=GetResourceSize(self:getResource("car_0_logo"))}:AttachResource(self:getResource("car_0_logo"))
-	--//StaticText{Name="car_name",Position=POS(-100,86),Font=fontlarge(),Color=GetPaletteColor(3)}
+		if menu_carselection.testtrack_menudata then 
+			if not Garage:IsCarLocked(menu_carselection.SelectedCar) then
+				playmenusound_action()
+				menu_carselection.goingforward=true
+				EnterTestTrack(menu_carselection.SelectedCar,menu_carselection.testtrack_menudata,menu_carselection.SelectedSkin)
+			else 
+				playmenusound_error()
+			end
+		end
+	end
+	
+
+	if PS2 or PC then
+		parent.onButtonX = parent.onButtonY
+		parent.onButtonY=nil
+	end
+
+	StaticText{Name="car_logo",Position=POS(580,257),Align=FONTF_RIGHT,Font=fonthuge()}
 
 	local pos=POS(50,66)
 
 	if self.only_description then
-		StaticText{Name="car_description",Position=POS(50,80),Size=SIZE(200,400),Font=fontsmall()}
+		HideMenuBarMoney()
+		HideMenuBarCar()
+		--//StaticText{Name="car_description",Position=POS(50,80),Size=SIZE(200,400),Font=fontsmall(),Color=GetPaletteColor(34)}
 	else
-		CreateCarInfoWindows(self,pos,false)		
+		CreateCarInfoWindows(self,pos,false,false,menu_carselection.shop_mode or menu_carselection.show_class)		
+		if self.hide_menubar_car then
+			HideMenuBarCar()
+		end
 	end
 
 --//	CreatePaletteSelector(self)
@@ -389,15 +501,21 @@ function menu_carselection.init(self)
 
 
 	if self.shop_mode then
-		StaticText{Name="car_price",Title=L"$ERR",Position=POS(586,140),Font=fontlarge(),Align=FONTF_RIGHT}
+		StaticText{Name="car_price",Title=L"$ERR",Position=POS(578,298),Font=fontlarge(),Align=FONTF_RIGHT,Color=GetPaletteColor(34)}
 	end
 
 
 
 	if menu_carselection.show_tutorial then
-		GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_EXTRA,TRANSLATOR(UI_CARINFO))
+		if menu_carselection.testtrack_menudata then
+			GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_EXTRA,TRANSLATOR(UI_TESTCAR))
+		else
+			GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT))
+		end
+	elseif menu_carselection.testtrack_menudata then
+		GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK),BUTTON_EXTRA,TRANSLATOR(UI_TESTCAR),TRUE)
 	else
-		GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK),BUTTON_EXTRA,TRANSLATOR(UI_CARINFO),TRUE)
+		GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK))
 	end
 	
 
@@ -432,13 +550,12 @@ function menu_carselection.init(self)
 		cur_car=self.GarageCars[first].index
 	end
 	self.SelectedCar=cur_car
-	self.SelectedSkin=Garage:GetCarSkinIndex(self.SelectedCar)
+	self.SelectedSkin=1 --//Garage:GetCarSkinIndex(self.SelectedCar)
 
 	if menu_carselection.only_description then
 		SetCarDescription(cur_car)
 	end		
 
-	--//UpdateCarInfo(cur_car,self)
 --//	SetPaletteSelector(self.SelectedSkin)
 	parent:SetSelectedButton(0,FALSE)
 	parent:onButtonChange(1)
@@ -460,12 +577,12 @@ end
 function menu_carselection.startshow(self)
 	self.parent:startshow(self)
 
-	if self.show_tutorial then
+	if self.show_tutorial and not PlayerProfile:IsCareerWelcome3Displayed() then
 		W("garage_cars"):HideButtons()
 		MessageBox(TRANSLATOR(CAREER_WELCOME_CARSHOP), MESSAGEBOX_OK,function() W("garage_cars"):ShowButtons() end)
+		PlayerProfile:SetCareerWelcome3Displayed(true)
 	end
 
-	--//AnimateWindowPos(W("car_logo"),POS(-100,86),POS(50,86),0.2)
 	--//ShowPaletteSelector()
 
 end

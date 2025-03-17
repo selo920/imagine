@@ -9,6 +9,8 @@
 --// Authors: Pasi Matilainen (pasi.matilainen@bugbear.fi)
 --///////////////////////////////////////////////////////////////////////////
 
+ControllerId = nil
+
 OptionsPopup = {
 	Buttons = { },
 	ActiveButton = 1,
@@ -26,7 +28,26 @@ OptionsPopup = {
 		end		
 	end,
 	
-	Create = function()
+	Create = function(controllerId)
+		local userNr
+		local userId
+		ControllerId = controllerId
+		if ControllerId then
+			if XBOX then
+				userNr = XBoxLive.Auth.GetSignedInUserNr(ControllerId)
+				userId = XBoxLive.Auth.GetSignedInUserId(userNr)
+				XBoxLive.GetPlayersList():SetUserIndex(ControllerId)
+				XBoxLive.GetPlayersList():Init()
+				XBoxLive.GetPlayersList():SetListShowing(true)
+				XBoxLive.GetPlayersList():Update(true)
+			end
+			Friends.SetUserIndex(ControllerId)
+			Friends.Enumrate()
+			if XBOX then
+				XBoxLive.GetMessageManager():EnableEnumrate(ControllerId)
+			end		
+		end
+
 		OptionsPopup.PopupActive = true
 		OptionsPopup.InErrorState = false
 		GUI:EnableOnlineOptionsMenu(false)
@@ -44,8 +65,8 @@ OptionsPopup = {
 		local itemtitlebg = Frame { Name="options_itemtitlebg", Position=POS(2,120), Size=SIZE(314,17), Parent=optionsbox, Layer=5 }
 		itemtitlebg:AttachResource(wm.GetResource("narrow_white_bar_30"))
 
-		StaticText { Name="options_menutitle", Position=POS(2, -1), Size=SIZE(300, 17), Font=fontsmall(), Color=GetPaletteColor(3), Parent=itemtitlebg, Layer=5 }
-		local itemtitle = StaticText { Name="options_itemtitle", Position=POS(157, -1), Size=SIZE(162,17), TitleCentering=TITLE_CENTER_Y, Align=FONTF_CENTER, Font=fontsmall(), Color=GetPaletteColor(1), Parent=itemtitlebg, Layer=5 }
+		StaticText { Name="options_menutitle", Position=POS(2, -1), Size=SIZE(300, 17), Font=fontmedium(), Color=GetPaletteColor(3), Parent=itemtitlebg, Layer=5 }
+		local itemtitle = StaticText { Name="options_itemtitle", Position=POS(157, -1), Size=SIZE(162,17), TitleCentering=TITLE_CENTER_Y, Align=FONTF_CENTER, Font=fontmedium(), Color=GetPaletteColor(1), Parent=itemtitlebg, Layer=5 }
 
 		local arrowsize = wm.GetResourceSize(wm.GetResource("selection_arrow_l"))
 
@@ -59,31 +80,37 @@ OptionsPopup = {
 		wm.GetWindow("options_leftarrow"):HideWindow()
 		wm.GetWindow("options_rightarrow"):HideWindow()
 
-		local backbutton, okbutton	
+		local backbutton, okbutton, extrabutton, extra2button	
 		if PS2 then
 			backbutton = "ps2_triangle"
 			okbutton = "ps2_cross"
 			extrabutton = "ps2_circle"
+			extra2button = "ps2_square"
 		elseif XBOX then
 			backbutton = "xbox_b"
 			okbutton = "xbox_a"
 			extrabutton = "xbox_y"
+			extra2button = "xbox_x"
 		end
 
 		local buttonsize = wm.GetResourceSize(backbutton)
 
 		local win = Frame { Name="options_backbutton", Position=POS(0,0), Size=buttonsize, Parent=optionsbox, Layer=5 }
 		win:AttachResource(wm.GetResource(backbutton))
-		StaticText { Name="options_backbutton_title", Position=POS(0,0), Size=SIZE(50,13), Color=GetPaletteColor(1), Font=fontsmall(), Parent=optionsbox, Layer=5 }
+		StaticText { Name="options_backbutton_title", Position=POS(0,0), Size=SIZE(50,13), Color=GetPaletteColor(1), Font=fontmedium(), Parent=optionsbox, Layer=5 }
 
 		local win = Frame { Name="options_okbutton", Position=POS(0,0), Size=buttonsize, Parent=optionsbox, Layer=5 }
 		win:AttachResource(wm.GetResource(okbutton))
-		StaticText { Name="options_okbutton_title", Position=POS(0,0), Size=SIZE(50,13), Color=GetPaletteColor(1), Font=fontsmall(), Parent=optionsbox, Layer=5 }
+		StaticText { Name="options_okbutton_title", Position=POS(0,0), Size=SIZE(50,13), Color=GetPaletteColor(1), Font=fontmedium(), Parent=optionsbox, Layer=5 }
 
 		local win = Frame { Name="options_extrabutton", Position=POS(0,0), Size=buttonsize, Parent=optionsbox, Layer=5 }
 		win:AttachResource(wm.GetResource(extrabutton))
-		StaticText { Name="options_extrabutton_title", Position=POS(0,0), Size=SIZE(50,13), Color=GetPaletteColor(1), Font=fontsmall(), Parent=optionsbox, Layer=5 }
+		StaticText { Name="options_extrabutton_title", Position=POS(0,0), Size=SIZE(50,13), Color=GetPaletteColor(1), Font=fontmedium(), Parent=optionsbox, Layer=5 }
 		
+		local win = Frame { Name="options_extra2button", Position=POS(0,0), Size=buttonsize, Parent=optionsbox, Layer=5 }
+		win:AttachResource(wm.GetResource(extra2button))
+		StaticText { Name="options_extra2button_title", Position=POS(0,0), Size=SIZE(50,13), Color=GetPaletteColor(1), Font=fontmedium(), Parent=optionsbox, Layer=5 }
+
 		OptionsPopup.SetHelpButtons(UI_BACK, UI_SELECT)
 		
 		OptionsPopup.Buttons = { }
@@ -98,19 +125,43 @@ OptionsPopup = {
 	end,
 	
 	Destroy = function()
+		if XBOX and wm.GetWindow("menubar_gamespy_logo") == nil then
+			GUI:SetMenuController(0)
+		end
+
+		if ControllerId then
+			Friends.EndEnumrate()
+
+			if XBOX then
+				XBoxLive.GetPlayersList():SetListShowing(false)
+				XBoxLive.GetPlayersList():DeInit()	
+				if ControllerId then
+					XBoxLive.GetMessageManager():DisableEnumrate(ControllerId)
+				end
+			end
+		end
+		
 		OptionsPopup.DeInit()
 		OptionsPopup.DeInit = nil
 		OptionsPopup.PopupActive = false
 		wm.DeactivateWindow(wm.GetWindow("options_bg"))
 		wm.RemoveWindow(wm.GetWindow("options_bg"))
 		GUI:EnableOnlineOptionsMenu(true)
-		GUI:ShowMenuButtons()
-		if OptionsPopup.LastFocus then
-			wm.SetFocus(OptionsPopup.LastFocus)
-			OptionsPopup.LastFocus = nil
+		
+		-- This is nasty, but must be done to get correct buttons in lobby
+		if OptionsPopup.BuildMenuButtons then
+			OptionsPopup.BuildMenuButtons()
+		else
+			GUI:ShowMenuButtons()
+			if OptionsPopup.LastFocus then
+				wm.SetFocus(OptionsPopup.LastFocus)
+				OptionsPopup.LastFocus = nil
+			end
 		end
+		
 		if OptionsPopup.CheckErrorsFSM then
 			FSM_init_state(OptionsPopup.CheckErrorsFSM)
+			OptionsPopup.CheckErrorsFSM:Remove()
 			OptionsPopup.CheckErrorsFSM = nil
 		end
 	end,
@@ -137,7 +188,7 @@ OptionsPopup = {
 		title:SetPosition(newsize[1]/2, -1)
 	end,
 	
-	SetHelpButtons = function(backtitle,oktitle,extratitle)
+	SetHelpButtons = function(backtitle,oktitle,extratitle,extra2title)
 		local w,win,titley,buttony,buttonwidth
 		local x,y=wm.GetWindow("options_box"):GetSize()
 		local titley=y - 25
@@ -155,7 +206,7 @@ OptionsPopup = {
 			wm.GetWindow(button):ShowWindow()
 			wm.GetWindow(button.."_title"):ShowWindow()
 			
-			w,_ = wm.GetTextExtents(title, fontsmall())
+			w,_ = wm.GetTextExtents(title, fontmedium())
 			x = x - w
 			win = wm.GetWindow(button.."_title")
 			win:SetPosition(x, titley)
@@ -165,6 +216,7 @@ OptionsPopup = {
 			x = x - 20
 		end
 		
+		updatebutton("options_extra2button", extra2title)
 		updatebutton("options_extrabutton", extratitle)
 		updatebutton("options_okbutton", oktitle)
 		updatebutton("options_backbutton", backtitle)
@@ -173,15 +225,33 @@ OptionsPopup = {
 	UpdateButtonTitle = function()
 		local button = OptionsPopup.Buttons[OptionsPopup.ActiveButton]
 		local itemtitle = wm.GetWindow("options_itemtitle")
+		local larrow = wm.GetWindow("options_leftarrow")
+		local rarrow = wm.GetWindow("options_rightarrow")
+		
+		if button == nil then
+			itemtitle:HideWindow()
+			larrow:HideWindow()
+			rarrow:HideWindow()
+			return
+		end
+
 		local activeitem = button.activeitem or 1
 		local title = button.titles[activeitem]
 		itemtitle:SetTitle(title)
 		if title ~= nil then
-			local w,_ = wm.GetTextExtents(title, fontsmall())
+			local w,_ = wm.GetTextExtents(title, fontmedium())
 			local aw = wm.GetResourceSize(wm.GetResource("selection_arrow_l"))[1]
 			local titlepos = pack(itemtitle:GetPosition())
-			wm.GetWindow("options_leftarrow"):SetPosition(titlepos[1]-w/2-5-aw,2)
-			wm.GetWindow("options_rightarrow"):SetPosition(titlepos[1]+w/2+5,2)
+			larrow:SetPosition(titlepos[1]-w/2-5-aw,2)
+			rarrow:SetPosition(titlepos[1]+w/2+5,2)
+			
+			itemtitle:ShowWindow()
+			larrow:ShowWindow()
+			rarrow:ShowWindow()
+		else
+			itemtitle:HideWindow()
+			larrow:HideWindow()
+			rarrow:HideWindow()
 		end
 	end,
 	
@@ -220,6 +290,7 @@ OptionsPopup = {
 			active = wm.GetResource(b.icons[activeicon].."_s")
 			inactive = wm.GetResource(b.icons[activeicon])
 			bb:AddButton(active, inactive)
+			bb.AnimHandle = AnimateWindowAlpha(bb, 0, 1, 0.2, 0, bb.AnimHandle)
 		end
 		OptionsPopup.ActiveButton = activebutton or 1
 		bb:SetSelectedButton(OptionsPopup.ActiveButton-1)
@@ -227,6 +298,10 @@ OptionsPopup = {
 	end,
 	
 	MoveLeft = function()
+		if table.getn(OptionsPopup.Buttons) == 0 then
+			return
+		end
+		
 		if OptionsPopup.ActiveButton == 1 then
 			OptionsPopup.ActiveButton = table.getn(OptionsPopup.Buttons)
 		else
@@ -237,6 +312,10 @@ OptionsPopup = {
 	end,
 
 	MoveRight = function()
+		if table.getn(OptionsPopup.Buttons) == 0 then
+			return
+		end
+
 		if OptionsPopup.ActiveButton == table.getn(OptionsPopup.Buttons) then
 			OptionsPopup.ActiveButton = 1
 		else
@@ -318,30 +397,18 @@ end
 
 
 
-menu_online_options = CreateMenuFromTemplate("template_basic")
-menu_online_options.title = TITLE_LIVE_OPTIONS
-menu_online_options.back = function() SaveChanges(); GUI:EnableOnlineOptionsMenu(true); EnterMenu("menu_xboxlive"); end
-
 local function ShowPlayers(mode)
-	SaveChanges()
 	HideOnlineOptions()
 	OptionsPopup.ClearButtons()
---	OptionsPopup.AnimateHide()
 
 	local enableinvites
-	if Session ~= nil then
+	if Session ~= nil and Session:GetInfo().RatedGame == false and Session:IsGameInvitesEnabled() then
 		enableinvites = true
 	else
 		enableinvites = false
 	end
 	
---[[	local controller
-	if XBOX then
-		controller = XBoxLive.Auth.GetSignedInUserPort(1)
-	else
-		controller = 1
-	end--]]
-	EnterPlayersList(mode, ControllerId, function() OptionsPopup.DeInit(); ShowOnlineOptions(); end, enableinvites)
+	EnterPlayersList(mode, function() OptionsPopup.DeInit(); ShowOnlineOptions(); end, enableinvites)
 end
 
 local Buttons={
@@ -371,25 +438,72 @@ end
 ToggleAppearOffline = function(self)
 	if AppearOffline then
 		AppearOffline = false
+		XBoxLive.Auth.SetAppearOffline(UserNr, false)
 		Buttons[3].activeitem = 2
 	else
 		AppearOffline = true
+		XBoxLive.Auth.SetAppearOffline(UserNr, true)
 		Buttons[3].activeitem = 1
 	end
+		
 	UpdateButtons()
 end
 
 ToggleVoiceOutput = function(self)
+	local voiceMan = XBoxLive.GetVoiceManager()
+	local voiceManPlayer = voiceMan:GetPlayerByPort(ControllerId)
 	if VoiceThroughSpeakers then
 		VoiceThroughSpeakers = false
+		voiceManPlayer:SetVoiceThroughSpeakers(false)
 		Buttons[4].activeitem = 2
 	else
 		VoiceThroughSpeakers = true
+		voiceManPlayer:SetVoiceThroughSpeakers(true)
 		Buttons[4].activeitem = 1
 	end
 	UpdateButtons()
 end
 
+local CheckMessagesFSM
+
+local function CheckMessages()
+	local mm = XBoxLive.GetMessageManager()
+	local port = XBoxLive.Auth.GetSignedInUserPort(1)
+	
+	local num = 0
+	if mm:HasFriendRequest(port) then
+		num = 1
+	end
+	
+	if mm:HasGameInvite(port) then
+		num = num + 1
+	end
+	
+	local size = wm.GetResourceSize(wm.GetResource("xbox_game_invite_received_big"))
+	local x = 193
+	local y = 245 - num * size[2] / 2
+	if num == 2 then
+		y = y - 1
+	end
+	
+	local win = wm.GetWindow("oo_live_request")
+	if mm:HasFriendRequest(port) then
+		win:SetPosition(x, y)
+		y = y + size[2] + 2
+		win:ShowWindow()
+	else
+		win:HideWindow()
+	end
+	
+	win = wm.GetWindow("oo_live_invite")
+	if mm:HasGameInvite(port) then
+		win:SetPosition(x, y)
+		win:ShowWindow()
+	else
+		win:HideWindow()
+	end		
+end
+	
 local function InitVariables()
 	if XBOX then
 		UserNr = XBoxLive.Auth.GetSignedInUserNr(ControllerId)
@@ -405,13 +519,20 @@ function EnterOnlineOptions(controller)
 	GUI:EnableOnlineOptionsMenu(false)
 	GUI:HideMenuButtons()
 	
-	ControllerId = controller
-	OptionsPopup.Create()
+	if XBOX and wm.GetWindow("gamespy_logo") == nil then
+		GUI:SetMenuController(controller)
+	end
+	OptionsPopup.Create(controller)
 	OptionsPopup.AnimateShow()
 	ShowOnlineOptions()
 end
 
 function HideOnlineOptions()
+	if CheckMessagesFSM ~= nil then
+		FSM_init_state(CheckMessagesFSM)
+		CheckMessagesFSM:Remove()
+		CheckMessagesFSM = nil
+	end
 	RemoveOptionsWindows()
 end
 
@@ -425,6 +546,25 @@ function ShowOnlineOptions()
 	--OptionsPopup.AnimateSize(SIZE(318,164))
 	OptionsPopup.SetMenuTitle(L"")
 	OptionsPopup.SetHelpButtons(UI_BACK, UI_SELECT)
+
+	local icon = wm.GetResource("xbox_game_invite_received_big")
+	local win = Frame { Name="oo_live_invite", Position=POS(550,50), Size=wm.GetResourceSize(icon), Layer=6 }:AttachResource(icon)
+	wm.ActivateWindow(win)
+	win:HideWindow()
+	AddOptionsWindow(win)
+
+	icon = wm.GetResource("xbox_friend_invite_received_big")
+	win = Frame { Name="oo_live_request", Position=POS(500,50), Size=wm.GetResourceSize(icon), Layer=6 }:AttachResource(icon)
+	wm.ActivateWindow(win)
+	win:HideWindow()
+	AddOptionsWindow(win)
+	
+	local fsm = FSM()
+	FSM_init_state(fsm)
+	FSM_add_function(fsm, CheckMessages, FALSE, {})
+	FSM_add_delay_state(fsm, 1.0)
+	FSM_add_reset(fsm)
+	CheckMessagesFSM = fsm
 	
 	local optionsbox = wm.GetWindow("options_box")
 		
@@ -443,7 +583,7 @@ function ShowOnlineOptions()
 		Buttons[4].activeitem = 2
 	end
 	
-	OptionsPopup.ActiveItem = 1
+	OptionsPopup.ActiveButton = 1
 	UpdateButtons()
 	
 	local handler = InputHandler { Name="options_inputhandler" }
@@ -451,30 +591,17 @@ function ShowOnlineOptions()
 	handler.onKeyPressed = function(Self, Character, VirtualKey, ScanCode)
 		if VirtualKey == KeyCodes["BUTTON_START"] then
 			OptionsPopup.Buttons[OptionsPopup.ActiveButton].action()
+			playmenusound_action()
 		elseif VirtualKey == KeyCodes["BUTTON_SELECT"] then
-			SaveChanges()
---			HideOnlineOptions()
 			OptionsPopup.Destroy()
+			playmenusound_back()
 		elseif VirtualKey == KeyCodes["BUTTON_LEFT"] then
 			OptionsPopup.MoveLeft()
+			playmenusound_move()
 		elseif VirtualKey == KeyCodes["BUTTON_RIGHT"] then
 			OptionsPopup.MoveRight()
+			playmenusound_move()
 		end
 	end
 	handler:SetFocus()
-end
-
-function menu_online_options.create(self)
-	self.parent:create(self)
-	self:loadResources()
-	InitVariables()
-	UpdateItems()
-end
-
-function menu_online_options.init(self)
-	self.parent:init(self)
-end
-
-function menu_online_options.deinit(self)
-	self.parent:deinit(self)
 end

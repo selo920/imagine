@@ -49,10 +49,7 @@ local State
 local SESSION_DETAILS = 1
 local EVENT_HELP = 2
 
-menu_multiplayer_lobby_sessiondetails = CreateMenuFromTemplate("template_multiplayer")
-menu_multiplayer_lobby_sessiondetails.options.title = L"NOT SET"
-menu_multiplayer_lobby_sessiondetails.back = function() end
-
+local EventHelpText
 
 function EnterSessionDetails(title, backmenu)
 	menu_multiplayer_lobby_sessiondetails.options.title = title
@@ -60,38 +57,7 @@ function EnterSessionDetails(title, backmenu)
 	EnterMenu("menu_multiplayer_lobby_sessiondetails")
 end
 
-local trackfiles = {
-	[TRACKTYPE_RACING] = { "single_player_track_images1","single_player_track_images2","single_player_track_images3" },
-	[TRACKTYPE_FIELDS] = { "single_player_track_images4","single_player_track_images5", "single_player_track_images6" },
-	[TRACKTYPE_FOREST] = { "single_player_track_images7","single_player_track_images8",	"single_player_track_images9" },
-	[TRACKTYPE_CITY] = { "single_player_track_images10", "single_player_track_images11", "single_player_track_images12" },
-	[TRACKTYPE_DESERT] = {"single_player_track_images13","single_player_track_images14" },
-	[TRACKTYPE_CANAL] = { "single_player_track_images14", "single_player_track_images15" },
-	[TRACKTYPE_STUNT] = { "single_player_track_images25", "single_player_track_images26", "single_player_track_images27",
-						  "single_player_track_images28", "single_player_track_images29", "single_player_track_images30", },
-	[TRACKTYPE_EVENT] = { "single_player_track_images16", "single_player_track_images17", "single_player_track_images18", 
-						  "single_player_track_images19", "single_player_track_images20", "single_player_track_images21",
-						  "single_player_track_images22", "single_player_track_images23", "single_player_track_images24", },
-}						
 
-function menu_multiplayer_lobby_sessiondetails.create(self)
-	self.parent:create(self)
-
-	self:addResource("cup_final_results_elements1.tga",cup_final_results_elements1,cup_final_results_elements1_size)
-	self:addResource("garage_elements1.tga",garage_elements1,garage_elements1_size)
-	self:addResource("backdrops3.tga",backdrops3,backdrops3_size)
-	
-	local id = Session:GetInfo().Races[Session:GetInfo().NextRace].StageNr
-	
-	local files = trackfiles[Levels[id].TrackType]
-
-	for k,v in ipairs(files) do
-		self:addResource(v..".tga",_G[v],_G[v.."_size"])
-	end
-	
-	self:loadResources()
-	self.items = { }
-end
 
 local GameTypes = {
 	[ReplicatedSession.GAMETYPE_RACE] = 1,
@@ -106,35 +72,16 @@ local GameTypes = {
 	[ReplicatedSession.GAMETYPE_TOURNAMENT] = 4,
 }
 
-local GameModeRace = {
-	MULTIPLAYER_GAMEMODE,
-	{MULTIPLAYER_GAMEMODE_RACE, MULTIPLAYER_GAMEMODE_PONGRACE, MULTIPLAYER_MIXEDRACES},
-	{ReplicatedSession.GAMETYPE_RACE, ReplicatedSession.GAMETYPE_PONGRACE, ReplicatedSession.GAMETYPE_TOURNAMENT_RACE},
-	1,
-	true,
-	nil,
-	{MULTIPLAYER_GAMEMODE_RACE_DESCRIPTION, MULTIPLAYER_GAMEMODE_PONGRACE_DESCRIPTION},
-}
-
-local GameModeDerby = {
-	MULTIPLAYER_GAMEMODE,
-	{MULTIPLAYER_GAMEMODE_WRECKINGDERBY, MULTIPLAYER_GAMEMODE_SURVIVORDERBY, MULTIPLAYER_GAMEMODE_FRAGDERBY, MULTIPLAYER_GAMEMODE_TAG, MULTIPLAYER_MIXEDDERBIES},
-	{ReplicatedSession.GAMETYPE_DERBY_WRECKING, ReplicatedSession.GAMETYPE_DERBY_LMS, ReplicatedSession.GAMETYPE_DERBY_FRAG, ReplicatedSession.GAMETYPE_HUNTER_PREY, ReplicatedSession.GAMETYPE_TOURNAMENT_DERBY},
-	1,
-	true,
-	nil,
-	{MULTIPLAYER_GAMEMODE_WRECKINGDERBY_DESCRIPTION, MULTIPLAYER_GAMEMODE_SURVIVORDERBY_DESCRIPTION, MULTIPLAYER_GAMEMODE_FRAGDERBY_DESCRIPTION, MULTIPLAYER_GAMEMODE_TAG_DESCRIPTION }
-}
-
-local GameModeEmpty = {
-	MULTIPLAYER_GAMEMODE,
-	{L""},
-	{0},
-	1,
-	false,
-}
-
 local OptionItems = {
+	{
+		MULTIPLAYER_SESSIONTYPE,
+		{MULTIPLAYER_SESSIONTYPE_SINGLERACE, MULTIPLAYER_SESSIONTYPE_TOURNAMENT},
+		{1, 2},
+		1,
+		true,
+		nil,
+		{MULTIPLAYER_SESSIONTYPE_SINGLERACE_DESCRIPTION, MULTIPLAYER_SESSIONTYPE_TOURNAMENT_DESCRIPTION},
+	},	
 	{
 		MULTIPLAYER_RANKEDGAME,
 		{UI_YES, UI_NO},
@@ -154,21 +101,13 @@ local OptionItems = {
 		{MULTIPLAYER_GAMETYPE_RACE_DESCRIPTION, MULTIPLAYER_GAMETYPE_STUNT_DESCRIPTION, MULTIPLAYER_GAMETYPE_DERBY_DESCRIPTION }
 	},
 	{
-		MULTIPLAYER_GAMEMODE,
-		{L""},
-		{0},
-		1,
-		false,
-		nil,
-	},
-	{
 		MULTIPLAYER_CARTYPE,
-		{MULTIPLAYER_CARTYPE_ANY, MULTIPLAYER_CARTYPE_DERBY, MULTIPLAYER_CARTYPE_RACING, MULTIPLAYER_CARTYPE_STREET, L"STUNT (NEED ID)"},
-		{SessionInfo.CarClass.Any, SessionInfo.CarClass.ClassA, SessionInfo.CarClass.ClassB, SessionInfo.CarClass.ClassC, SessionInfo.CarClass.Stunt},
+		{MULTIPLAYER_CARTYPE_ANY, MULTIPLAYER_CARTYPE_DERBY, MULTIPLAYER_CARTYPE_RACING, MULTIPLAYER_CARTYPE_STREET, MULTIPLAYER_CARTYPE_STUNT, MULTIPLAYER_CAR_SAMEHOST },
+		{SessionInfo.CarClass.Any, SessionInfo.CarClass.ClassA, SessionInfo.CarClass.ClassB, SessionInfo.CarClass.ClassC, SessionInfo.CarClass.Stunt, -1},
 		1,
 		true,
 		nil,
-		{MULTIPLAYER_CARTYPE_ANY_DESCRIPTION, MULTIPLAYER_CARTYPE_STREET_DESCRIPTION, MULTIPLAYER_CARTYPE_RACING_DESCRIPTION, MULTIPLAYER_CARTYPE_DERBY_DESCRIPTION}
+		{MULTIPLAYER_CARTYPE_ANY_DESCRIPTION, MULTIPLAYER_CARTYPE_STREET_DESCRIPTION, MULTIPLAYER_CARTYPE_RACING_DESCRIPTION, MULTIPLAYER_CARTYPE_DERBY_DESCRIPTION, MULTIPLAYER_CARTYPE_STUNT_DESCRIPTION, MULTIPLAYER_CAR_SAMEHOST_DESC}
 	},
 	{
 		MULTIPLAYER_UPGRADES,
@@ -181,7 +120,7 @@ local OptionItems = {
 	},
 	{
 		MULTIPLAYER_NITRO,
-		{L"0%", L"50%", L"100%", L"200%"},
+		{L"0x", L"0.5x", L"1x", L"2x"},
 		{SessionInfo.NitroRegen.Regen0, SessionInfo.NitroRegen.Regen50, SessionInfo.NitroRegen.Regen100, SessionInfo.NitroRegen.Regen200},
 		3,
 		true,
@@ -207,35 +146,26 @@ local OptionItems = {
 		MULTIPLAYER_RESERVEDFORFRIENDS_DESCRIPTION
 	},
 	{
-		MULTIPLAYER_LANGUAGE,
-		{MULTIPLAYER_LANGUAGE_ANY, MULTIPLAYER_LANGUAGE_ENGLISH, MULTIPLAYER_LANGUAGE_GERMAN, MULTIPLAYER_LANGUAGE_FRENCH, MULTIPLAYER_LANGUAGE_SPANISH, MULTIPLAYER_LANGUAGE_ITALIAN},
-		{1, 2, 3, 4, 5, 6},
-		1,
-		true,
-		nil,
-		{MULTIPLAYER_LANGUAGE_ANY_DESCRIPTION, MULTIPLAYER_LANGUAGE_ENGLISH_DESCRIPTION, MULTIPLAYER_LANGUAGE_GERMAN_DESCRIPTION, MULTIPLAYER_LANGUAGE_FRENCH_DESCRIPTION, MULTIPLAYER_LANGUAGE_SPANISH_DESCRIPTION, MULTIPLAYER_LANGUAGE_ITALIAN_DESCRIPTION}
-	},
-	{
-		L"DAMAGE LEVEL",
-		{L"0%", L"50%", L"100%", L"150%", L"200%"},
+		MULTIPLAYER_RACEDAMAGELEVEL,
+		{L"0x", L"0.5x", L"1x", L"1.5x", L"2x"},
 		{ReplicatedSession.DAMAGELEVEL_0, ReplicatedSession.DAMAGELEVEL_50, ReplicatedSession.DAMAGELEVEL_100, ReplicatedSession.DAMAGELEVEL_150, ReplicatedSession.DAMAGELEVEL_200},
 		3,
 		true,
 		nil,
-		L"Damage level in races and pong races"
+		{MULTIPLAYER_RACEDAMAGELEVEL_0_DESCRIPTION, MULTIPLAYER_RACEDAMAGELEVEL_50_DESCRIPTION, MULTIPLAYER_RACEDAMAGELEVEL_100_DESCRIPTION, MULTIPLAYER_RACEDAMAGELEVEL_150_DESCRIPTION, MULTIPLAYER_RACEDAMAGELEVEL_200_DESCRIPTION}
 	},
 	{
-		L"DERBY DAMAGE LEVEL",
-		{L"50%", L"100%", L"150%", L"200%"},
+		MULTIPLAYER_DERBYDAMAGELEVEL,
+		{L"0.5x", L"1x", L"1.5x", L"2x"},
 		{ReplicatedSession.DERBYDAMAGELEVEL_50, ReplicatedSession.DERBYDAMAGELEVEL_100, ReplicatedSession.DERBYDAMAGELEVEL_150, ReplicatedSession.DERBYDAMAGELEVEL_200},
 		2,
 		true,
 		nil,
-		L"Damage level in derbies"
+		{MULTIPLAYER_DERBYDAMAGELEVEL_50_DESCRIPTION, MULTIPLAYER_DERBYDAMAGELEVEL_100_DESCRIPTION, MULTIPLAYER_DERBYDAMAGELEVEL_150_DESCRIPTION, MULTIPLAYER_DERBYDAMAGELEVEL_200_DESCRIPTION}
 	}
 }
 
-local NumOptions=11
+local NumOptions=10
 
 -- OptionItem item indexes
 local Label=1
@@ -247,17 +177,16 @@ local OnChanged=6
 local Descriptions=7
 
 -- OptionItem indexes
-local RankedGame=1
-local GameType=2
-local GameMode=3
+local SessionType=1
+local RankedGame=2
+local GameType=3
 local CarType=4
 local Upgrades=5
 local NitroRegen=6
 local Players=7
 local Reserved=8
-local Language=9
-local DamageLevel=10
-local DerbyDamageLevel=11
+local DamageLevel=9
+local DerbyDamageLevel=10
 
 local function SetEnabled(RowNr, value)
 	OptionItems[RowNr][Enabled]=value
@@ -277,8 +206,8 @@ end
 
 local Layout=
 {
-	ListLeft=295,
-	ListTop=110,
+	ListLeft=300,
+	ListTop=127,
 	ListFont=fontmedium(),
 	LabelLeft=170,
 	LabelFontColor=GetPaletteColor(33),
@@ -286,12 +215,16 @@ local Layout=
 	OptionLeft=180,
 	OptionWidth=200,
 	OptionFontColor=GetPaletteColor(34),
---	OptionDisabledFontColor=GetPaletteColor(2),
 	
-	RowHeight=16,
-	RowPadding=3,
-	NumRows=11,
+	RowHeight=18,
+	RowPadding=1,
+	NumRows=10,
+	
+	NumHelpTextRows=14,
 }
+
+local HelpTopRow
+local NumHelpTextRows
 
 local EventHelpTexts = {
 	[ReplicatedSession.GAMETYPE_DERBY_WRECKING]		= {  },
@@ -318,12 +251,117 @@ local StuntTexts = {
 
 local EventHelpEnabled
 
+local trackfiles = {
+	[TRACKTYPE_RACING] = { "single_player_track_images1","single_player_track_images2","single_player_track_images3" },
+	[TRACKTYPE_FIELDS] = { "single_player_track_images4","single_player_track_images5", "single_player_track_images6" },
+	[TRACKTYPE_FOREST] = { "single_player_track_images7","single_player_track_images8",	"single_player_track_images9" },
+	[TRACKTYPE_CITY] = { "single_player_track_images10", "single_player_track_images11", "single_player_track_images12" },
+	[TRACKTYPE_DESERT] = {"single_player_track_images13","single_player_track_images14" },
+	[TRACKTYPE_CANAL] = { "single_player_track_images14", "single_player_track_images15" },
+	[TRACKTYPE_STUNT] = { "single_player_track_images25", "single_player_track_images26", "single_player_track_images27",
+						  "single_player_track_images28", "single_player_track_images29", "single_player_track_images30", },
+	[TRACKTYPE_EVENT] = {  "single_player_track_images19", "single_player_track_images20", "single_player_track_images21",
+						  "single_player_track_images22", "single_player_track_images23", "single_player_track_images24", },
+	[TRACKTYPE_DERBY] = { "single_player_track_images16", "single_player_track_images17", "single_player_track_images18", },
+}						
+
+
+local function ShowArrows()
+	if HelpTopRow > (NumHelpTextRows - Layout.NumHelpTextRows) then
+		wm.GetWindow("scrolldown"):HideWindow()
+	else
+		wm.GetWindow("scrolldown"):ShowWindow()
+	end
+
+	if HelpTopRow > 1 then
+		wm.GetWindow("scrollup"):ShowWindow()
+	else
+		wm.GetWindow("scrollup"):HideWindow()
+	end
+end
+
+local function ScrollHelpUp()
+	local help = wm.GetWindow("eventhelp")
+	HelpTopRow = HelpTopRow - 1
+	if HelpTopRow < 1 then
+		HelpTopRow = 1
+	end
+	help:SetTitle(GetWStringLines(EventHelpText, HelpTopRow, Layout.NumHelpTextRows))
+	ShowArrows()
+end
+
+local function ScrollHelpDown()
+	local help = wm.GetWindow("eventhelp")
+	HelpTopRow = HelpTopRow + 1
+	if HelpTopRow > (NumHelpTextRows - Layout.NumHelpTextRows + 1 ) then
+		HelpTopRow = (NumHelpTextRows - Layout.NumHelpTextRows + 1)
+		if HelpTopRow < 1 then
+			HelpTopRow = 1
+		end
+	end
+	help:SetTitle(GetWStringLines(EventHelpText, HelpTopRow, Layout.NumHelpTextRows))
+	ShowArrows()
+end
+
+local function ShowEventHelp()
+	wm.GetWindow("eventhelp_box"):ShowWindow()
+	local help = wm.GetWindow("eventhelp")
+	HelpTopRow = 1
+	NumHelpTextRows = GetNumWStringLines(EventHelpText)
+	help:SetTitle(GetWStringLines(EventHelpText, HelpTopRow, Layout.NumHelpTextRows))
+	ShowArrows()
+end
+
+local function HideEventHelp()
+	wm.GetWindow("eventhelp_box"):HideWindow()
+end
+
+menu_multiplayer_lobby_sessiondetails = CreateMenuFromTemplate("template_multiplayer")
+menu_multiplayer_lobby_sessiondetails.options.title = L""
+menu_multiplayer_lobby_sessiondetails.back = function() end
+
+function menu_multiplayer_lobby_sessiondetails.create(self)
+	self.parent:create(self)
+
+	self:addResource("cup_final_results_elements1.tga",cup_final_results_elements1,cup_final_results_elements1_size)
+	self:addResource("garage_elements1.tga",garage_elements1,garage_elements1_size)
+	self:addResource("backdrops3.tga",backdrops3,backdrops3_size)
+	
+	local id = Session:GetInfo().Races[Session:GetInfo().NextRace].StageNr
+	
+	local files = trackfiles[Levels[id].TrackType]
+
+	for k,v in ipairs(files) do
+		self:addResource(v..".tga",_G[v],_G[v.."_size"])
+	end
+	
+	self:loadResources()
+	self.items = { }
+end
+
 function menu_multiplayer_lobby_sessiondetails.init(self)
 	self.parent:init(self)
 
-	local info = Session:GetInfo()
+	GUI:SetBackground("data/menu/career_race_rewards_background.tga")
+
+	if not XBOX and table.getn(OptionItems) == 10 then
+		CarType=2
+		Upgrades=3
+		NitroRegen=4
+		Players=5
+		DamageLevel=6
+		DerbyDamageLevel=7
+		
+		table.remove(OptionItems, Reserved)
+		table.remove(OptionItems, GameType)
+		table.remove(OptionItems, RankedGame)
+
+		NumOptions = table.getn(OptionItems)
+	end
+
+	local info = Session:GetInfo()	
 	local eventtype = info.Races[info.NextRace].EventType
-	if eventtype ~= ReplicatedSession.GAMETYPE_RACE then
+	if eventtype == ReplicatedSession.GAMETYPE_STUNT then
 		EventHelpEnabled = true
 		-- Event help
 		local p = Frame { Name="eventhelp_box", Position=POS(0,0), Size=SIZE(640,480), Layer=5 }
@@ -331,41 +369,44 @@ function menu_multiplayer_lobby_sessiondetails.init(self)
 		local box = Frame { Position=POS(70,50), Size=SIZE(500,380), ShowBorders=TRUE, Layer=5, Parent=p }
 		local eventhelp = StaticText { Name="eventhelp", Position=POS(30,30), Size=SIZE(440,320), Font=fontmedium(), Color=GetPaletteColor(34), Layer=5, Parent=box }
 		
-		local text
-		if eventtype == ReplicatedSession.GAMETYPE_STUNT then
-			local stunttype = info.Races[info.NextRace].StageNr
-			local textid = StuntTexts[stunttype]
-			text = L("#33"..Levels[info.Races[info.NextRace].StageNr].Name.."#34\n\n")
-			for i = 1,4 do
-				if i > 1 then
-					text = WStringConcat(text, L"\n\n")
-				end
-				text = WStringConcat(text, L(i..". "))
-				text = WStringConcat(text, _G[textid.."_"..i])
+		local stunttype = info.Races[info.NextRace].StageNr
+		local textid = StuntTexts[stunttype]
+		local text = L("#33"..Levels[info.Races[info.NextRace].StageNr].Name.."#34\n\n")
+		for i = 1,4 do
+			if i > 1 then
+				text = WStringConcat(text, L"\n\n")
 			end
-		else
-			text = WStringConcat(L"#33", GameModeNames[eventtype])
-			text = WStringConcat(text, L"#34\n\n")
-			for i,helptext in ipairs(EventHelpTexts[eventtype]) do
-				if i > 1 then
-					text = WStringConcat(text, L"\n\n")
-				end
-				text = WStringConcat(text, L(i..". "))
-				text = WStringConcat(text, helptext)
-			end
+			text = WStringConcat(text, L(i..". "))
+			text = WStringConcat(text, _G[textid.."_"..i])
 		end
 		eventhelp:SetTitle(text)
 		eventhelp:WordWrap()
-		local _,h = wm.GetTextExtents(eventhelp:GetTitle(), fontmedium())
+		EventHelpText = eventhelp:GetTitle()
+		local numlines = GetNumWStringLines(EventHelpText)
+		if numlines > Layout.NumHelpTextRows then
+			numlines = Layout.NumHelpTextRows
+		end
+		local _,h = wm.GetTextExtents(L"A", fontmedium())
+		h = numlines * h
 		
 		box:SetPosition(70, 240 - h / 2 - 45)
 		box:SetSize(500, h + 90)
+
+		local arrowsize = wm.GetResourceSize(wm.GetResource("scroll_arrow_up"))
+		local scroll = Frame { Name="scrollup", Position=POS(250-arrowsize[1]/2,(30-arrowsize[2])/2+2), Size=arrowsize, Layer=5, Parent=box }
+		scroll:AttachResource(wm.GetResource("scroll_arrow_orange_up"))
+
+		arrowsize = wm.GetResourceSize(wm.GetResource("scroll_arrow_down"))
+		scroll = Frame { Name="scrolldown", Position=POS(250-arrowsize[1]/2,h+30+(30-arrowsize[2])/2-2), Size=arrowsize, Layer=5, Parent=box }
+		scroll:AttachResource(wm.GetResource("scroll_arrow_orange_down"))
 
 		local backbutton
 		if PS2 then
 			backbutton = "ps2_triangle"
 		elseif XBOX then
 			backbutton = "xbox_b"
+		elseif PC then
+			backbutton = "esc_btn"
 		end
 		buttonsize = wm.GetResourceSize(backbutton)
 		
@@ -388,7 +429,7 @@ function menu_multiplayer_lobby_sessiondetails.init(self)
 		local y = h + 90 - 30
 		local win = Frame { Name="backbutton", Position=POS(300,y), Size=buttonsize, Parent=box, Layer=5 }
 		win:AttachResource(wm.GetResource(backbutton))
-		StaticText { Name="backbutton_title", Title=UI_BACK, Position=POS(320,y-1), Size=SIZE(50,13), Color=GetPaletteColor(1), Font=fontmedium(), Parent=box, Layer=5 }
+		StaticText { Name="backbutton_title", Title=UI_BACK, Position=POS(320,y-1), Size=SIZE(50,13), Color=GetPaletteColor(34), Font=fontmedium(), Parent=box, Layer=5 }
 		updatebutton("backbutton")	
 
 		p:HideWindow()
@@ -434,7 +475,7 @@ function menu_multiplayer_lobby_sessiondetails.init(self)
 		Coloumns = {
 			[1] = {
 				Name				= "bgleft", -- _row# is added
-				ColoumnTemplate		= { Position=POS(0,0), Size=wm.GetResourceSize(self:getResource("single_highscore_bar_ang")), Layer=3 },
+				ColoumnTemplate		= { Position=POS(0,0), Size=wm.GetResourceSize(self:getResource("options_1_slice_r_ang")), Layer=3 },
 				ColoumnTemplateType	= "Frame",
 				ColoumnTemplateCust	= function(Coloumn, RowNr, ColoumnNr)
 					Coloumn:AttachResource(self:getResource("options_1_slice_r_ang"))
@@ -442,10 +483,10 @@ function menu_multiplayer_lobby_sessiondetails.init(self)
 			},
 			[2] = {
 				Name				= "bg", -- _row# is added
-				ColoumnTemplate		= { Position=POS(0,0), Size=SIZE(350, Layout.RowHeight), Layer=3 },
+				ColoumnTemplate		= { Position=POS(0,0), Size=SIZE(400, Layout.RowHeight), Layer=3 },
 				ColoumnTemplateType	= "Frame",
 				ColoumnTemplateCust	= function(Coloumn, RowNr, ColoumnNr)
-					Coloumn:AttachResource(wm.GetResource("wide_black_bar_50"))
+					Coloumn:AttachResource(self:getResource("multiplayer_str_18"))
 				end
 			},
 			[3] = {
@@ -501,14 +542,20 @@ function menu_multiplayer_lobby_sessiondetails.init(self)
 		if State == SESSION_DETAILS then
 			if VirtualKey == KeyCodes["BUTTON_SELECT"] then
 				menu_multiplayer_lobby_sessiondetails.back()
-			elseif VirtualKey == KeyCodes["BUTTON_Y"] and EventHelpEnabled then
-				wm.GetWindow("eventhelp_box"):ShowWindow()
+			elseif EventHelpEnabled and ((PS2 or PC) and VirtualKey==KeyCodes["BUTTON_X"] or XBOX and VirtualKey==KeyCodes["BUTTON_Y"]) then
+				ShowEventHelp()
 				State = EVENT_HELP
 			end
 		elseif State == EVENT_HELP then
 			if VirtualKey == KeyCodes["BUTTON_SELECT"] then
-				wm.GetWindow("eventhelp_box"):HideWindow()
+				HideEventHelp()
 				State = SESSION_DETAILS
+			elseif VirtualKey == KeyCodes["BUTTON_UP"] then
+				ScrollHelpUp()
+				playmenusound_move()
+			elseif VirtualKey == KeyCodes["BUTTON_DOWN"] then
+				ScrollHelpDown()
+				playmenusound_move()
 			end
 		end
 	end
@@ -520,47 +567,36 @@ function menu_multiplayer_lobby_sessiondetails.init(self)
 	local icon = leveldata.TrackIcon or ""
 	W("track_image"):AttachResource(self:getResource(icon.."_sp"))
 
+	if Session:GetNumRaces() == 1 then
+		SetSelectedItem(SessionType, 1)
+	else
+		SetSelectedItem(SessionType, 2)
+	end
+	
 	local gameMode = info.TournamentType
 	local gameType = GameTypes[gameMode]
 	SetSelectedItem(GameType, gameType)
 	if gameType == 1 then
-		OptionItems[GameMode] = GameModeRace
 		SetEnabled(DamageLevel, true)
 		SetEnabled(DerbyDamageLevel, false)
 	elseif gameType == 3 then
-		OptionItems[GameMode] = GameModeDerby
 		SetEnabled(DamageLevel, false)
 		SetEnabled(DerbyDamageLevel, true)
 	elseif gameType == 2 then
-		OptionItems[GameMode] = GameModeEmpty
 		SetEnabled(DamageLevel, false)
 		SetEnabled(DerbyDamageLevel, false)
 	elseif gameType == 4 then
-		OptionItems[GameMode] = GameModeEmpty
 		SetEnabled(DamageLevel, true)
 		SetEnabled(DerbyDamageLevel, true)
 	end
 
-	if gameType == 1 or gameType == 3 then		
-		for i = 1, table.getn(OptionItems[GameMode][ItemValues]) do
-			if OptionItems[GameMode][ItemValues][i] == gameMode then
-				SetSelectedItem(GameMode, i)
-				break
-			end
+	if XBOX then
+		SetSelectedItem(RankedGame, info.RatedGame and 1 or 2)
+		if info.RatedGame then
+			SetEnabled(Reserved, false)
+		else
+			SetEnabled(Reserved, true)
 		end
-	end
-	
-	for i = 0, Garage:GetNumCars() - 1 do
-		local car = db.FlatOut2.Cars:GetProperty("Car", i)
-		table.insert(OptionItems[CarType][ItemLabels], L(car.Name))
-		table.insert(OptionItems[CarType][ItemValues], 5 + i)
-	end
-
-	SetSelectedItem(RankedGame, info.RatedGame and 1 or 2)
-	if info.RatedGame then
-		SetEnabled(Reserved, false)
-	else
-		SetEnabled(Reserved, true)
 	end
 	
 	if info.CarClass < 5 then
@@ -571,7 +607,7 @@ function menu_multiplayer_lobby_sessiondetails.init(self)
 			end
 		end
 	else
-		SetSelectedItem(CarType, info.CarClass)
+		SetSelectedItem(CarType, 6)
 	end
 	
 	for i = 1, table.getn(OptionItems[Upgrades][ItemValues]) do
@@ -588,9 +624,12 @@ function menu_multiplayer_lobby_sessiondetails.init(self)
 		end
 	end
 
-	SetSelectedItem(Players, info.MaxPublicSlots + info.MaxPrivateSlots - 1)
-	SetSelectedItem(Reserved, info.MaxPrivateSlots + 1)
-	SetSelectedItem(Language, info.Language)
+	if XBOX then
+		SetSelectedItem(Players, info.MaxPublicSlots + info.MaxPrivateSlots - 1)
+		SetSelectedItem(Reserved, info.MaxPrivateSlots + 1)
+	else
+		SetSelectedItem(Players, info.MaxPublicSlots - 1)
+	end
 	SetSelectedItem(DamageLevel, info.DamageLevel + 1)
 	SetSelectedItem(DerbyDamageLevel, info.DerbyDamageLevel + 1)
 	

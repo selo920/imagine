@@ -6,65 +6,44 @@
 --// 
 --// Created on 9.1.2004 0:03:08
 --// 
---// Authors: Fred Sundvik (fred.sundvik@bugbear.fi)
---//          Pasi Matilainen (pasi.matilainen@bugbear.fi)
+--// Authors: Pasi Matilainen (pasi.matilainen@bugbear.fi)
 --///////////////////////////////////////////////////////////////////////////
 
 multiplayer_menustate={}
+local StartTime=nil
+local CommandLineJoinOrCreateInProgress=false
 
-
-function CheckSystemLinkErrors()
-	if not NetworkConfiguration.IsCableConnected() then
-		if MultiplayerWaitState then
-			FSM_init_state(MultiplayerWaitState)
-			MultiplayerWaitState=nil
-		end
-		EnterMenu("menu_lan_error")
-		return true
-	end
-	return false
-end
-
---------------------------------systemlink mode select------------------
--------------------------------------------------------------------------
 menu_lan_modeselect = CreateMenuFromTemplate("template_basic")
-menu_lan_modeselect.options.title = SYSTEM_TITLE
-menu_lan_modeselect.back = function()
-								if XBOX and XBoxLive == nil or PS2 then
-									Network:StopMultiplayer()
-									StopNetwork()
-									if PS2 then
-										SigningOut = true
-										NetworkConfiguration.Disconnect()
-									end
-								end
-								if not PS2 then
-									EnterMenu("menu_multiplayer")
-								end
-							end
+menu_lan_modeselect.options.title = PC_MULTIPLAYER_LAN
+menu_lan_modeselect.back = function() EnterMenu("menu_multiplayer"); end
 
 function menu_lan_modeselect.create(self)
 	self.parent:create(self)
 	self:loadResources()
 
-	self.items = {
-		{ ICON_MULTIPLAYER_JOINGAME, function() menu_multiplayer_optimatchresults.backmenu = "menu_lan_modeselect"; menu_multiplayer_lobby.backmenu = "menu_lan_modeselect"; EnterMenu("menu_multiplayer_optimatchresults"); end, ICON(self, "icon_multiplayer") },
-		{ ICON_MULTIPLAYER_CREATEGAME, function() EnterCreateGameMenu("menu_lan_modeselect"); end, ICON(self, "icon_multiplayer") },
-	}
+	if not CommandLine["-host"] and not CommandLine["-join"] then
+		self.items = {
+			{ ICON_MULTIPLAYER_JOINGAME, function() menu_multiplayer_optimatchresults.backmenu = "menu_lan_modeselect"; menu_multiplayer_creategame.backmenu = "menu_lan_modeselect"; menu_multiplayer_lobby.backmenu = "menu_lan_modeselect"; EnterMenu("menu_multiplayer_optimatchresults"); end, ICON(self, "icon_xbl_optimatch") },
+			{ ICON_MULTIPLAYER_CREATEGAME, function() EnterCreateGameMenu("menu_lan_modeselect"); end, ICON(self, "icon_xbl_create_game") },
+		}
+	end
 end
 
 function menu_lan_modeselect.init(self)
 	self.parent:init(self)
 	
-	SigningOut = false
-	CurrentTime = 0
+	GUI:SetBackgroundVideo("data/video/bg_main")
 
-	if Session ~= nil then
-		Network:DeleteLanSession()
-		Network:StopMultiplayer()
-	end
 	if Network == nil then
 		StartNetwork()
+	end
+
+	Network:StopMultiplayer()
+	StartTime = nil
+	CommandLineJoinOrCreateInProgress = false
+	if CommandLine["-host"] or CommandLine["-join"] then
+		ShowThinkingWindow()
+		GUI:SetHelpButtons()
 	end
 end
 
@@ -74,45 +53,20 @@ end
 	
 function menu_lan_modeselect.update(self,time)
 	self.parent:update(self,time)
+	if StartTime == nil then
+		StartTime = time
+	end	
 
-	if SigningOut then
-		if CurrentTime==0 then
-			CurrentTime=time
+	if not GUI:IsMenuAnimating() and not CommandLineJoinOrCreateInProgress and ( CommandLine["-host"] or CommandLine["-join"] ) then		
+		if CreateGameFromCommandLine then
+			CreateSessionFromCommandLine("menu_lan_modeselect")
+		elseif JoinGameFromCommandLine then
+			JoinSessionFromCommandLine()
+		else
+			Event:PostEvent(event(EVENT_QUIT))
 		end
-		local dt=time-CurrentTime
-		CurrentTime=time
-
-		local res = NetworkConfiguration.Update(dt*1000)
-		if res ~= NetworkConfiguration.RES_WAITING then
-			SigningOut = false
-			HideThinkingWindow()
-			StopNetwork()
-			EnterMenu("menu_multiplayer")
-		end
-	end
-
-	if CheckSystemLinkErrors() then
-		return
-	end
-end
-	
-menu_lan_error = CreateMenuFromTemplate("template_basic")
-menu_lan_error.options.title = LIVE_ERROR
-menu_lan_error.back = function() EnterMenu("menu_multiplayer") end
-
-function menu_lan_error.create(self)
-	self.parent:create(self)
-	self:loadResources()
-	self.items = { }
-end
-
-function menu_lan_error.init(self)
-	HideMessageBox()
-	HideThinkingWindow()
-	Network:StopSystemLink()
-	MessageBox(LINK_CABLE_REMOVED, MESSAGEBOX_OK, function(value) menu_lan_error.back() end)
-end
-
-function menu_lan_error.deinit(self)
-	self.parent:deinit(self)
+		CommandLineJoinOrCreateInProgress=true
+		CreateGameFromCommandLine = false
+		JoinGameFromCommandLine = false
+	end		
 end

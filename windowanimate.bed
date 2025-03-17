@@ -116,16 +116,35 @@ local function ValueAnimatedUpdate(object,tot_ms,timer_id)
 	end
 
 	if params.updatefunc then
-		if params.need_unpack then
-			object[params.updatefunc](object,unpack(point_cur))
+		local f
+		if type(params.updatefunc) == "string" then
+			f=object[params.updatefunc]
 		else
-			object[params.updatefunc](object,point_cur)
+			f=params.updatefunc
+		end
+
+		if type(f) ~= "function" then
+			stop=true
+		else
+			if params.need_unpack then
+				f(object,unpack(point_cur))
+			else
+				f(object,point_cur)
+			end
 		end
 	end
 	
 	if stop then
-		if params.end_func then
-			params.end_func(object)
+
+		local f
+		if type(params.end_func) == "string" then
+			f=object[params.end_func]			
+		else
+			f=params.end_func
+		end
+
+		if type(f) == "function" then
+			f(object)
 		end
 		RemoveValueAnimated(object,timer_id)
 	end
@@ -152,9 +171,9 @@ local function AddValueAnimated(object,params,name)
 		params.timer=objectlist[object][name].timer
 		timer_id=objectlist[object][name].timer_id
 		Event:RemoveTimer(timer_id)
-		timer_id=Event:AddTimer(valueAnimatedEventHandler,0,object)
+		timer_id=Event:AddTimer(valueAnimatedEventHandler,0,object,false)
 	else
-		timer_id=Event:AddTimer(valueAnimatedEventHandler,0,object)
+		timer_id=Event:AddTimer(valueAnimatedEventHandler,0,object,false)
 	end
 	params.timer_id=timer_id
 
@@ -165,11 +184,11 @@ end
 
 
 
-function AnimateValue(object,name,update_function,set_value,start_value,end_value,unpack_value,time,usepow,end_function,interp)
+function AnimateValue(object,name,update_function,set_value,start_value,end_value,unpack_value,time,usepow,end_function,interp,context)
 
 	local t
 
-	if name == "value" then
+	if name == "value" or name == "value2" then
 		local set_func=update_function
 
 		if type(update_function) == "string" then
@@ -194,7 +213,8 @@ function AnimateValue(object,name,update_function,set_value,start_value,end_valu
 				need_unpack=unpack_value,
 				end_func=end_function,
 				data={ start_value,end_value },
-				curtime=0
+				curtime=0,
+				context=context,
 		}
 
 		AddValueAnimated(object,t,name)

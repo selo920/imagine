@@ -142,7 +142,7 @@ function menu_dev_options.init(self)
 	end
 
 	GUI:SetBackground("data/menu/menu_background.tga")
-	GUI:SetHelpButtons(BUTTON_OK,L"SELECT",BUTTON_BACK,L"BACK")
+	GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK)) --//L"SELECT",BUTTON_BACK,L"BACK")
 
 end
 
@@ -183,7 +183,6 @@ DevCarStats={
 --//local resources
 dofile("data/menu/car_icons.bed")
 dofile("data/menu/car_icons_locked.bed")
-dofile("data/menu/car_logos.bed")
 
 
 menu_career_garage.options.title=L"GARAGE"
@@ -307,9 +306,6 @@ function menu_dev_carselect.create(self)
 --//	self:addResource("car_icons_2.tga",car_icons_2,car_icons_2_size)
 	self:addResource("car_icons_locked.tga",car_icons_locked,car_icons_locked_size)
 --//	self:addResource("car_icons_2_locked.tga",car_icons_2_locked,car_icons_2_locked_size)
-	self:addResource("car_logos.tga",car_logos,car_logos_size)
-	self:addResource("car_logos_2.tga",car_logos_2,car_logos_2_size)
-	self:addResource("car_logos_3.tga",car_logos_3,car_logos_3_size)
 
 	self:addResource("garage_elements1.tga",garage_elements1,garage_elements1_size)
 
@@ -345,8 +341,7 @@ function menu_dev_carselect.init(self)
 	end
 
 
-	--//Frame{Name="car_logo",Position=POS(50,86),Size=GetResourceSize(self:getResource("car_logo_1"))}:AttachResource(self:getResource("car_logo_1"))
-	StaticText{Name="car_name",Position=POS(50,86),Font=fontlarge(),Color=GetPaletteColor(3)}
+	StaticText{Name="car_logo",Position=POS(580,257),Align=FONTF_RIGHT,Font=fonthuge()}
 	
 
 
@@ -354,7 +349,7 @@ function menu_dev_carselect.init(self)
 
 	CreateCarInfoWindows(self,pos,false)
 
-	GUI:SetHelpButtons(BUTTON_OK,L"SELECT",BUTTON_BACK,L"BACK",BUTTON_EXTRA,L"CAR INFO",TRUE)
+	GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK)) --//L"SELECT",BUTTON_BACK,L"BACK",BUTTON_EXTRA,L"CAR INFO",TRUE)
 
 	local cars={}
 	local id,button

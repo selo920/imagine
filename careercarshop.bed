@@ -27,8 +27,13 @@ menu_career_carshop = CreateMenuFromTemplate("template_career")
 
 menu_career_carshop.options.title=TRANSLATOR(TITLE_CARSHOP)
 
+local carshop_bg = {
+	"data/menu/carshop_derby_bg.tga",
+	"data/menu/carshop_racing_bg.tga",
+	"data/menu/carshop_street_bg.tga",
+}
 
-function EnterCarShop(carlist,show_tutorial,bg)
+function EnterCarShop(carlist,show_tutorial,bg,class_id)
 
 	local cars={}
 
@@ -65,20 +70,26 @@ function EnterCarShop(carlist,show_tutorial,bg)
 						local cars=cars
 						local activecar=activecar
 						local oldskin=oldskin
+						local class_id=class_id
 						--//PlayerProfille:SetActiveCar(activecar)
 						SetActiveCar(activecar)
 						Garage:SetCarPurchased(car,FALSE); 
 						Garage:SetCarSkinIndex(car,oldskin)
 						PlayerProfile:SetMoney(PlayerProfile:GetMoney()+value); 
-						EnterCarShop(cars) 
+						EnterCarShop(cars,false,nil,class_id) 
 					end)
 	end
 
 
-	EnterCarSelection(okaction,entermenu("menu_career_carshop"),cars,true,false,false,show_tutorial,bg)
+	EnterCarSelection(okaction,entermenu("menu_career_carshop"),cars,true,false,false,show_tutorial,bg,class_id)
 
 
 end
+
+function EnterCarShopClass(class_id,show_tutorial)
+	EnterCarShop(CarlistFromClass(class_id,false,true),show_tutorial,carshop_bg[class_id],class_id)
+end
+
 
 local function UpdateSelection(selection)
 
@@ -93,12 +104,29 @@ local function UpdateSelection(selection)
 			state.shops[i].unselected:HideWindow()
 			local pos={ state.shops[i]:GetPosition() }
 
-			W("selection_glow"):SetPosition(pos[1]-1,pos[2]-2)
+			W("selection_glow"):SetPosition(pos[1]-8,pos[2]-10)
 		else
 			state.shops[i].unselected:ShowWindow()
 		end
 	end
 
+end
+
+
+
+local function selectfade(event)
+	local w=W("selection_glow")
+	if w then
+
+		if not w.time then
+			w.time=0
+			w.alpha=1
+		end
+		
+		w.time = w.time + event.data/1000
+
+		w:SetAlpha(0.75+math.sin(w.time*4)*0.25)
+	end
 end
 
 
@@ -119,29 +147,36 @@ function menu_career_carshop.init(self)
 	state=state or {}
 
 
-	local p=Frame{Name="shop_bar",Position=POS(0,129),Size=SIZE(292+61,204)}
-	Frame{Position=POS(0,0),Size=SIZE(292,204),Parent=p}:AttachResource(self:getResource("upshop_confirm_left_slider_bar"))
-	Frame{Position=POS(292,0),Size=SIZE(61,204),Parent=p}:AttachResource(self:getResource("upshop_confirm_left_slider_bar_ang"))
+	local p=Frame{Name="shop_bar",Position=POS(0,130),Size=SIZE(291+61,300)}
+	Frame{Position=POS(0,0),Size=SIZE(291,64),Parent=p,DrawBackgroundColor=TRUE,Alpha=0.5,Color=GetPaletteColor(0)}
+	Frame{Position=POS(291,0),Size=SIZE(23,64),Parent=p}:AttachResource(self:getResource("ang_l_64"))
+
+	Frame{Position=POS(0,0+70),Size=SIZE(291+20,64),Parent=p,DrawBackgroundColor=TRUE,Alpha=0.5,Color=GetPaletteColor(0)}
+	Frame{Position=POS(291+20,0+70),Size=SIZE(23,64),Parent=p}:AttachResource(self:getResource("ang_l_64"))
+
+	Frame{Position=POS(0,0+70+70),Size=SIZE(291+20+20,64),Parent=p,DrawBackgroundColor=TRUE,Alpha=0.5,Color=GetPaletteColor(0)}
+	Frame{Position=POS(291+20+20,0+70+70),Size=SIZE(23,64),Parent=p}:AttachResource(self:getResource("ang_l_64"))
+
+
+
 --//	p:HideWindow()
 
 
 	state.shops={}
 	local w
-	w=Frame{Position=RELATIVEPOS(POS(78,135),{ p:GetPosition() }),Size=SIZE(228,61),Parent=p}:AttachResource(self:getResource("carshop_derby_class_icon"))
+	w=Frame{Position=RELATIVEPOS(POS(73,131),{ p:GetPosition() }),Size=SIZE(228,62),Parent=p}:AttachResource(self:getResource("carshop_derby_class_icon"))
 	w.unselected=Frame{Position=POS(3,0),Size=SIZE(228,56),Parent=w}:AttachResource(self:getResource("carshop_unselected"))
 	table.insert(state.shops,w)
 
-	w=Frame{Position=RELATIVEPOS(POS(96,202),{ p:GetPosition() }),Size=SIZE(228,61),Parent=p}:AttachResource(self:getResource("carshop_race_class_icon"))
+	w=Frame{Position=RELATIVEPOS(POS(73+20,131+70),{ p:GetPosition() }),Size=SIZE(228,62),Parent=p}:AttachResource(self:getResource("carshop_race_class_icon"))
 	w.unselected=Frame{Position=POS(3,0),Size=SIZE(228,56),Parent=w}:AttachResource(self:getResource("carshop_unselected"))
 	table.insert(state.shops,w)
 
-	w=Frame{Position=RELATIVEPOS(POS(114,269),{ p:GetPosition() }),Size=SIZE(228,61),Parent=p}:AttachResource(self:getResource("carshop_street_class_icon"))
+	w=Frame{Position=RELATIVEPOS(POS(73+20+20,131+70+70),{ p:GetPosition() }),Size=SIZE(228,62),Parent=p}:AttachResource(self:getResource("carshop_street_class_icon"))
 	w.unselected=Frame{Position=POS(3,0),Size=SIZE(228,56),Parent=w}:AttachResource(self:getResource("carshop_unselected"))
 	table.insert(state.shops,w)
 
-	Frame{Name="selection_glow",Size=SIZE(232,61),Parent=p}:AttachResource(self:getResource("carshop_selection_glow"))
-
-
+	Frame{Name="selection_glow",Size=SIZE(244,86),Parent=p}:AttachResource(self:getResource("carshop_selection_glow"))
 
 	local ppos=POS(302,128)
 	p=Frame{Name="right_bar",Position=ppos,Size=SIZE(338,332)}
@@ -155,10 +190,10 @@ function menu_career_carshop.init(self)
 	Frame{Position=RELATIVEPOS(POS(312,165),ppos),Size=SIZE(48,130),Parent=p}:AttachResource(self:getResource("upshop_mid_infotxt_bar_ang"))
 	Frame{Position=RELATIVEPOS(POS(360,165),ppos),Size=SIZE(280,130),Parent=p}:AttachResource(self:getResource("upshop_mid_infotxt_bar"))
 
-	StaticText{Name="shop_description",Position=RELATIVEPOS(POS(330,180),ppos),TextLineAdjust=7,Size=SIZE(200,110),Font=fontsmall(),Color=GetPaletteColor(34),Parent=p}
-
 	Frame{Position=RELATIVEPOS(POS(350,300),ppos),Size=SIZE(48,32),Parent=p}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar_ang"))
 	Frame{Position=RELATIVEPOS(POS(398,300),ppos),Size=SIZE(242,32),Parent=p}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar"))
+
+	StaticText{Name="shop_description",Position=RELATIVEPOS(POS(330,180),ppos),TextLineAdjust=7,Size=SIZE(250,110),Font=fontsmall(),Color=GetPaletteColor(34),Parent=p}
 
 
 	local handler=InputHandler{Name="inputhandler"}
@@ -168,22 +203,24 @@ function menu_career_carshop.init(self)
 		if virtualkey == KeyCodes.BUTTON_UP then
 			if state.selected_shop > 1 then
 				UpdateSelection(state.selected_shop-1)
+				playmenusound_move()
 			end
 		elseif virtualkey == KeyCodes.BUTTON_DOWN then
 			if state.selected_shop < table.getn(state.shops) then
+				playmenusound_move()
 				UpdateSelection(state.selected_shop+1)
 			end
 		elseif virtualkey == KeyCodes.BUTTON_SELECT then
+			playmenusound_back()
 			EnterMenu("menu_career")
 		elseif virtualkey == KeyCodes.BUTTON_START then
-
-			local carshop_bg = {
-				"data/menu/carshop_derby_bg.tga",
-				"data/menu/carshop_racing_bg.tga",
-				"data/menu/carshop_street_bg.tga",
-			}
-
-			EnterCarShop(CarlistFromClass(state.selected_shop,false,true),false,carshop_bg[state.selected_shop])
+			local cars=CarlistUnpurchasedFromClass(state.selected_shop)
+			if table.getn(cars) > 0 then
+				playmenusound_action()
+				EnterCarShop(cars,false,carshop_bg[state.selected_shop],state.selected_shop)
+			else
+				playmenusound_error()
+			end
 		end
 	end
 
@@ -195,7 +232,7 @@ function menu_career_carshop.init(self)
 
 	GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK))
 
-	GUI:SetBackground("data/menu/carshop_bg.tga")
+	GUI:SetBackground("data/menu/upg_shop_bg.tga")
 
 
 end
@@ -203,6 +240,9 @@ end
 
 function menu_career_carshop.deinit(self)
 	self.parent:deinit(self)
+
+	Event:RemoveTimer(self.selectionfade)
+	self.selectionfade=nil
 
 end
 
@@ -220,6 +260,15 @@ function menu_career_carshop.startshow(self)
 	pos={ w:GetPosition() }
 
 	state.right_handle=AnimateWindowPos(w,POS(640,pos[2]),pos,0.3,0.0,state.right_handle)
+
+
+
+	if self.selectionfade then
+		Event:RemoveTimer(self.selectionfade)
+	end
+
+	self.selectionfade=Event:AddTimer(selectfade,0)
+
 
 end
 
