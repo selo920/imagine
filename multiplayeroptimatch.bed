@@ -14,7 +14,6 @@ dofile("data/menu/backdrops3.bed")
 function EnterOptimatchMenu(backmenu)
 	menu_multiplayer_optimatch.backmenu = backmenu
 	menu_multiplayer_optimatchresults.backmenu = "menu_multiplayer_optimatch"
-	menu_multiplayer_creategame.backmenu = backmenu
 	menu_multiplayer_lobby.backmenu = backmenu
 	EnterMenu("menu_multiplayer_optimatch")
 end
@@ -35,9 +34,9 @@ local Layout=
 	OptionArrowIndentTop=4,
 	OptionArrowIndentLeftRight=5,
 	
-	RowHeight=18,
-	RowPadding=2,
-	NumRows=6,
+	RowHeight=20,
+	RowPadding=0,
+	NumRows=9,
 	
 	InfoBoxPos=POS(0,301),
 	InfoBoxSize=SIZE(640,88),
@@ -50,6 +49,26 @@ local Layout=
 local EventListener
 
 local OnGameTypeChanged, OnNumPlayersChanged, OnReservedChanged, OnRatedChanged, UpdateInfoText
+
+local GameModeRace = {
+	MULTIPLAYER_GAMEMODE,
+	{MULTIPLAYER_GAMEMODE_RACE, MULTIPLAYER_GAMEMODE_PONGRACE, L"ANY" },
+	{ReplicatedSession.GAMETYPE_RACE, ReplicatedSession.GAMETYPE_PONGRACE, -1},
+	3,
+	true,
+	nil,
+	{MULTIPLAYER_GAMEMODE_RACE_DESCRIPTION, MULTIPLAYER_GAMEMODE_PONGRACE_DESCRIPTION},
+}
+
+local GameModeDerby = {
+	MULTIPLAYER_GAMEMODE,
+	{MULTIPLAYER_GAMEMODE_WRECKINGDERBY, MULTIPLAYER_GAMEMODE_SURVIVORDERBY, MULTIPLAYER_GAMEMODE_FRAGDERBY, MULTIPLAYER_GAMEMODE_TAG, L"ANY" },
+	{ReplicatedSession.GAMETYPE_DERBY_WRECKING, ReplicatedSession.GAMETYPE_DERBY_LMS, ReplicatedSession.GAMETYPE_DERBY_FRAG, ReplicatedSession.GAMETYPE_HUNTER_PREY, -1},
+	5,
+	true,
+	nil,
+	{MULTIPLAYER_GAMEMODE_WRECKINGDERBY_DESCRIPTION, MULTIPLAYER_GAMEMODE_SURVIVORDERBY_DESCRIPTION, MULTIPLAYER_GAMEMODE_FRAGDERBY_DESCRIPTION, MULTIPLAYER_GAMEMODE_TAG_DESCRIPTION }
+}
 
 local OptionItems = {
 	-- General Options:
@@ -64,12 +83,20 @@ local OptionItems = {
 	},
 	{
 		MULTIPLAYER_GAMETYPE,
-		{MULTIPLAYER_GAMETYPE_RACE, MULTIPLAYER_GAMETYPE_STUNT, MULTIPLAYER_GAMETYPE_DERBY, MULTIPLAYER_GAMETYPE_ANY},
+		{MULTIPLAYER_GAMETYPE_RACE, MULTIPLAYER_GAMETYPE_STUNT, MULTIPLAYER_GAMETYPE_DERBY, L"ANY"},
 		{ReplicatedSession.GAMETYPE_TOURNAMENT_RACE, ReplicatedSession.GAMETYPE_STUNT, ReplicatedSession.GAMETYPE_TOURNAMENT_DERBY, -1},
 		4,
 		true,
 		function()OnGameTypeChanged()end,
-		{MULTIPLAYER_GAMETYPE_RACE_DESCRIPTION, MULTIPLAYER_GAMETYPE_STUNT_DESCRIPTION, MULTIPLAYER_GAMETYPE_DERBY_DESCRIPTION, MULTIPLAYER_GAMETYPE_ANY_DESCRIPTION }
+		{MULTIPLAYER_GAMETYPE_RACE_DESCRIPTION, MULTIPLAYER_GAMETYPE_STUNT_DESCRIPTION, MULTIPLAYER_GAMETYPE_DERBY_DESCRIPTION, MULTIPLAYER_GAMETYPE_ALL_DESCRIPTION }
+	},
+	{
+		MULTIPLAYER_GAMEMODE,
+		{L""},
+		{0},
+		1,
+		false,
+		nil,
 	},
 	{
 		MULTIPLAYER_CARTYPE,
@@ -78,38 +105,38 @@ local OptionItems = {
 		1,
 		true,
 		nil,
-		{MULTIPLAYER_CARTYPE_ANY_DESCRIPTION, MULTIPLAYER_CARTYPE_DERBY_DESCRIPTION, MULTIPLAYER_CARTYPE_RACING_DESCRIPTION, MULTIPLAYER_CARTYPE_STREET_DESCRIPTION, MULTIPLAYER_CARTYPE_STUNT_DESCRIPTION}
+		{MULTIPLAYER_CARTYPE_ANY_DESCRIPTION, MULTIPLAYER_CARTYPE_STREET_DESCRIPTION, MULTIPLAYER_CARTYPE_RACING_DESCRIPTION, MULTIPLAYER_CARTYPE_DERBY_DESCRIPTION, MULTIPLAYER_CARTYPE_STUNT_DESCRIPTION}
 	},
 	{
 		MULTIPLAYER_NITRO,
-		{L"0x", L"0.5x", L"1x", L"2x", MULTIPLAYER_GAMETYPE_ANY},
+		{L"0%", L"50%", L"100%", L"200%", L"ANY"},
 		{SessionInfo.NitroRegen.Regen0, SessionInfo.NitroRegen.Regen50, SessionInfo.NitroRegen.Regen100, SessionInfo.NitroRegen.Regen200, -1},
 		5,
 		true,
 		nil,
-		{MULTIPLAYER_NITRO_0_DESCRIPTION, MULTIPLAYER_NITRO_50_DESCRIPTION, MULTIPLAYER_NITRO_100_DESCRIPTION, MULTIPLAYER_NITRO_200_DESCRIPTION, MULTIPLAYER_NITROMULTIPLIER_ANY_DESCRIPTION}
+		{MULTIPLAYER_NITRO_0_DESCRIPTION, MULTIPLAYER_NITRO_50_DESCRIPTION, MULTIPLAYER_NITRO_100_DESCRIPTION, MULTIPLAYER_NITRO_200_DESCRIPTION}
 	},
 	{
 		MULTIPLAYER_RACEDAMAGELEVEL,
-		{L"0x", L"0.5x", L"1x", L"1.5x", L"2x", MULTIPLAYER_GAMETYPE_ANY},
+		{L"0x", L"0.5x", L"1x", L"1.5x", L"2x", L"ANY"},
 		{ReplicatedSession.DAMAGELEVEL_0, ReplicatedSession.DAMAGELEVEL_50, ReplicatedSession.DAMAGELEVEL_100, ReplicatedSession.DAMAGELEVEL_150, ReplicatedSession.DAMAGELEVEL_200, -1},
-		6,
+		3,
 		true,
 		nil,
-		{MULTIPLAYER_RACEDAMAGELEVEL_0_DESCRIPTION, MULTIPLAYER_RACEDAMAGELEVEL_50_DESCRIPTION, MULTIPLAYER_RACEDAMAGELEVEL_100_DESCRIPTION, MULTIPLAYER_RACEDAMAGELEVEL_150_DESCRIPTION, MULTIPLAYER_RACEDAMAGELEVEL_200_DESCRIPTION, MULTIPLAYER_RACEDAMAGE_ANY_DESCRIPTION}
+		{MULTIPLAYER_RACEDAMAGELEVEL_0_DESCRIPTION, MULTIPLAYER_RACEDAMAGELEVEL_50_DESCRIPTION, MULTIPLAYER_RACEDAMAGELEVEL_100_DESCRIPTION, MULTIPLAYER_RACEDAMAGELEVEL_150_DESCRIPTION, MULTIPLAYER_RACEDAMAGELEVEL_200_DESCRIPTION}
 	},
 	{
 		MULTIPLAYER_DERBYDAMAGELEVEL,
-		{L"0.5x", L"1x", L"1.5x", L"2x", MULTIPLAYER_GAMETYPE_ANY},
+		{L"0.5x", L"1x", L"1.5x", L"2x", L"ANY"},
 		{ReplicatedSession.DERBYDAMAGELEVEL_50, ReplicatedSession.DERBYDAMAGELEVEL_100, ReplicatedSession.DERBYDAMAGELEVEL_150, ReplicatedSession.DERBYDAMAGELEVEL_200, -1},
-		5,
+		2,
 		true,
 		nil,
-		{MULTIPLAYER_DERBYDAMAGELEVEL_50_DESCRIPTION, MULTIPLAYER_DERBYDAMAGELEVEL_100_DESCRIPTION, MULTIPLAYER_DERBYDAMAGELEVEL_150_DESCRIPTION, MULTIPLAYER_DERBYDAMAGELEVEL_200_DESCRIPTION, MULTIPLAYER_DERBYDAMAGE_ANY_DESCRIPTION}
+		{MULTIPLAYER_DERBYDAMAGELEVEL_50_DESCRIPTION, MULTIPLAYER_DERBYDAMAGELEVEL_100_DESCRIPTION, MULTIPLAYER_DERBYDAMAGELEVEL_150_DESCRIPTION, MULTIPLAYER_DERBYDAMAGELEVEL_200_DESCRIPTION}
 	}
 }
 
-local NumOptions=6
+local NumOptions=7
 
 -- OptionItem item indexes
 local Label=1
@@ -123,10 +150,11 @@ local Descriptions=7
 -- OptionItem indexes
 local RankedGame=1
 local GameType=2
-local CarType=3
-local NitroRegen=4
-local DamageLevel=5
-local DerbyDamageLevel=6
+local GameMode=3
+local CarType=4
+local NitroRegen=5
+local DamageLevel=6
+local DerbyDamageLevel=7
 	
 
 
@@ -210,18 +238,21 @@ local function StartSearchMatch()
 	end
 
 	local gameType = GetSelectedItemValue(GameType)
+	local gameMode = GetSelectedItemValue(GameMode)
 --	local eventType = GetSelectedItemValue(EventType)
 
 	if gameType ~= -1 then
-		SessionList:SetParameter("GameType", gameType)
+		if gameMode ~= -1 then
+			SessionList:SetParameter("GameType", gameMode)
+		else
+			SessionList:SetParameter("GameType", gameType)
+		end
 	end
 	
-	if gameType ~= ReplicatedSession.GAMETYPE_STUNT then
-		local carType = GetSelectedItemValue(CarType)
-		if carType ~= SessionInfo.CarClass.Any then
-			SessionList:SetParameter("CarType", carType)
-		end	
-	end
+	local carType = GetSelectedItemValue(CarType)
+	if carType ~= SessionInfo.CarClass.Any then
+		SessionList:SetParameter("CarType", carType)
+	end	
 	
 	local nitroRegen = GetSelectedItemValue(NitroRegen)
 	if nitroRegen ~= -1 then 
@@ -246,16 +277,10 @@ end
 OnRatedChanged = function()
 	if GetSelectedItemValue(RankedGame) == 0 then
 		SetEnabled(GameType, true)
-		OptionItems[GameType][ItemLabels] = { MULTIPLAYER_GAMETYPE_RACE, MULTIPLAYER_GAMETYPE_STUNT, MULTIPLAYER_GAMETYPE_DERBY, MULTIPLAYER_GAMETYPE_ANY }
-		OptionItems[GameType][ItemValues] = { ReplicatedSession.GAMETYPE_TOURNAMENT_RACE, ReplicatedSession.GAMETYPE_STUNT, ReplicatedSession.GAMETYPE_TOURNAMENT_DERBY, -1 }
-		OptionItems[GameType][Descriptions] = { MULTIPLAYER_GAMETYPE_RACE_DESCRIPTION, MULTIPLAYER_GAMETYPE_STUNT_DESCRIPTION, MULTIPLAYER_GAMETYPE_DERBY_DESCRIPTION, MULTIPLAYER_GAMETYPE_ALL_DESCRIPTION }
 		SetSelectedItem(GameType, 4)
 		OnGameTypeChanged()
 	else
 		SetEnabled(GameType, true)
-		OptionItems[GameType][ItemLabels] = { MULTIPLAYER_GAMETYPE_RACE, MULTIPLAYER_GAMETYPE_STUNT, MULTIPLAYER_GAMETYPE_DERBY }
-		OptionItems[GameType][ItemValues] = { ReplicatedSession.GAMETYPE_TOURNAMENT_RACE, ReplicatedSession.GAMETYPE_STUNT, ReplicatedSession.GAMETYPE_TOURNAMENT_DERBY }
-		OptionItems[GameType][Descriptions] = { MULTIPLAYER_GAMETYPE_RACE_DESCRIPTION, MULTIPLAYER_GAMETYPE_STUNT_DESCRIPTION, MULTIPLAYER_GAMETYPE_DERBY_DESCRIPTION }
 		SetSelectedItem(GameType, 1)
 		OnGameTypeChanged()
 	end
@@ -263,43 +288,61 @@ end
 
 OnGameTypeChanged = function()
 	local gameType = GetSelectedItemValue(GameType)
+	if MultiplayerMode == MPMODE_XBOXLIVE then
+		if GetSelectedItemValue(RankedGame) == 1 then
+			if gameType == -1 then
+				gameType = ReplicatedSession.GAMETYPE_TOURNAMENT_RACE
+				SetSelectedItem(GameType, 1)
+			end
+		end
+	end
 	if gameType == ReplicatedSession.GAMETYPE_TOURNAMENT_RACE then
-		SetEnabled(NitroRegen, true)
-		SetEnabled(CarType, true)
+		OptionItems[GameMode] = GameModeRace
+		SetSelectedItem(GameMode, 3)
+		SetEnabled(GameMode, true)
 		SetEnabled(DamageLevel, true)
 		SetEnabled(DerbyDamageLevel, false)
 	elseif gameType == ReplicatedSession.GAMETYPE_TOURNAMENT_DERBY then
-		SetEnabled(NitroRegen, true)
-		SetEnabled(CarType, true)
+		OptionItems[GameMode] = GameModeDerby
+		SetSelectedItem(GameMode, 5)
+		SetEnabled(GameMode, true)
 		SetEnabled(DamageLevel, false)
 		SetEnabled(DerbyDamageLevel, true)
 	elseif gameType == ReplicatedSession.GAMETYPE_STUNT then
-		SetEnabled(NitroRegen, false)
-		SetEnabled(CarType, false)
 		SetEnabled(DamageLevel, false)
 		SetEnabled(DerbyDamageLevel, false)
+		SetEnabled(GameMode, false)
 	else
 		SetEnabled(DamageLevel, true)
 		SetEnabled(DerbyDamageLevel, true)
+		SetEnabled(GameMode, false)
 	end
 end
 
 local function UpdateArrows(self)
+	local leftarrow_glow = wm.GetWindow("leftarrow_glow")
+	local rightarrow_glow = wm.GetWindow("rightarrow_glow")
 	local leftarrow = wm.GetWindow("leftarrow")
 	local rightarrow = wm.GetWindow("rightarrow")
 	
 	local row = wm.GetWindow("optionlist"):GetSelectedRow()
-	local y = Layout.ListTop + (Layout.RowHeight + Layout.RowPadding) * (row - 1)
+	local y = Layout.ListTop + Layout.RowHeight * (row - 1)
 	
-	local leftArrowSize = wm.GetResourceSize(self:getResource("selection_arrow_r"))
-	local rightArrowSize = wm.GetResourceSize(self:getResource("selection_arrow_l"))
+	local leftArrowSize = wm.GetResourceSize(self:getResource("scroll_left_icon"))
+	local rightArrowSize = wm.GetResourceSize(self:getResource("scroll_right_icon"))
+	local leftGlowArrowSize = wm.GetResourceSize(self:getResource("scroll_left_glow"))
+	local rightGlowArrowSize = wm.GetResourceSize(self:getResource("scroll_right_glow"))
 
+	local xpos = Layout.OptionLeft + 6 * (row - 1) + Layout.OptionArrowIndentLeftRight
+	leftarrow_glow:SetPosition(xpos, y + 1)
+	leftarrow:SetPosition(xpos + (leftGlowArrowSize[1] - leftArrowSize[1]) / 2, y + 2 + (leftGlowArrowSize[2] - leftArrowSize[2]) / 2)
+	
 	local value = wm.GetWindow("optionvalue_row"..row)
-	local xpos,_ = value:GetPosition()
-	leftarrow:SetPosition(xpos - 5 - leftArrowSize[1], y + 2)
+	local xpos,_ = wm.GetTextExtents(value:GetTitle(), Layout.ListFont)
+	xpos = Layout.OptionLeft + xpos + leftGlowArrowSize[1] + 2 * Layout.OptionArrowIndentLeftRight + 6 * (row - 1)
 
-	local w,_ = wm.GetTextExtents(value:GetTitle(), Layout.ListFont)
-	rightarrow:SetPosition(xpos + w + 9, y + 2)
+	rightarrow_glow:SetPosition(xpos, y + 1)
+	rightarrow:SetPosition(xpos + (rightGlowArrowSize[1] - rightArrowSize[1]) / 2, y + 2 + (rightGlowArrowSize[2] - rightArrowSize[2]) / 2)
 end
 
 UpdateInfoText = function()
@@ -347,25 +390,41 @@ end
 function menu_multiplayer_optimatch.init(self)
 	self.parent:init(self)
 	
-	GUI:SetBackgroundVideo("data/video/bg_main")
+	GUI:SetBackground("data/menu/menu_background.tga")
 	
-	if not XBOX and table.getn(OptionItems) == 6 then
+	if not XBOX and table.getn(OptionItems) == 7 then
 		GameType=1
-		CarType=2
-		NitroRegen=3
-		DamageLevel=4
-		DerbyDamageLevel=5
+		GameMode=2
+		CarType=3
+		NitroRegen=4
+		DamageLevel=5
+		DerbyDamageLevel=6
 		
 		table.remove(OptionItems, RankedGame)
-
-		OptionItems[GameType][Descriptions] = { PS2ONLINE_GAMETYPE_RACE_DESCRIPTION, PS2ONLINE_GAMETYPE_STUNT_DESCRIPTION, PS2ONLINE_GAMETYPE_DERBY_DESCRIPTION, MULTIPLAYER_GAMETYPE_ANY_DESCRIPTION }
-
 		NumOptions = table.getn(OptionItems)
 	end
 
 	Creating=false
 	
-	Layout.ListTop = 76 + (11 - NumOptions) * Layout.RowHeight / 2
+	Layout.ListTop = 116 + (7 - NumOptions) * Layout.RowHeight / 2
+	
+	local angsize = wm.GetResourceSize(self:getResource("options_6_slices_l_ang"))
+	local h = angsize[2]
+	Frame { Position=POS(302,Layout.ListTop), Size=angsize, Layer=3 }:AttachResource(self:getResource("options_6_slices_l_ang"))
+	angsize = wm.GetResourceSize(self:getResource("options_6_slices_r_ang"))
+	Frame { Position=POS(312,Layout.ListTop), Size=angsize, Layer=3 }:AttachResource(self:getResource("options_6_slices_r_ang"))
+	Frame { Position=POS(0,Layout.ListTop), Size=SIZE(302,118), Layer=3 }:AttachResource(self:getResource("options_6_strech"))
+	Frame { Position=POS(352,Layout.ListTop), Size=SIZE(302,118), Layer=3 }:AttachResource(self:getResource("options_6_strech"))
+	
+	if NumOptions == 7 then
+		angsize = wm.GetResourceSize(self:getResource("options_1_slice_l_ang"))
+		Frame { Position=POS(338,Layout.ListTop+h), Size=angsize, Layer=3 }:AttachResource(self:getResource("options_1_slice_l_ang"))
+		angsize = wm.GetResourceSize(self:getResource("options_1_slice_r_ang"))
+		Frame { Position=POS(347,Layout.ListTop+h), Size=angsize, Layer=3 }:AttachResource(self:getResource("options_1_slice_r_ang"))
+		
+		Frame { Position=POS(0,Layout.ListTop+h), Size=SIZE(337,18), Layer=3 }:AttachResource(wm.GetResource("wide_black_bar_50"))
+		Frame { Position=POS(358,Layout.ListTop+h), Size=SIZE(282,18), Layer=3 }:AttachResource(wm.GetResource("wide_black_bar_50"))
+	end
 	
 	local listboxParams = {
 		ListBoxTemplate	= { Name="optionlist" },
@@ -385,45 +444,13 @@ function menu_multiplayer_optimatch.init(self)
 		NumRows	= NumOptions,
 		Coloumns = {
 			[1] = {
-				Name				= "titlebg",
-				ColoumnTemplate		= { Position=POS(0,0), Size=SIZE(0,0), Layer=3 },
-				ColoumnTemplateType	= "Frame",
-				ColoumnTemplateCust	= function(Coloumn, RowNr, ColoumnNr)
-					Coloumn:AttachResource(self:getResource("multiplayer_str_18"))
-				end
-			},				
-			[2] = {
-				Name				= "titlebg_cap",
-				ColoumnTemplate		= { Position=POS(0,0), Size=wm.GetResourceSize(self:getResource("options_1_slice_l_ang")), Layer=3 },
-				ColoumnTemplateType	= "Frame",
-				ColoumnTemplateCust	= function(Coloumn, RowNr, ColoumnNr)
-					Coloumn:AttachResource(self:getResource("options_1_slice_l_ang"))
-				end
-			},				
-			[3] = {
-				Name				= "valuebg_cap",
-				ColoumnTemplate		= { Position=POS(0,0), Size=wm.GetResourceSize(self:getResource("options_1_slice_r_ang")), Layer=3 },
-				ColoumnTemplateType	= "Frame",
-				ColoumnTemplateCust	= function(Coloumn, RowNr, ColoumnNr)
-					Coloumn:AttachResource(self:getResource("options_1_slice_r_ang"))
-				end
-			},				
-			[4] = {
-				Name				= "valuebg",
-				ColoumnTemplate		= { Position=POS(0,0), Size=SIZE(0,0), Layer=3 },
-				ColoumnTemplateType	= "Frame",
-				ColoumnTemplateCust	= function(Coloumn, RowNr, ColoumnNr)
-					Coloumn:AttachResource(self:getResource("multiplayer_str_18"))
-				end
-			},				
-			[5] = {
 				Name				= "optiontitle", -- _row# is added
 				ColoumnTemplate		= { Font=Layout.ListFont, Color=Layout.LabelFontColor, Position=POS(Layout.LabelLeft, -2), Size=SIZE(Layout.OptionWidth, Layout.RowHeight), Align=FONTF_RIGHT, Layer=4 },
 				ColoumnTemplateType	= "StaticText",
 				ColoumnTemplateCust	= function(Coloumn, RowNr, ColoumnNr)
 				end
 			},
-			[6] = {
+			[2] = {
 				Name				= "optionvalue", -- _row# is added
 				ColoumnTemplate		= { Font=Layout.ListFont, Color=Layout.OptionFontColor, Position=POS(Layout.OptionLeft, -2), Size=SIZE(Layout.OptionWidth, Layout.RowHeight), Layer=4 },
 				ColoumnTemplateType	= "StaticText",
@@ -437,28 +464,13 @@ function menu_multiplayer_optimatch.init(self)
 	optionlist:SetNumRows(NumOptions)
 	optionlist:SetSelectedRow(1)
 	optionlist.onNeedData = function(Self, RowObject, RowNr, ControlRowNr)
-		local titlebg = wm.GetWindow("titlebg_row"..RowNr)
-		local titlebg_cap = wm.GetWindow("titlebg_cap_row"..RowNr)
-		local valuebg_cap = wm.GetWindow("valuebg_cap_row"..RowNr)
-		local valuebg = wm.GetWindow("valuebg_row"..RowNr)
 		local title = wm.GetWindow("optiontitle_row"..RowNr)
 		local value = wm.GetWindow("optionvalue_row"..RowNr)
 		
-		local arrowSize = GetResourceSize(self:getResource("selection_arrow_r"))
-		title:SetPosition(320 - 6 * (NumOptions / 2 - RowNr + 1) - 15, 0)
-		value:SetPosition(320 - 6 * (NumOptions / 2 - RowNr + 1) + 15 + Layout.OptionArrowIndentLeftRight + arrowSize[1], 0)
+		local arrowSize = GetResourceSize(self:getResource("scroll_left_glow"))
+		title:SetPosition(Layout.LabelLeft + 6 * (RowNr - 1), 0)
+		value:SetPosition(Layout.OptionLeft + 6 * (RowNr - 1) + Layout.OptionArrowIndentLeftRight + arrowSize[1], 0)
 		
-		local capw,caph = titlebg_cap:GetSize()
-		local capx = 320 - 6 * (NumOptions / 2 - RowNr) - capw - 2
-		titlebg:SetSize(capx, Layout.RowHeight)
-		titlebg_cap:SetPosition(capx, 0)
-		
-		capw,caph = valuebg_cap:GetSize()
-		capx = 320 - 6 * (NumOptions / 2 - RowNr + 1) + 2
-		valuebg:SetPosition(capx + capw, 0)
-		valuebg:SetSize(640 - capx - capw, Layout.RowHeight)
-		valuebg_cap:SetPosition(capx, 0)
-
 		title:SetTitle(OptionItems[RowNr][Label])
 		if OptionItems[RowNr][Enabled] then
 			value:SetLayer(4)
@@ -477,10 +489,15 @@ function menu_multiplayer_optimatch.init(self)
 		UpdateArrows(self)
 	end
 
-	local arrowSize = GetResourceSize(self:getResource("selection_arrow_r"))
-	Frame { Name="leftarrow", Position=POS(0,0), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("selection_arrow_r"))
-	arrowSize = GetResourceSize(self:getResource("selection_arrow_l"))
-	Frame { Name="rightarrow", Position=POS(0,0), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("selection_arrow_l"))
+	local arrowSize = GetResourceSize(self:getResource("scroll_left_glow"))
+	Frame { Name="leftarrow_glow", Position=POS(0,0), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("scroll_left_glow"))
+	arrowSize = GetResourceSize(self:getResource("scroll_left_icon"))
+	Frame { Name="leftarrow", Position=POS(0,0), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("scroll_left_icon"))
+	
+	arrowSize = GetResourceSize(self:getResource("scroll_right_glow"))
+	Frame { Name="rightarrow_glow", Position=POS(0,0), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("scroll_right_glow"))
+	arrowSize = GetResourceSize(self:getResource("scroll_right_icon"))
+	Frame { Name="rightarrow", Position=POS(0,0), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("scroll_right_icon"))
 	
 	local infobox = Frame { Position=Layout.InfoBoxPos, Size=Layout.InfoBoxSize }
 	infobox:AttachResource(self:getResource("options_description_bd"))
@@ -581,4 +598,8 @@ end
 	
 function menu_multiplayer_optimatch.update(self, time)
 	self.parent:update(self, time)
+	
+	local alpha = 1 - 0.20 + math.sin(time * 6) * 0.20
+	wm.GetWindow("leftarrow_glow"):SetAlpha(alpha)
+	wm.GetWindow("rightarrow_glow"):SetAlpha(alpha)
 end

@@ -1,0 +1,458 @@
+--///////////////////////////////////////////////////////////////////////////
+--// Statistics.bed
+--///////////////////////////////////////////////////////////////////////////
+--// Copyright (c) 2004 Bugbear Entertainment ltd. 
+--// All Rights Reserved.
+--// 
+--// Created on 7.7.2004 21:02:34
+--// 
+--// Authors: Fred Sundvik (fred.sundvik@bugbear.fi)
+--///////////////////////////////////////////////////////////////////////////
+local Layout={
+	ListPos=POS(0, 120),
+	ListItemHeight=16,
+	ListItemPadding=1,
+	ListItemWidth=530,
+	ListActiveItemColor={0, 0, 0, 127},
+	ListInactiveItemColor={0,0,0,0},
+	ListNumRows=12,
+	
+	ListFont=fontsmall(),
+	NrFontColor={255, 200, 0, 255},
+	ListFontColor={255, 255, 255, 255},
+	
+	NrLeft=5,
+	FlagLeft=69,
+	GamerTagLeft=108,
+	RatingLeft=323,
+	NumRacesLeft=429,
+	
+	LabelTop=101,
+	LabelFont=fontsmall(),
+	LabelFontColor={255, 200, 0, 255},
+	
+	ThickLineColor={255, 200, 0, 255, false},
+	ThickLineThickness=2,
+	ThickLine1Top=118,
+	ThickLine2Top=325,
+	
+	ThinLineColor={255, 255, 255, 127, false},
+	ThinLineThickness=1,
+	
+	UpArrowPos=POS(1, 101),
+	DownArrowPos=POS(1, 330),
+	LeftArrowPos=POS(227, 76),
+	RightArrowPos=POS(378, 76),
+	
+	FilterLabelPos=POS(79, 74),
+	FilterTextPos=POS(207, 74),
+	FilterTextSize=SIZE(200, 26),
+	FilterTextFont=fontsmall(),
+	FilterTextFontColor={255, 255, 255, 255},
+	
+	TotalLabelPos=POS(69, 331),
+	TotalTextFont=fontsmall(),
+	TotalTextFontColor={255, 255, 255, 255},
+}
+
+local ThickLineColor=wm.NewResource(COLOR, "StatisticsThickLineColor", "",  Layout.ThickLineColor)
+local ThinLineColor=wm.NewResource(COLOR, "StatisticsThinLineColor", "",  Layout.ThinLineColor)
+
+
+local StatList=nil
+local LastTime=0
+local StatListRefreshing=false
+
+local FullRefresh=false
+local StatMode=nil
+local StatUser=nil
+local FriendsOnly=false
+local Error=false
+local CurRow=0
+
+
+local TableFilters={
+	{STATS_NORMAL, 1},
+	{STATS_PRO, 2},
+	--{ConvertToWString("DESTRUCTION DERBY EASY"), 3},
+	--{ConvertToWString("DESTRUCTION DERBY STANDARD"), 4},
+}
+
+local CurrentTableFilter=1
+
+local function RefreshStat(Mode)
+	if Mode then
+		StatMode=Mode
+	end
+	if StatMode=="USER" or StatMode=="FORCEUSER" then
+		StatList:MoveToUser(StatUser)
+	else
+		StatList:MoveToNr(1)
+	end
+	FullRefresh=true
+	LastTime=0
+	StatListRefreshing=false
+end
+
+menu_xboxlive_statistics = CreateMenuFromTemplate("template_basic")
+menu_xboxlive_statistics.options.title = STATS_TITLE
+menu_xboxlive_statistics.back = entermenu("menu_xboxlive")
+
+function menu_xboxlive_statistics.create(self)
+	self.parent:create(self)
+	self:loadResources()
+end
+
+function menu_xboxlive_statistics.init(self)
+	self.parent:init(self)
+	
+--[[--	XBoxLiveLowerBalk(
+		STATS_VIEW,
+		STATS_BACK,
+		STATS_MY,
+		STATS_FRIENDS,
+		STATS_TOP
+	)--]]--
+	--GUI:LoadBackground("data/menu/bg/game_background.tga")
+		
+	local t_y = TITLESAFE_Y or 0
+	local line=Frame{Position=POS(0, t_y+Layout.ThickLine1Top), Size=SIZE(640, Layout.ThickLineThickness), ShowBorders=FALSE}
+	--line:AttachResource(ThickLineColor)
+	line=Frame{Position=POS(0, t_y+Layout.ThickLine2Top), Size=SIZE(640, Layout.ThickLineThickness), ShowBorders=FALSE}
+	--line:AttachResource(ThickLineColor)
+	
+	local y=t_y+Layout.ListPos[2]
+	for i=1, Layout.ListNumRows-1 do
+		y=y+Layout.ListItemHeight
+		line=Frame{Position=POS(0, y), Size=SIZE(640, Layout.ThinLineThickness), ShowBorders=FALSE}
+		--line:AttachResource(ThinLineColor)
+		y=y+Layout.ListItemPadding
+	end
+	
+	local labelPos=SAFEPOS(Layout.ListPos[1]+Layout.GamerTagLeft, Layout.LabelTop)
+	local label=StaticText{Title=STATS_GAMERTAG, Position=labelPos, Size=SIZE(100, 16), Font=Layout.LabelFont, ShowBorders=FALSE, TitleCentering=TITLE_CENTER_NONE}
+	label:SetColor(Layout.LabelFontColor, false)
+
+	labelPos=SAFEPOS(Layout.ListPos[1]+Layout.RatingLeft, Layout.LabelTop)
+	label=StaticText{Title=STATS_POINTS, Position=labelPos, Size=SIZE(100, 16), Font=Layout.LabelFont, ShowBorders=FALSE, TitleCentering=TITLE_CENTER_NONE}
+	label:SetColor(Layout.LabelFontColor, false)
+
+	labelPos=SAFEPOS(Layout.ListPos[1]+Layout.NumRacesLeft, Layout.LabelTop)
+	label=StaticText{Title=STATS_RACES, Position=labelPos, Size=SIZE(100, 16), Font=Layout.LabelFont, ShowBorders=FALSE, TitleCentering=TITLE_CENTER_NONE}
+	label:SetColor(Layout.LabelFontColor, false)
+	
+	labelPos=MakeSafePos(Layout.FilterLabelPos)
+	label=StaticText{Title=STATS_HANDLING, Position=labelPos, Size=SIZE(100, 16), Font=Layout.LabelFont, ShowBorders=FALSE, TitleCentering=TITLE_CENTER_NONE}
+	label:SetColor(Layout.LabelFontColor, false)
+	
+	local filterText=StaticText{Name="filtertext", Position=MakeSafePos(Layout.FilterTextPos), Size=Layout.FilterTextSize, Font=Layout.FilterTextFont, ShowBorders=FALSE, TitleCentering=TITLE_CENTER_X}
+	filterText:SetColor(Layout.FilterTextFontColor, false)
+	
+	labelPos=MakeSafePos(Layout.TotalLabelPos)
+	label=StaticText{Title=STATS_TOTAL, Position=labelPos, Size=SIZE(100, 16), Font=Layout.LabelFont, ShowBorders=FALSE, TitleCentering=TITLE_CENTER_NONE}
+	label:SetColor(Layout.LabelFontColor, false)
+	
+	local textWidth=wm.GetTextWidth(STATS_TOTAL, Layout.LabelFont)
+	local pos=AddPos(labelPos, POS(textWidth, 0))
+	local totalText=StaticText{Name="totaltext", Position=pos, Size=SIZE(100, 16), Font=Layout.TotalTextFont, ShowBorders=FALSE, TitleCentering=TITLE_CENTER_NONE}
+	totalText:SetColor(Layout.TotalTextFontColor, false)
+
+	local upArrow=Frame{Position=MakeSafePos(Layout.UpArrowPos), Size=wm.GetResourceSize(common.control_arrow_up_pal_3), ShowBorders=FALSE}
+	upArrow:AttachResource(common.control_arrow_up_pal_3)
+	upArrow:HideWindow()
+
+	local downArrow=Frame{Position=MakeSafePos(Layout.DownArrowPos), Size=wm.GetResourceSize(common.nuolialas), ShowBorders=FALSE}
+	downArrow:AttachResource(common.nuolialas)
+	downArrow:HideWindow()
+
+	local leftArrow=Frame{Position=MakeSafePos(Layout.LeftArrowPos), Size=wm.GetResourceSize(common.mininuolivasen), ShowBorders=FALSE}
+	leftArrow:AttachResource(common.mininuolivasen)
+
+	local rightArrow=Frame{Position=MakeSafePos(Layout.RightArrowPos), Size=wm.GetResourceSize(common.mininuolioikea), ShowBorders=FALSE}
+	rightArrow:AttachResource(common.mininuolioikea)
+
+	
+	line=Frame{Position=POS(0, t_y+Layout.ThickLine2Top), Size=SIZE(640, Layout.ThickLineThickness), ShowBorders=FALSE}
+	line:AttachResource(ThickLineColor)
+	
+	local listboxParams={
+		ListBoxTemplate={Name="statlist", ShowBorders=FALSE},
+		Left=Layout.ListPos[1],
+		Top=Layout.ListPos[2],
+		LeftPadding=0,
+		RightPadding=0,
+		TopPadding=0,
+		BottomPadding=0,
+		RowWidth=Layout.ListItemWidth,
+		RowHeight=Layout.ListItemHeight,
+		RowPadding=Layout.ListItemPadding,
+		RowTemplate={Font=Layout.ListFont, DrawBackgroundColor=TRUE, TitleCentering=TITLE_CENTER_Y},
+		RowTemplateType="Button",
+		RowTemplateCust=function(Row, RowNr)
+			--Row:SetColor(Layout.ListFontColor[1], Layout.ListFontColor[2], Layout.ListFontColor[3], Layout.ListFontColor[4])
+			Row:SetActiveColor(Layout.ListActiveItemColor, false)
+			Row:SetInactiveColor(Layout.ListInactiveItemColor, false)
+		end,
+		NumRows=Layout.ListNumRows,
+		Coloumns={
+			[1]={
+			Name="ranking", -- _row# is added
+			ColoumnTemplate={Font=Layout.ListFont, Position=POS(Layout.NrLeft, 0), Size=SIZE(Layout.ListItemWidth-Layout.NrLeft, 16), ShowBorders=FALSE, TitleCentering=TITLE_CENTER_Y},
+			ColoumnTemplateType="StaticText",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+				Coloumn:SetColor(Layout.NrFontColor, false)
+			end
+			},
+			[2]={
+			Name="flagicon", -- _row# is added
+			ColoumnTemplate={Position=POS(Layout.FlagLeft, 0), Size=SIZE(32, 16), ShowBorders=FALSE},
+			ColoumnTemplateType="Frame",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+				--Coloumn:AttachResource(flagicons.bugbear)
+				Coloumn:HideWindow()
+			end
+			},					
+			[3]={
+			Name="gamertag", -- _row# is added
+			ColoumnTemplate={Font=Layout.ListFont, Position=POS(Layout.GamerTagLeft, 0), Size=SIZE(Layout.ListItemWidth-Layout.GamerTagLeft, 16), ShowBorders=FALSE, TitleCentering=TITLE_CENTER_Y},
+			ColoumnTemplateType="StaticText",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+				Coloumn:SetColor(Layout.ListFontColor, false)
+			end
+			},
+			[4]={
+			Name="rating", -- _row# is added
+			ColoumnTemplate={Font=Layout.ListFont, Position=POS(Layout.RatingLeft, 0), Size=SIZE(Layout.ListItemWidth-Layout.RatingLeft, 16), ShowBorders=FALSE, TitleCentering=TITLE_CENTER_Y},
+			ColoumnTemplateType="StaticText",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+				Coloumn:SetColor(Layout.ListFontColor, false)
+			end
+			},
+			[5]={
+			Name="numraces", -- _row# is added
+			ColoumnTemplate={Font=Layout.ListFont, Position=POS(Layout.NumRacesLeft, 0), Size=SIZE(Layout.ListItemWidth-Layout.NumRacesLeft, 16), ShowBorders=FALSE, TitleCentering=TITLE_CENTER_Y},
+			ColoumnTemplateType="StaticText",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+				Coloumn:SetColor(Layout.ListFontColor, false)
+			end
+			},
+
+		}
+	}
+	
+	local listbox=CreateMultiColoumnListBox(listboxParams)
+	listbox.onNeedData=function(Self, RowObject, RowNr, ControlRowNr, RowNrString)
+		StatList:MoveToNr(RowNrString)
+		
+		if Friends.IsResultsReady()==false or StatList:IsRefreshing() then
+			local win=wm.GetWindow(string.format("ranking_row%i", ControlRowNr))
+			win:HideWindow()
+			win=wm.GetWindow(string.format("gamertag_row%i", ControlRowNr))
+			win:HideWindow()
+			win=wm.GetWindow(string.format("rating_row%i", ControlRowNr))
+			win:HideWindow()
+			win=wm.GetWindow(string.format("numraces_row%i", ControlRowNr))
+			win:HideWindow()
+			win=wm.GetWindow(string.format("flagicon_row%i", ControlRowNr))
+			win:HideWindow()
+		else
+			local win=wm.GetWindow(string.format("ranking_row%i", ControlRowNr))
+			local title=StatList:GetRanking()
+			win:SetTitle(title)
+			win:ShowWindow()
+			
+			win=wm.GetWindow(string.format("gamertag_row%i", ControlRowNr))
+			title=StatList:GetUserName()
+			win:SetTitle(title)
+			win:ShowWindow()
+			
+			win=wm.GetWindow(string.format("rating_row%i", ControlRowNr))
+			title=StatList:GetRating()
+			win:SetTitle(title)
+			win:ShowWindow()
+			
+			win=wm.GetWindow(string.format("numraces_row%i", ControlRowNr))
+			title=StatList:GetNumRaces()
+			win:SetTitle(title)
+			win:ShowWindow()
+			
+			win=wm.GetWindow(string.format("flagicon_row%i", ControlRowNr))
+			local flagNr=StatList:GetCountry()
+--			win:AttachResource(flagicons[flagnames[flagNr] ])
+			win:ShowWindow()
+		end
+	end
+	
+	listbox.onShowScrollUpArrow=function()
+		upArrow:ShowWindow()
+	end
+	listbox.onHideScrollUpArrow=function()
+		upArrow:HideWindow()
+	end
+	listbox.onShowScrollDownArrow=function()
+		downArrow:ShowWindow()
+	end
+	listbox.onHideScrollDownArrow=function()
+		downArrow:HideWindow()
+	end
+	
+
+	local handler=InputHandler{Name="inputhandler"}
+	handler.onKeyPressed=function(Self, Character, VirtualKey, ScanCode)
+		if VirtualKey==KeyCodes["BUTTON_START"] then
+			--KLUDGE always first user
+			local rowNr=listbox:GetSelectedRowString()
+			if rowNr~="0" then
+				StatList:MoveToNr(listbox:GetSelectedRowString())
+				local userId=StatList:GetUserId()
+				local userName=StatList:GetUserName()
+				ShowXBoxLiveProfile(1, userId, userName, CurrentTableFilter, entermenu("menu_xboxlive_statistics"))
+			end
+		elseif VirtualKey==KeyCodes["BUTTON_SELECT"] then
+			menu_xboxlive_statistics.options.back_action()
+		elseif VirtualKey==KeyCodes["BUTTON_UP"] then
+			listbox:MovePrev()
+			CurRow=listbox:GetSelectedRow()
+		elseif VirtualKey==KeyCodes["BUTTON_DOWN"] then
+			listbox:MoveNext()
+			CurRow=listbox:GetSelectedRow()
+		elseif VirtualKey==KeyCodes["BUTTON_LEFT"] then
+			CurrentTableFilter=CurrentTableFilter-1
+			if CurrentTableFilter==0 then
+				CurrentTableFilter=table.getn(TableFilters)
+			end
+			StatList:SetTable(TableFilters[CurrentTableFilter][2])
+			RefreshStat()
+			StatList:Refresh()
+		elseif VirtualKey==KeyCodes["BUTTON_RIGHT"] then
+			CurrentTableFilter=CurrentTableFilter+1
+			if CurrentTableFilter>table.getn(TableFilters) then
+				CurrentTableFilter=1
+			end
+			StatList:SetTable(TableFilters[CurrentTableFilter][2])
+			RefreshStat()
+			StatList:Refresh()
+		elseif VirtualKey==KeyCodes["BUTTON_X"] then
+			RefreshStat("FORCEUSER")
+		elseif VirtualKey==KeyCodes["BUTTON_Y"]then
+			if FriendsOnly==true then
+				--wm.GetWindow("lowerbalk_y"):SetTitle(STATS_FRIENDS)
+				XBLiveLowerBalkSetButton("y",STATS_FRIENDS, true)
+				FriendsOnly=false
+				StatList:SetFriendsOnly(false)
+				RefreshStat()
+				StatList:Refresh()
+			else
+				--wm.GetWindow("lowerbalk_y"):SetTitle(STATS_ALLPLAYERS)
+				XBLiveLowerBalkSetButton("y",STATS_ALLPLAYERS, true)
+				FriendsOnly=true
+				StatList:SetFriendsOnly(true)
+				RefreshStat()
+				StatList:Refresh()
+			end
+		elseif VirtualKey==KeyCodes["BUTTON_EXTRA1"] then
+			RefreshStat("TOP")
+		end
+	end
+	handler:SetFocus()
+	CurrentTableFilter=1
+	FriendsOnly=false
+	--KLUDGE only one user
+	StatUser=XBoxLive.Auth.GetSignedInUserId(1)
+	StatList=RaceStatisticsList{}
+	StatList:SetTable(TableFilters[CurrentTableFilter][2])
+	StatList:SetFriendsOnly(false)
+	RefreshStat("USER")
+	--KLUDGE only one user
+	local cont=XBoxLive.Auth.GetSignedInUserPort(1)
+	Friends.SetUserIndex(cont)
+	Friends.Enumrate()
+	Error=false
+	wm.GetWindow("statlist"):SetNumRows(0)
+end
+	
+function menu_xboxlive_statistics.deinit(self)
+	self.parent:deinit(self)
+	StatList=nil
+	Friends.EndEnumrate()
+end
+	
+function menu_xboxlive_statistics.update(self, time)
+	self.parent:update(self, time)
+	
+	if CheckXBoxLiveErrors() then
+		return
+	end
+	wm.GetWindow("filtertext"):SetTitle(TableFilters[CurrentTableFilter][1])
+	if LastTime~=0 then
+		local dt=time-LastTime
+		StatList:Update(dt*1000)
+	end
+	if Error then
+		return
+	end
+	if (Friends.IsResultsReady()==false or StatListRefreshing==false) and StatList:IsRefreshing() then
+		StatListRefreshing=true
+		ShowThinkingWindow()
+		--wm.GetWindow("statlist"):SetNumRows(0)
+		wm.GetWindow("totaltext"):SetTitle(ConvertToWString(""))
+		wm.GetWindow("statlist"):Refresh()
+	elseif StatList:IsRefreshing()==false then
+		if not StatList:Failed() then
+			wm.GetWindow("totaltext"):SetTitle(ConvertToWString(StatList:GetTotalNumUsers()))
+			wm.GetWindow("statlist"):SetNumRows(StatList:GetTotalNumUsers())
+			StatListRefreshing=false
+			HideThinkingWindow()
+			wm.GetWindow("inputhandler"):SetFocus()
+			if FullRefresh then
+				FullRefresh=false
+				if StatMode=="TOP" then
+					wm.GetWindow("statlist"):SetSelectedRow(1, 1)
+					CurRow=1
+				elseif StatMode=="TOPTEMP" then
+					wm.GetWindow("statlist"):SetSelectedRow(1, 1)
+					CurRow=1
+					StatMode="USER"
+				elseif StatMode=="FORCEUSER" then
+					local rowNr=StatList:FindUser()
+					CurRow=rowNr
+					wm.GetWindow("statlist"):SetSelectedRow(rowNr, Layout.ListNumRows / 2)
+					StatMode="USER"
+				else
+					local rowNr=StatList:FindUser()
+					CurRow=rowNr
+					wm.GetWindow("statlist"):SetSelectedRow(rowNr, Layout.ListNumRows / 2)
+				end
+			else
+				--wm.GetWindow("statlist"):SetSelectedRow(CurRow, 1)
+			end
+		else
+			if StatList:UserNotFound() then
+				if StatMode=="FORCEUSER" then
+					Error=true
+					StatListRefreshing=false
+					HideThinkingWindow()
+					ShowMessageBox(SAFEPOS(154, 70), 
+						STATS_NORANK, 
+						STATS_OK, 
+						function()Error=false RefreshStat("TOPTEMP") StatList:Refresh()end
+					)
+				else
+					RefreshStat("TOPTEMP")
+					StatList:Refresh()
+				end
+			else
+				Error=true
+				HideThinkingWindow()
+				ShowMessageBox(	SAFEPOS(154, 70), 
+					STATS_NOSTATS,
+					STATS_RETRY,
+					function()RefreshStat() Error=false StatList:Refresh()end,
+					STATS_CANCEL,
+					function()menu_xboxlive_statistics.options.back_action()end
+					)
+			end
+		end
+	end
+	LastTime=time
+end

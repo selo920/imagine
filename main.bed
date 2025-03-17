@@ -70,13 +70,11 @@ local menufiles = {
 	--//"TournamentMenu.bed",
 	"UpgradeMenu.bed",
 	"PartyModeMenu.bed",
-	"ExtrasMenu.bed",
+	"DevMenu.bed",  --//remove when.. something
 	"StartScreen.bed",
 
-	"MultiplayerBuildTournament.bed",
-	"MultiplayerRaceMenu.bed",
-
---[[--/*
+	"LANGame.bed",
+	"LANResults.bed",
 	"LobbyChangeOptions.bed",
 	"LobbySessionDetails.bed",
 	"MultiplayerCreateGame.bed",
@@ -85,22 +83,18 @@ local menufiles = {
 	"MultiplayerLobby.bed",
 	"OnlineOptionsLayout.bed",
 	"OnlineOptions.bed",
-	"MultiplayerViewTournament.bed",
-	"MultiplayerTournamentStandings.bed",
-	"MultiplayerBuildTournament.bed",
-	"MultiplayerRaceMenu.bed",
---]]--*/
+	"PlayersMenu.bed",
+	"MultiplayerScoreboards.bed",
+
 	--//"PressBuild.bed",
 	--//"FocusTest.bed",
 }
 
-local pc_menufiles = {
-	"GameSpy.bed",
-	"GameSpyQuickMatch.bed",
-	"LanGame.bed",
-}
-
 local xbox_menufiles = {
+	"MultiplayerViewTournament.bed",
+	"MultiplayerTournamentStandings.bed",
+	"MultiplayerBuildTournament.bed",
+	"MultiplayerRaceMenu.bed",
 	"XBoxLive.bed",
 	"QuickMatch.bed",
 	"AuthOneUser.bed",
@@ -109,10 +103,13 @@ local xbox_menufiles = {
 	"SendVoice.bed",
 	"SendFeedback.bed",
 	"CrossGameInvite.bed",
-	"MultiplayerScoreboards.bed",
 }
 
 local ps2_menufiles = {
+	"MultiplayerViewTournament.bed",
+	"MultiplayerTournamentStandings.bed",
+	"MultiplayerBuildTournament.bed",
+	"MultiplayerRaceMenu.bed",
 	"NetworkConfiguration.bed",
 	"DNAS.bed",
 	"GameSpyLogin.bed",
@@ -120,7 +117,6 @@ local ps2_menufiles = {
 	"GameSpyQuickMatch.bed",
 	"MultiPlayerProfile.bed",
 }
-
 
 local globalresources = {
 
@@ -137,38 +133,36 @@ local function race_finished()
 
 	Event:PostEvent(event(EVENT_MUSIC_MENU))
 
-	if XBOX then
-		GUI:AllowOnlineOptionsMenu(true)
-		if Network ~= nil then
-			GUI:EnableOnlineOptionsMenu(true)
-		end
-		XBoxLiveUpdateStatus()
-	end
-		
-	if XBOX and Friends and Friends.ShouldJoinFriend() then
-		MultiplayerMode = MPMODE_XBOXLIVE
-		EnterMenu("menu_xboxlive")
+	if FOCUS_TEST then
+		EnterMenu("menu_mainmenu")
 		return
 	end
 
+	if XBOX then
+		XBoxLiveUpdateStatus()
+		if XBoxLive.Auth.GetNumSignedInUsers() > 0 then
+			GUI:EnableOnlineOptionsMenu(true)
+		end
+	elseif GameSpyUpdateStatus then
+		GameSpyUpdateStatus()
+	end
+		
 	if db.GameFlow.PreRace.Mode == GM_PARTY then
 		EnterMenu("menu_partymode_results")
-	elseif db.GameFlow.PreRace.Mode == GM_SPLITSCREEN then
-		SplitScreenSelectNextRace()
 	elseif db.GameFlow.PreRace.Mode == GM_CAREER then
+		if db.GameFlow.PreRace.Cup ~= 0 then
 --//			EnterMenu("menu_career_cup_racerewards")
-		PrepareRewardMenuQueue(entermenu("menu_career"))
-		NextRewardMenu()
+			PrepareCupRewardMenuQueue()
+			NextCupRewardMenu()
+		else
+			EnterMenu("menu_career")
+		end
 	elseif db.GameFlow.PreRace.Mode == GM_ONLINE_MULTIPLAYER then
 		if Session then
 			if Session:IsLive() then
 				MultiplayerMode = MPMODE_XBOXLIVE
-				if Network:GetShouldExitLive() then
-					Network:SetShouldExitLive(false)
-					Session:DeleteSession()
-					EnterMenu("menu_mainmenu")
-				elseif Network:GetShouldExitSession() then
-					Network:SetShouldExitSession(false)
+				if Network.GetShouldExitSession() then
+					Network.SetShouldExitSession(false)
 					EnterMenu("menu_xboxlive")
 				else
 					if Session:GetNumRaces() > 1 then
@@ -179,8 +173,8 @@ local function race_finished()
 				end
 			elseif Session:IsGameSpy() then
 				MultiplayerMode = MPMODE_GAMESPY
-				if Network:GetShouldExitSession() then
-					Network:SetShouldExitSession(false)
+				if Network.GetShouldExitSession() then
+					Network.SetShouldExitSession(false)
 					EnterMenu("menu_multiplayer_gamespy")
 				else
 					if Session:GetNumRaces() > 1 then
@@ -191,8 +185,8 @@ local function race_finished()
 				end
 			else
 				MultiplayerMode = MPMODE_LAN
-				if Network:GetShouldExitSession() then
-					Network:SetShouldExitSession(false)
+				if Network.GetShouldExitSession() then
+					Network.SetShouldExitSession(false)
 					EnterMenu("menu_lan_modeselect")
 				else
 					if Session:GetNumRaces() > 1 then
@@ -208,13 +202,9 @@ local function race_finished()
 	elseif db.GameFlow.PreRace.Mode == GM_TEST then
 		ReturnFromTestTrack()
 	elseif db.GameFlow.PreRace.Mode == GM_SINGLE_RACE then
-		PrepareRewardMenuQueue(entermenu("menu_singleplayer"))
-		NextRewardMenu()
-		--//EnterMenu("menu_singleplayer")
+		EnterMenu("menu_singleplayer")
 	elseif db.GameFlow.PreRace.Mode == GM_INSTANT_ACTION then
-		PrepareRewardMenuQueue(entermenu("menu_mainmenu"))
-		NextRewardMenu()
-		--//EnterMenu("menu_mainmenu")
+		EnterMenu("menu_mainmenu")
 	else
 		EnterMenu("menu_mainmenu")
 	end
@@ -226,47 +216,33 @@ local function race_aborted()
 	Event:PostEvent(event(EVENT_MUSIC_MENU))
 
 	if XBOX then
-		GUI:AllowOnlineOptionsMenu(true)
-		if Network ~= nil then
+		XBoxLiveUpdateStatus()
+		if XBoxLive.Auth.GetNumSignedInUsers() > 0 then
 			GUI:EnableOnlineOptionsMenu(true)
 		end
-		XBoxLiveUpdateStatus()
+	elseif GameSpyUpdateStatus then
+		GameSpyUpdateStatus()
 	end
 		
 	if XBOX and Friends and Friends.ShouldJoinFriend() then
-		MultiplayerMode = MPMODE_XBOXLIVE
 		EnterMenu("menu_xboxlive")
 		return
 	end
 
 	local mode=db.GameFlow.PreRace.Mode
 	if mode == GM_CAREER then
-		PrepareRewardMenuQueue(entermenu("menu_career"),true)
-		NextRewardMenu()
-		--//EnterMenu("menu_career")
+		EnterMenu("menu_career")
 	elseif mode == GM_PARTY then
 		EnterPartyModeMenu(false)
 	elseif mode == GM_SINGLE_RACE then
-		PrepareRewardMenuQueue(entermenu("menu_singleplayer"),true)
-		NextRewardMenu()
-		--//EnterMenu("menu_singleplayer")
-	elseif mode == GM_INSTANT_ACTION then
-		PrepareRewardMenuQueue(entermenu("menu_mainmenu"),true)
-		NextRewardMenu()
+		EnterMenu("menu_singleplayer")
 	elseif mode == GM_TEST then
 		ReturnFromTestTrack()
 	elseif mode == GM_ONLINE_MULTIPLAYER then
-		Network:SetShouldExitSession(false)
 		if Session then
 			if Session:IsLive() then
-				if Network:GetShouldExitLive() then
-					Network:SetShouldExitLive(false)
-					Session:DeleteSession()
-					EnterMenu("menu_mainmenu")
-				else
-					MultiplayerMode = MPMODE_XBOXLIVE
-					EnterMenu("menu_xboxlive")
-				end
+				MultiplayerMode = MPMODE_XBOXLIVE
+				EnterMenu("menu_xboxlive")
 			elseif Session:IsGameSpy() then
 				MultiplayerMode = MPMODE_GAMESPY
 				EnterMenu("menu_multiplayer_gamespy")
@@ -274,8 +250,6 @@ local function race_aborted()
 				MultiplayerMode = MPMODE_LAN
 				EnterMenu("menu_lan_modeselect")
 			end
-		else
-			EnterMenu("menu_mainmenu")
 		end
 	else
 		EnterMenu("menu_mainmenu")
@@ -307,12 +281,7 @@ local statustexts={
 local eventhandlers = {
 	[EVENT_MENU_LOADED] = function(event)
 							if not IsGameStarted() then
-								if not CommandLine["-host"] and not CommandLine["-join"] and not CommandLine["-profilenr"] then
-									EnterMenu("menu_startscreen")
-								else
-									StartGame()
-									EnterMenu("menu_profiles")
-								end
+								EnterMenu("menu_startscreen")
 							else
 								local result=raceresult[db.GameFlow.PostRace.Result]
 								if result then 
@@ -329,6 +298,7 @@ local eventhandlers = {
 								end
 							end,
 	[EVENT_TIMER] = function(event)
+						--GUI:SetStatusText(ConvertToWString(statustexts[math.random(table.getn(statustexts))]),TRUE)
 					end,
 	[EVENT_MENU_TRIGGER_REF] = function(event)
 						local menu=getref(event.data)						
@@ -373,9 +343,7 @@ function LoadMenuFiles()
 	if XBOX then
 		numfiles = numfiles + table.getn(xbox_menufiles)
 	elseif PS2 then
---//		numfiles = numfiles + table.getn(ps2_menufiles)
-	elseif PC then
-		numfiles = numfiles + table.getn(pc_menufiles)
+		numfiles = numfiles + table.getn(ps2_menufiles)
 	end
 
 
@@ -386,10 +354,8 @@ function LoadMenuFiles()
 	end
 
 	if PC then
-		dofile("data/menu/pc_buttons.bed")
-
-		control_keys.button_ok=enter_btn
-		control_keys.button_back=esc_btn
+		control_keys.button_ok=ps2_cross
+		control_keys.button_back=ps2_triangle
 	elseif XBOX then
 		control_keys.button_ok=ps2_cross
 		control_keys.button_back=ps2_triangle
@@ -407,10 +373,6 @@ function LoadMenuFiles()
 	MergeTable(globalresources,CreateSubImages("menu_icons_glow_2.tga",menu_icons_glow_2,menu_icons_glow_2_size,BITMAP_ACTIVE))
 	MergeTable(globalresources,CreateSubImages("keyboard.tga",keyboard,keyboard_size))
 
-	if PC then
-		MergeTable(globalresources,CreateSubImages("pc_buttons.tga",pc_buttons,pc_buttons_size))
-	end
-
 	for k,v in pairs(menufiles) do
 		dofile(menufilepath..v)
 
@@ -424,13 +386,7 @@ function LoadMenuFiles()
 			UpdateLoadingBar(1.0 / numfiles)
 		end
 	elseif PS2 then
---//		for k,v in pairs(ps2_menufiles) do
---//			dofile(menufilepath..v)
-
---//			UpdateLoadingBar(1.0 / numfiles)
---//		end
-	elseif PC then
-		for k,v in pairs(pc_menufiles) do
+		for k,v in pairs(ps2_menufiles) do
 			dofile(menufilepath..v)
 
 			UpdateLoadingBar(1.0 / numfiles)
@@ -510,9 +466,9 @@ function main()
 
 	--//menu_entered=true
 
-	if PS2 then 
-		BUTTON_OK=BUTTON_PS2_CIRCLE
-		BUTTON_BACK=BUTTON_PS2_CROSS
+	if PS2 or PC then
+		BUTTON_OK=BUTTON_PS2_CROSS
+		BUTTON_BACK=BUTTON_PS2_TRIANGLE
 		BUTTON_EXTRA=BUTTON_PS2_SQUARE
 		BUTTON_INFO=BUTTON_PS2_SQUARE
 		KeyCodes.BUTTON_INFO=KeyCodes.BUTTON_X
@@ -524,13 +480,6 @@ function main()
 		BUTTON_INFO=BUTTON_XBOX_Y
 		KeyCodes.BUTTON_INFO=KeyCodes.BUTTON_Y
 		KeyCodes.BUTTON_EXTRA=KeyCodes.BUTTON_Y
-	elseif PC then
-		BUTTON_OK=BUTTON_PC_ENTER
-		BUTTON_BACK=BUTTON_PC_ESC
-		BUTTON_EXTRA=BUTTON_PC_DELETE
-		BUTTON_INFO=BUTTON_PC_DELETE
-		KeyCodes.BUTTON_INFO=KeyCodes.BUTTON_X
-		KeyCodes.BUTTON_EXTRA=KeyCodes.BUTTON_X
 	end
 
 	BuildClassLevelReferences()

@@ -20,12 +20,12 @@ MENUDATA_TESTTRACK_CARSHOP_STREET = 3
 MENUDATA_TESTTRACK_GARAGE = 100
 
 CarStats={
-	{ name="car_topspeed",slider=100,minvalue=10,prefill=35,title=TRANSLATOR(TITLE_GARAGE_CARSTAT_TOPSPEED) },
-	{ name="car_acceleration",slider=100,minvalue=10, prefill=35,title=TRANSLATOR(TITLE_GARAGE_CARSTAT_ACCELERATION) },
-	{ name="car_handling",slider=100,minvalue=10, prefill=35,title=TRANSLATOR(TITLE_GARAGE_CARSTAT_STEERING) },
-	{ name="car_durability",slider=100,minvalue=10, prefill=35,title=TRANSLATOR(TITLE_GARAGE_CARSTAT_DURABILITY) },
-	{ name="car_weight",slider=100,minvalue=10, prefill=35,title=TRANSLATOR(TITLE_GARAGE_CARSTAT_WEIGHT) },
-	{ name="car_nitro",slider=100,minvalue=10, prefill=35,title=TRANSLATOR(TITLE_GARAGE_CARSTAT_NITRO) },
+	{ name="car_topspeed",slider=100,minvalue=0,prefill=35,title=TRANSLATOR(TITLE_GARAGE_CARSTAT_TOPSPEED) },
+	{ name="car_acceleration",slider=100,minvalue=0, prefill=35,title=TRANSLATOR(TITLE_GARAGE_CARSTAT_ACCELERATION) },
+	{ name="car_handling",slider=100,minvalue=0, prefill=35,title=TRANSLATOR(TITLE_GARAGE_CARSTAT_STEERING) },
+	{ name="car_durability",slider=100,minvalue=0, prefill=35,title=TRANSLATOR(TITLE_GARAGE_CARSTAT_DURABILITY) },
+	{ name="car_weight",slider=100,minvalue=0, prefill=35,title=TRANSLATOR(TITLE_GARAGE_CARSTAT_WEIGHT) },
+	{ name="car_nitro",slider=100,minvalue=0, prefill=35,title=TRANSLATOR(TITLE_GARAGE_CARSTAT_NITRO) },
 	{ name="car_drive",title=TRANSLATOR(TITLE_GARAGE_CARSTAT_DRIVE) },
 }
 
@@ -35,11 +35,14 @@ dofile("data/menu/car_icons.bed")
 dofile("data/menu/car_icons_locked.bed")
 --//dofile("data/menu/car_icons_2.bed")
 --//dofile("data/menu/car_icons_2_locked.bed")
+dofile("data/menu/car_logos.bed")
+dofile("data/menu/car_logos_2.bed")
+dofile("data/menu/car_logos_3.bed")
 dofile("data/menu/garage_elements1.bed")
 
 
 menu_career_garage.options.title=TRANSLATOR(TITLE_GARAGE)
-menu_career_garage.back=entermenu("menu_career") --//backmenu()
+menu_career_garage.back=backmenu()
 
 local classes = { TRANSLATOR(TITLE_DERBYCLASS),TRANSLATOR(TITLE_RACINGCLASS),TRANSLATOR(TITLE_STREETCLASS),TRANSLATOR(TITLE_BONUS),TRANSLATOR(TITLE_STUNT) }
 local drive = { TRANSLATOR(TITLE_RWD), TRANSLATOR(TITLE_FWD), TRANSLATOR(TITLE_4WD) }
@@ -55,12 +58,7 @@ function ReturnFromTestTrack()
 	}
 
 	if menudata > 0 and menudata <= MENUDATA_TESTTRACK_CARSHOP_STREET then
-		--//knife for special case first time -> car shop -> display info -> test track -> return -> go back -> dont show info
-		if Garage:GetNumCarsPurchased() == 0 then
-			EnterCarShop(CarlistFromClass(menudata,false,false),true,carshop_bg[menudata],menudata)
-		else
-			EnterCarShop(CarlistUnpurchasedFromClass(menudata),false,carshop_bg[menudata],menudata)
-		end
+		EnterCarShop(CarlistFromClass(menudata,false,true),false,carshop_bg[menudata])
 	elseif menudata == MENUDATA_TESTTRACK_GARAGE then
 		menu_career_garage.SelectedCar=db.GameFlow.PreRace.Car
 		EnterMenu("menu_career_garage")
@@ -81,7 +79,7 @@ function EnterTestTrack(car,menudata,skin)
 end
 
 
-function CreateCarInfoWindows(menu,pos,slidersonly,show_difference,show_class)
+function CreateCarInfoWindows(menu,pos,slidersonly,show_difference)
 
 	local k,v
 	local height=17
@@ -92,14 +90,14 @@ function CreateCarInfoWindows(menu,pos,slidersonly,show_difference,show_class)
 		if not v.slider and not slidersonly then
 			pos[2] = pos[2]+height
 			local p=Frame{Position=pos,Name=string.format("%s_bar",v.name),Size=SIZE(137,22)}:AttachResource(menu:getResource("drive_bottom_bar"))
-			StaticText{FontScale=0.9,Position=POS(2,3),Name=string.format("%s_text",v.name),Title=v.title,Font=fontmedium(),Color=GetPaletteColor(20),Parent=p}
-			StaticText{FontScale=0.9,Position=POS(90,3),Name=string.format("%s_data",v.name),
+			StaticText{Position=POS(2,2),Name=string.format("%s_text",v.name),Title=v.title,Font=fontmedium(),Color=GetPaletteColor(20),Parent=p}
+			StaticText{Position=POS(90,2),Name=string.format("%s_data",v.name),
 						Title=ConvertToWString(string.format("%s data",k)),Font=fontmedium(),
 						Color=GetPaletteColor(3),Parent=p,
 			}
 		end
 		if v.slider then
-			StaticText{FontScale=0.9,Position={ pos[1],pos[2]+1 },Name=string.format("%s_text",v.name),Title=v.title,Font=fontmedium(),Color=GetPaletteColor(20)}
+			StaticText{Position=pos,Name=string.format("%s_text",v.name),Title=v.title,Font=fontmedium(),Color=GetPaletteColor(20)}
 			pos[2] = pos[2]+height
 
 			local p=Frame{Name=string.format("%s_bar",v.name),Position=pos,Size=SIZE(137,17)}:AttachResource(menu:getResource("shop_stats_bottom_bar"))
@@ -112,27 +110,21 @@ function CreateCarInfoWindows(menu,pos,slidersonly,show_difference,show_class)
 						Value2NegativeColor=GetPaletteColor(7), Value2PositiveColor=GetPaletteColor(6), 
 						Parent=p,DrawGradient=TRUE,StartColor=GetPaletteColor(30),EndColor=GetPaletteColor(31),
 				}
-				p.value2=true
-				--//p.value2=StaticText{Name=string.format("%s_value2",v.name),Position=POS(2+126+4,1),Font=fontsmall(),Color=GetPaletteColor(33),Parent=p}
+				p.value2=StaticText{Name=string.format("%s_value2",v.name),Position=POS(2+126+4,1),Font=fontsmall(),Color=GetPaletteColor(33),Parent=p}
 			else
 				p.bar=ProgressBar{Position=POS(2,2),Name=string.format("%s_data",v.name),Size=SIZE(126,14),
 							MinValue=v.minvalue,PreFillSize=v.prefill,Ticks=v.slider,Value=50,Parent=p,BackgroundColor=bgcolor,TopEdgeAdjust=-5,
 							DrawGradient=TRUE,StartColor=GetPaletteColor(30),EndColor=GetPaletteColor(31),
 				}
 			end
-			p.minvalue=v.minvalue
-			p.maxvalue=v.slider
 			p.value=StaticText{Position=POS(4,0),Name=string.format("%s_value",v.name),Font=fontsmallnumbers(),Color=GetPaletteColor(0),Parent=p}
 
 
 			p.SetValue = function(self,value)
 				self.bar:SetValue(value)
 
-				--//value=self.minvalue+(value/self.maxvalue)*(self.maxvalue-self.minvalue) --//math.max(self.minvalue,math.min(value,self.maxvalue))
-				--//self.value:SetTitle(ConvertToWString(string.format("%d.%d",math.floor(value/10),math.mod(value,10))))
-				if not self.value2 then
-					self.value:SetTitle(ConvertToWString(self.bar:GetVisualValue()))
-				end
+				value=self:GetValue()
+				self.value:SetTitle(ConvertToWString(string.format("%d.%d",math.floor(value/10),math.mod(value,10))))
 			end
 
 			p.GetValue = function(self)
@@ -142,18 +134,13 @@ function CreateCarInfoWindows(menu,pos,slidersonly,show_difference,show_class)
 			p.SetValue2 = function(self,value)
 				self.bar:SetValue2(value)
 				if self.value2 then
-				--[[--/*	
-						local value1=self.minvalue+(self:GetValue()/self.maxvalue)*(self.maxvalue-self.minvalue) --//-self.minvalue
-						value=(self.minvalue+(self:GetValue2()/self.maxvalue)*(self.maxvalue-self.minvalue))-value1  --//math.min((self:GetValue2()-self.minvalue)-value1,self.maxvalue-self.minvalue)
-						local sign="+"
-						local round=math.floor
-						if value < -0.09 then
-							sign="-"
-							round=math.ceil
-						end
-						self.value2:SetTitle(ConvertToWString(string.format("%s%d.%d",sign,math.abs(round(value/10)),math.abs(math.mod(value,10)))))
-				-]]--*/
-					self.value:SetTitle(ConvertToWString(self.bar:GetVisualValue2()))
+					local value1=self:GetValue()
+					value=self:GetValue2()-value1
+					local sign="+"
+					if value < 0 then
+						sign="-"
+					end
+					self.value2:SetTitle(ConvertToWString(string.format("%s%d.%d",sign,math.abs(math.floor(value/10)),math.abs(math.mod(value,10)))))
 				end
 			end
 
@@ -165,9 +152,8 @@ function CreateCarInfoWindows(menu,pos,slidersonly,show_difference,show_class)
 		end
 	end
 
-	if show_class then
-		StaticText{Name="car_class_text",Position=POS(587,246),Font=fonteng(),Align=FONTF_RIGHT,Color=GetPaletteColor(1),Alpha=0.8}
-	end
+	--//StaticText{Name="car_class_text",Position=POS(589,288),Font=fontlarge(),FontScale=2.0,Align=FONTF_RIGHT,Color=GetPaletteColor(0),Alpha=0.2}
+
 end
 
 
@@ -246,7 +232,7 @@ local function ShowCarValue()
 end
 
 
-function UpdateCarInfo(car_idx,menu,no_carload,skin,perf_from_profile)
+function UpdateCarInfo(car_idx,menu,no_carload)
 
 	local car_data=db.FlatOut2.Cars:GetProperty("Car",car_idx)
 
@@ -254,7 +240,7 @@ function UpdateCarInfo(car_idx,menu,no_carload,skin,perf_from_profile)
 
 	if not no_carload then
 		local car=GetCarDataIndex(car_idx)
-		GUI:LoadCar(car,skin or Garage:GetCarSkinIndex(car_idx))
+		GUI:LoadCar(car,Garage:GetCarSkinIndex(car_idx))
 		GUI:AllowCarRotate(TRUE)
 		GUI:SetCarRotate(TRUE)
 
@@ -281,15 +267,11 @@ function UpdateCarInfo(car_idx,menu,no_carload,skin,perf_from_profile)
 	local w
 
 	w=W("car_class_text")
-	if w then
-		if classes[Garage:GetCarClass(car_idx)] then
-			if Garage:GetCarClass(car_idx) > 3 or Garage:GetCarClass(car_idx) < 1 then
-				w:SetTitle(L"")
-			else
-				w:SetTitle(classes[Garage:GetCarClass(car_idx)])
-			end
+	if w and classes[Garage:GetCarClass(car_idx)] then
+		if Garage:GetCarClass(car_idx) > 3 or Garage:GetCarClass(car_idx) < 1 then
+			w:SetTitle(L"POKE")
 		else
-			w:SetTitle(L"")
+			w:SetTitle(classes[Garage:GetCarClass(car_idx)])
 		end
 	end
 	w=W("car_drive_data")
@@ -297,10 +279,18 @@ function UpdateCarInfo(car_idx,menu,no_carload,skin,perf_from_profile)
 		w:SetTitle(drive[drivetype])
 	end
 	w=W("car_logo")
-	if w then
-		--//no lowercase letters in huge font
-		w:SetTitle(ConvertToWString(string.upper(car_data.Name)))
-		w:ShowWindow()
+	if w and menu then
+		local resource=menu:getResource(string.format("car_%d_logo",GetCarDataIndex(car_idx)+1))
+		if resource then
+			w:ShowWindow()
+			w:SetPosition(598-GetResourceSize(resource)[1],68)
+			w:AttachResource(resource)
+		else
+			w:HideWindow()
+		  end
+		--//w:SetTitle(ConvertToWString(car_data.Name))
+	elseif w then
+		w:HideWindow()
 	end
 
 	w=W("car_price")
@@ -310,13 +300,7 @@ function UpdateCarInfo(car_idx,menu,no_carload,skin,perf_from_profile)
 	end
 
 
-    local performance
-	
-	if perf_from_profile then
-		performance=Garage:GetCarPerformanceLevelFromProfile(car_idx)
-	else
-		performance=Garage:GetCarPerformanceLevel(car_idx,0)
-	end
+	local performance=Garage:GetCarPerformanceLevelFromProfile(car_idx)
 	
 	w=W("car_topspeed_bar")
 	if w then
@@ -378,6 +362,9 @@ function menu_career_garage.create(self)
 --//	self:addResource("car_icons_2.tga",car_icons_2,car_icons_2_size)
 	self:addResource("car_icons_locked.tga",car_icons_locked,car_icons_locked_size)
 --//	self:addResource("car_icons_2_locked.tga",car_icons_2_locked,car_icons_2_locked_size)
+	self:addResource("car_logos.tga",car_logos,car_logos_size)
+	self:addResource("car_logos_2.tga",car_logos_2,car_logos_2_size)
+	self:addResource("car_logos_3.tga",car_logos_3,car_logos_3_size)
 	self:addResource("garage_elements1.tga",garage_elements1,garage_elements1_size)
 
 	self:loadResources()
@@ -402,18 +389,15 @@ function menu_career_garage.init(self)
 							}
 
 	parent.onButtonChange = function(self,id)
-		playmenusound_move()
 		menu_career_garage.SelectedCar=menu_career_garage.GarageCars[id].index
-		UpdateCarInfo(menu_career_garage.SelectedCar,menu_career_garage,false,nil,true)
+		UpdateCarInfo(menu_career_garage.SelectedCar,menu_career_garage)
 	end
 
 	parent.onChildAction = function(self,id)
-		playmenusound_action()
 		SelectCar(menu_career_garage,id)
 	end
 
 	function parent.onBack(self)
-		playmenusound_back()
 		menu_career_garage.SelectedCar=nil
 		GUI:HideCar()
 		EnterMenu("menu_career")
@@ -423,20 +407,21 @@ function menu_career_garage.init(self)
 		EnterTestTrack(menu_career_garage.SelectedCar,MENUDATA_TESTTRACK_GARAGE)
 	end
 
-	if PS2 or PC then
+	if PS2 then
 		parent.onButtonX = parent.onButtonY
 		parent.onButtonY=nil
 	end
 
 
-	StaticText{Name="car_logo",Position=POS(580,257),Align=FONTF_RIGHT,Font=fonthuge()}
-	
+	Frame{Name="car_logo",Position=POS(592,68),Size=GetResourceSize(self:getResource("car_0_logo"))}:AttachResource(self:getResource("car_0_logo"))
+	--//StaticText{Name="car_name",Position=POS(-100,86),Font=fontlarge(),Color=GetPaletteColor(3)}
+
 
 
 
 	local pos=POS(50,66)
 
-	CreateCarInfoWindows(self,pos,false,false,true)
+	CreateCarInfoWindows(self,pos,false)
 
 	GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK),BUTTON_EXTRA,TRANSLATOR(UI_TESTCAR),TRUE)
 
@@ -450,7 +435,7 @@ function menu_career_garage.init(self)
 	local carlist
 	
 	if PlayerProfile:GetActiveCup() ~= 0 and PlayerProfile:GetActiveClass() ~= 4 then
-		carlist=CarlistFromClass(PlayerProfile:GetActiveClass(),true)
+		carlist=CarlistFromClass(PlayerProfile:GetActiveClass())
 	else
 		carlist=CarlistAllPurchased()
 	end
@@ -503,6 +488,9 @@ end
 function menu_career_garage.startshow(self)
 	self.parent:startshow(self)
 
+	--//AnimateWindowPos(W("car_logo"),POS(-100,86),POS(50,86),0.2)
+
+
 	--//GUI:ShowCar()
 
 end
@@ -510,7 +498,7 @@ end
 function menu_career_garage.starthide(self)
 	self.parent:starthide(self)
 
-	GUI:HideCar()
+
 end
 
 
@@ -521,14 +509,8 @@ function menu_career_garage.eventhandler(self,event)
 end
 
 
-local function garage_sellconfirmation()
 
-	if Garage:GetNumCarsPurchased() == 1 then
-		playmenusound_error()
-		GUI:HideMenuButtons()
-		MessageBox(TRANSLATOR(GARAGE_SELL_CAR_LASTCAR),MESSAGEBOX_OK,function() GUI:ShowMenuButtons() end)
-		return
-	end
+local function garage_sellconfirmation()
 
 	local car_idx=menu_career_garage_selection.SelectedCar
 	local car=db.FlatOut2.Cars:GetProperty("Car",car_idx)
@@ -538,72 +520,50 @@ local function garage_sellconfirmation()
 	local total_value=car_value+upgrade_value
 
 
-
-	if PlayerProfile:GetActiveCup() ~= 0 and PlayerProfile:GetActiveCar() == car_idx then
-		GUI:HideMenuButtons()
-		MessageBox(TRANSLATOR(GARAGE_SELL_CAR_CURRENTCAR),MESSAGEBOX_OK,function() GUI:ShowMenuButtons() end)
-	else
-		W("car_value_text"):ShowWindow()
-		local w=W("car_value_data")
-		w:SetTitle(MONEY(car_value/2))
-		w:ShowWindow()
-
-		W("upgrade_value_text"):ShowWindow()
-		w=W("upgrade_value_data")
-		w:SetTitle(MONEY(upgrade_value/2))
-		w:ShowWindow()
-
-		W("total_price_text"):ShowWindow()
-		w=W("total_price_data")
-		w:SetTitle(MONEY(total_value/2))
-		w:ShowWindow()
-
-
-
-		HideCarInfoWindows()
-		ShowCarValue()
-		GUI:HideMenuButtons()
-
-
-		local sellcar = function(value)
-			local total_value=total_value
-			local car_idx=menu_career_garage_selection.SelectedCar
-			local found
-
-			if value == TRUE then
-				Garage:SetCarPurchased(car_idx,false)
-				PlayerProfile:AddMoney(total_value/2)
-				if car_idx == PlayerProfile:GetActiveCar() then
-					local carclass=Garage:GetCarClass(PlayerProfile:GetActiveCar())
-					local cars=CarlistAllPurchased()
-					for k,v in pairs(cars) do
-						if not found and Garage:GetCarClass(v.index) == carclass then
-							if v.index ~= car_idx then
-								found=v.index
-							end
-						end
-					end
-					
-					if not found then
-						found=cars[1].index
-					end
-					SetActiveCar(found)
-				end
-				
-				GUI:HideCar()
-				EnterMenu("menu_career")	
-			else
-				HideCarValue()
-				ShowCarInfoWindows()
-				GUI:ShowMenuButtons()
-			end
+	local function ok(value)
+		local total_value=total_value
+		local car_idx=car_idx
+		if value == TRUE then
+			PlayerProfile:AddMoney(total_value/2)
+			Garage:SetCarPurchased(car_idx,false)
+			GUI:HideCar()
+			EnterMenu("menu_career")	
+		else
+			HideCarValue()
+			ShowCarInfoWindows()
+			GUI:ShowMenuButtons()
 		end
-
-
-
-		local text=TRANSLATOR(GARAGE_SELL_CAR_CONFIRMATION)
-		ConfirmationDialog(text,sellcar)
 	end
+
+
+
+	W("car_value_text"):ShowWindow()
+	local w=W("car_value_data")
+	w:SetTitle(MONEY(car_value/2))
+	w:ShowWindow()
+
+	W("upgrade_value_text"):ShowWindow()
+	w=W("upgrade_value_data")
+	w:SetTitle(MONEY(upgrade_value/2))
+	w:ShowWindow()
+
+	W("total_price_text"):ShowWindow()
+	w=W("total_price_data")
+	w:SetTitle(MONEY(total_value/2))
+	w:ShowWindow()
+
+
+
+	HideCarInfoWindows()
+	ShowCarValue()
+	GUI:HideMenuButtons()
+
+	local text=TRANSLATOR(GARAGE_SELL_CAR_CONFIRMATION)
+	text=WStringConcat(text,ConvertToWString(string.format(" %s?",car.Name)))
+	ConfirmationDialog(text,ok)
+
+
+
 end
 
 
@@ -614,19 +574,27 @@ end
 
 menu_career_garage_selection = CreateMenuFromTemplate("template_basic")
 
-menu_career_garage_selection.options.title=TRANSLATOR(TITLE_GARAGE)
-menu_career_garage_selection.back=entermenu("menu_career_garage") --//backmenu()
+menu_career_garage_selection.title=TRANSLATOR(TITLE_GARAGE)
+menu_career_garage_selection.back=backmenu()
 
 
 function menu_career_garage_selection.create(self)
 	self.parent:create(self)
 
+	self:addResource("car_logos.tga",car_logos,car_logos_size)
+	self:addResource("car_logos_2.tga",car_logos_2,car_logos_2_size)
+	self:addResource("car_logos_3.tga",car_logos_3,car_logos_3_size)
 	self:addResource("garage_elements1.tga",garage_elements1,garage_elements1_size)
 
 	self:loadResources()
 
 	self.items={
 		MENUITEM(TRANSLATOR(ICON_CAREER_GARAGE_GETIN),function() 
+--//								PlayerProfile:SetClassLocked(1,TRUE)
+--//								PlayerProfile:SetClassLocked(1,TRUE)
+--//								PlayerProfile:SetClassLocked(1,TRUE)
+--//								PlayerProfile:SetActiveCar(self.SelectedCar); 
+--//								PlayerProfile:SetClassLocked(Garage:GetCarClass(self.SelectedCar),FALSE)
 								SetActiveCar(menu_career_garage.SelectedCar)
 								ProfileSave(Save.GetLastSaveSlotUsed(),
 											function() 
@@ -646,7 +614,7 @@ end
 function menu_career_garage_selection.init(self)
 	self.parent:init(self)
 
-	StaticText{Name="car_logo",Position=POS(580,257),Align=FONTF_RIGHT,Font=fonthuge()}
+	Frame{Name="car_logo",Position=POS(592,68),Size=GetResourceSize(self:getResource("car_0_logo"))}:AttachResource(self:getResource("car_0_logo"))
 	--//StaticText{Name="car_name",Position=POS(-100,86),Font=fontlarge(),Color=GetPaletteColor(3)}
 
 	self.SelectedCar=menu_career_garage.SelectedCar
@@ -654,10 +622,10 @@ function menu_career_garage_selection.init(self)
 	local _,height=wm.GetTextExtents(L"W",fontmedium())
 
 	StaticText{Name="car_value_text",Title=TRANSLATOR(TITLE_GARAGE_CAR),Font=fontmedium(),Position=POS(135,140),Align=FONTF_RIGHT,Color=GetPaletteColor(33)}:HideWindow()
-	StaticText{Name="car_value_data",Title=L"",Font=fonteng(),Position=POS(135+8,140),Color=GetPaletteColor(34)}:HideWindow()
+	StaticText{Name="car_value_data",Title=L"",Font=fontmedium(),Position=POS(135+8,140),Color=GetPaletteColor(34)}:HideWindow()
 
 	StaticText{Name="upgrade_value_text",Title=TRANSLATOR(TITLE_GARAGE_UPGRADES),Font=fontmedium(),Position=POS(135,140+height),Align=FONTF_RIGHT,Color=GetPaletteColor(33)}:HideWindow()
-	StaticText{Name="upgrade_value_data",Title=L"",Font=fonteng(),Position=POS(135+8,140+height),Color=GetPaletteColor(34)}:HideWindow()
+	StaticText{Name="upgrade_value_data",Title=L"",Font=fontmedium(),Position=POS(135+8,140+height),Color=GetPaletteColor(34)}:HideWindow()
 
 	StaticText{Name="total_price_text",Title=TRANSLATOR(TITLE_GARAGE_TOTALPRICE),Font=fontmedium(),Position=POS(135,212),Align=FONTF_CENTER,Color=GetPaletteColor(33)}:HideWindow()
 	StaticText{Name="total_price_data",Title=L"",Font=fontlarge(),Position=POS(135,212+height),Align=FONTF_CENTER,Color=GetPaletteColor(34)}:HideWindow()

@@ -34,9 +34,9 @@ local Layout=
 	OptionArrowIndentTop=4,
 	OptionArrowIndentLeftRight=5,
 	
-	RowHeight=18,
-	RowPadding=2,
-	NumRows=10,
+	RowHeight=20,
+	RowPadding=0,
+	NumRows=9,
 	
 	InfoBoxPos=POS(0,313),
 	InfoBoxSize=SIZE(640,88),
@@ -49,6 +49,16 @@ local Layout=
 local EventListener
 
 local OnGameTypeChanged, OnNumPlayersChanged, OnReservedChanged, OnRatedChanged
+
+local GameModeDerby = {
+	MULTIPLAYER_GAMEMODE,
+	{MULTIPLAYER_GAMEMODE_WRECKINGDERBY, MULTIPLAYER_GAMEMODE_SURVIVORDERBY, MULTIPLAYER_GAMEMODE_FRAGDERBY, MULTIPLAYER_GAMEMODE_TAG, MULTIPLAYER_MIXEDDERBIES},
+	{ReplicatedSession.GAMETYPE_DERBY_WRECKING, ReplicatedSession.GAMETYPE_DERBY_LMS, ReplicatedSession.GAMETYPE_DERBY_FRAG, ReplicatedSession.GAMETYPE_HUNTER_PREY, ReplicatedSession.GAMETYPE_TOURNAMENT_DERBY},
+	1,
+	true,
+	nil,
+	{MULTIPLAYER_GAMEMODE_WRECKINGDERBY_DESCRIPTION, MULTIPLAYER_GAMEMODE_SURVIVORDERBY_DESCRIPTION, MULTIPLAYER_GAMEMODE_FRAGDERBY_DESCRIPTION, MULTIPLAYER_GAMEMODE_TAG_DESCRIPTION }
+}
 
 local OptionItems = {
 	{
@@ -79,13 +89,21 @@ local OptionItems = {
 		{MULTIPLAYER_GAMETYPE_RACE_DESCRIPTION, MULTIPLAYER_GAMETYPE_STUNT_DESCRIPTION, MULTIPLAYER_GAMETYPE_DERBY_DESCRIPTION }
 	},
 	{
+		MULTIPLAYER_GAMEMODE,
+		{L""},
+		{0},
+		1,
+		false,
+		nil,
+	},
+	{
 		MULTIPLAYER_CARTYPE,
-		{MULTIPLAYER_CARTYPE_ANY, MULTIPLAYER_CARTYPE_DERBY, MULTIPLAYER_CARTYPE_RACING, MULTIPLAYER_CARTYPE_STREET, MULTIPLAYER_CAR_SAMEHOST },
-		{SessionInfo.CarClass.Any, SessionInfo.CarClass.ClassA, SessionInfo.CarClass.ClassB, SessionInfo.CarClass.ClassC, -1 },
+		{MULTIPLAYER_CARTYPE_ANY, MULTIPLAYER_CARTYPE_DERBY, MULTIPLAYER_CARTYPE_RACING, MULTIPLAYER_CARTYPE_STREET, MULTIPLAYER_CARTYPE_STUNT},
+		{SessionInfo.CarClass.Any, SessionInfo.CarClass.ClassA, SessionInfo.CarClass.ClassB, SessionInfo.CarClass.ClassC, SessionInfo.CarClass.Stunt},
 		1,
 		true,
 		nil,
-		{MULTIPLAYER_CARTYPE_ANY_DESCRIPTION, MULTIPLAYER_CARTYPE_DERBY_DESCRIPTION, MULTIPLAYER_CARTYPE_RACING_DESCRIPTION, MULTIPLAYER_CARTYPE_STREET_DESCRIPTION, MULTIPLAYER_CAR_SAMEHOST }
+		{MULTIPLAYER_CARTYPE_ANY_DESCRIPTION, MULTIPLAYER_CARTYPE_STREET_DESCRIPTION, MULTIPLAYER_CARTYPE_RACING_DESCRIPTION, MULTIPLAYER_CARTYPE_DERBY_DESCRIPTION, MULTIPLAYER_CARTYPE_STUNT_DESCRIPTION}
 	},
 	{
 		MULTIPLAYER_UPGRADES,
@@ -124,6 +142,15 @@ local OptionItems = {
 		MULTIPLAYER_RESERVEDFORFRIENDS_DESCRIPTION
 	},
 	{
+		MULTIPLAYER_LANGUAGE,
+		{MULTIPLAYER_LANGUAGE_ANY, MULTIPLAYER_LANGUAGE_ENGLISH, MULTIPLAYER_LANGUAGE_GERMAN, MULTIPLAYER_LANGUAGE_FRENCH, MULTIPLAYER_LANGUAGE_SPANISH, MULTIPLAYER_LANGUAGE_ITALIAN},
+		{1, 2, 3, 4, 5, 6},
+		1,
+		true,
+		nil,
+		{MULTIPLAYER_LANGUAGE_ANY_DESCRIPTION, MULTIPLAYER_LANGUAGE_ENGLISH_DESCRIPTION, MULTIPLAYER_LANGUAGE_GERMAN_DESCRIPTION, MULTIPLAYER_LANGUAGE_FRENCH_DESCRIPTION, MULTIPLAYER_LANGUAGE_SPANISH_DESCRIPTION, MULTIPLAYER_LANGUAGE_ITALIAN_DESCRIPTION}
+	},
+	{
 		MULTIPLAYER_RACEDAMAGELEVEL,
 		{L"0x", L"0.5x", L"1x", L"1.5x", L"2x"},
 		{ReplicatedSession.DAMAGELEVEL_0, ReplicatedSession.DAMAGELEVEL_50, ReplicatedSession.DAMAGELEVEL_100, ReplicatedSession.DAMAGELEVEL_150, ReplicatedSession.DAMAGELEVEL_200},
@@ -143,7 +170,7 @@ local OptionItems = {
 	}
 }
 
-local NumOptions=10
+local NumOptions=12
 
 -- OptionItem item indexes
 local Label=1
@@ -158,13 +185,15 @@ local Descriptions=7
 local SessionType=1
 local RankedGame=2
 local GameType=3
-local CarType=4
-local Upgrades=5
-local NitroRegen=6
-local Players=7
-local Reserved=8
-local DamageLevel=9
-local DerbyDamageLevel=10
+local GameMode=4
+local CarType=5
+local Upgrades=6
+local NitroRegen=7
+local Players=8
+local Reserved=9
+local Language=10
+local DamageLevel=11
+local DerbyDamageLevel=12
 
 local SelectedTrack
 
@@ -196,19 +225,9 @@ local function GetNumItems(RowNr)
 	return table.getn(OptionItems[RowNr][ItemValues])
 end
 
-local SessionEvents
-local SessionCar
-local CarSkin
-
-local function CreateSession(tournamentEvents, carindex, carskin)
+local function CreateSession(tournamentEvents)
 	Creating=true
-	
-	-- These are needed if session creation fails and is retried
-	SessionEvents=tournamentevents
-	SessionCar=carindex
-	CarSkin=carskin
-	
-	ShowThinkingWindow()
+	ShowThinkingWindow(SAFEPOS(240, 147))
 
 	--Network:StartMultiplayer()
 
@@ -222,7 +241,7 @@ local function CreateSession(tournamentEvents, carindex, carskin)
 		Network:CreateGameSpySession()
 		GameSpy:ResumeUpdate()
 		info = Session:GetInfo()
-		info.SessionName = PlayerProfile:GetName()
+		info.SessionName = L(GameSpyPresence:GetAccountProfileName())
 	elseif MultiplayerMode == MPMODE_XBOXLIVE then
 		Network:CreateXBoxLiveSession()	
 		info = Session:GetInfo()
@@ -231,12 +250,13 @@ local function CreateSession(tournamentEvents, carindex, carskin)
 	
 	if XBOX and GetSelectedItemValue(RankedGame) == 1 then
 		local gametype = GetSelectedItemValue(GameType)
+		local gamemode = GetSelectedItemValue(GameMode)
 		if gametype == 1 then
 			info.TournamentType = ReplicatedSession.GAMETYPE_RACE
 		elseif gametype == 2 then
 			info.TournamentType = ReplicatedSession.GAMETYPE_STUNT
 		elseif gametype == 3 then
-			info.TournamentType = ReplicatedSession.GAMETYPE_DERBY_WRECKING
+			info.TournamentType = gamemode
 		else
 			info.TournamentType = ReplicatedSession.GAMETYPE_TOURNAMENT
 		end
@@ -244,43 +264,31 @@ local function CreateSession(tournamentEvents, carindex, carskin)
 		info.TournamentType = ReplicatedSession.GAMETYPE_TOURNAMENT
 	end
 	
-	Session:ClearAllRaces()	
 	for i = 1, table.getn(tournamentEvents) do
 		Session:AddRace()
 		info.Races[i].StageNr = tournamentEvents[i].trackid
 		info.Races[i].TrackType = tournamentEvents[i].rules
 		info.Races[i].EventType = tournamentEvents[i].rules
 		info.Races[i].LapsOrTimeLimit = tournamentEvents[i].lapsOrTimeLimit
+		if info.Races[i].EventType == ReplicatedSession.GAMETYPE_HUNTER_PREY then
+			info.Races[i].NumHunters = tournamentEvents[i].numhunters
+		end
 		info.Races[i].Raced = false
 	end
 	
-	if XBOX then
-		info.MaxPublicSlots	= GetSelectedItemValue(Players) - GetSelectedItemValue(Reserved)
-		info.MaxPrivateSlots= GetSelectedItemValue(Reserved)
-		info.RatedGame		= GetSelectedItemValue(RankedGame)
-	else
-		info.MaxPublicSlots	= GetSelectedItemValue(Players)
-		info.MaxPrivateSlots= 0
-		info.RatedGame		= false
-	end
-
-	local cartype = GetSelectedItemValue(CarType)
-	if cartype == -1 then
-		info.CarClass		= 5 + carindex
-	elseif tournamentEvents[1].rules == ReplicatedSession.GAMETYPE_STUNT then
-		info.CarClass		= SessionInfo.CarClass.Any
-	else
-		info.CarClass		= GetSelectedItemValue(CarType)
-	end
-
-	info.NextRace			= 1
-	info.CarUpgrades		= GetSelectedItemValue(Upgrades)
-	info.NitroRegen			= GetSelectedItemValue(NitroRegen)
-	info.DamageLevel		= GetSelectedItemValue(DamageLevel)
-	info.DerbyDamageLevel	= GetSelectedItemValue(DerbyDamageLevel)
-
 	tournamentEvents = { }
 	
+	info.NextRace		= 1
+	info.MaxPublicSlots	= GetSelectedItemValue(Players) - GetSelectedItemValue(Reserved)
+	info.MaxPrivateSlots= GetSelectedItemValue(Reserved)
+	info.CarClass		= GetSelectedItemValue(CarType)
+	info.CarUpgrades	= GetSelectedItemValue(Upgrades)
+	info.NitroRegen		= GetSelectedItemValue(NitroRegen)
+	info.RatedGame		= GetSelectedItemValue(RankedGame)
+	info.Language		= GetSelectedItemValue(Language)
+	info.DamageLevel	= GetSelectedItemValue(DamageLevel)
+	info.DerbyDamageLevel	= GetSelectedItemValue(DerbyDamageLevel)
+
 	Session:CreateSession()
 end
 
@@ -292,8 +300,8 @@ local function NetworkEvents(event)
 			player:GenerateUserId()
 			player.Name=PlayerProfile:GetName()
 		elseif MultiplayerMode == MPMODE_GAMESPY then
-			player:GenerateUserId()
-			player.Name=PlayerProfile:GetName()
+			player.UId = GameSpyPresence.GetLoggedInProfileID()
+			player.Name=L(GameSpyPresence.GetProfileUniqueNick())
 		elseif MultiplayerMode == MPMODE_XBOXLIVE then
 			player.Name=XBoxLive.Auth.GetSignedInUserName(1)
 			player.UId=XBoxLive.Auth.GetSignedInUserId(1)
@@ -303,25 +311,16 @@ local function NetworkEvents(event)
 
 		if info.CarClass > 4 then
 			player.Car = info.CarClass - 5
-			player.CarValid = true
-		elseif info.CarClass == SessionInfo.CarClass.Stunt or info.Races[info.NextRace].EventType == ReplicatedSession.GAMETYPE_STUNT then
+		elseif info.CarClass == SessionInfo.CarClass.Stunt then
 			player.Car = CarlistStuntCars()[1].index		
-			player.CarValid = false
 		elseif info.CarClass ~= SessionInfo.CarClass.Any then
 			player.Car = CarlistFromClass(info.CarClass, false, true)[1].index
-			player.CarValid = false
 		else
 			player.Car = 0
-			player.CarValid = false
 		end
 		
-		if CarSkin then
-			player.CarSkin = CarSkin
-		else
-			player.CarSkin = 1
-		end
-		
-		player.CharacterType = PlayerProfile:GetGender()
+		player.CarSkin = 1
+		--player.Score = 0
 		player.TournamentPoints = 0
 		
 		if info.CarUpgrades ~= SessionInfo.CarUpgrades.Any then
@@ -330,12 +329,12 @@ local function NetworkEvents(event)
 			player.UpgradeLevel = SessionInfo.CarUpgrades.All
 		end
 		
-		SessionEvents = { }
+		player.SessionChanged = false
 	elseif event.id == EVENT_NETWORK_CREATE_SESSION_RESULT then
 		Event:RemoveListener(EventListener)
 		if event.data == 1 then
 			HideThinkingWindow()
-			EnterLobby()
+			ShowLobby()
 		elseif event.data == 0 then
 			HideThinkingWindow()
 			Network:StopMultiplayer()
@@ -345,7 +344,7 @@ local function NetworkEvents(event)
 				MESSAGEBOX_YESNO,
 				function(value)
 					if value == TRUE then
-						CreateSession(SessionEvents, SessionCar, CarSkin)
+						CreateSession()
 					else
 						menu_multiplayer_creategame.back()
 					end
@@ -356,12 +355,10 @@ local function NetworkEvents(event)
 end
 
 OnNumPlayersChanged = function()
-	if XBOX then
-		local numPlayers = GetSelectedItem(Players)
-		if GetSelectedItemValue(Reserved) > GetSelectedItemValue(Players) - 1 then
-			-- Players is 2-8, Reserved is 0-7, Reserved must be lower than Players
-			SetSelectedItem(Reserved, GetSelectedItem(Players) + 1)
-		end
+	local numPlayers = GetSelectedItem(Players)
+	if GetSelectedItemValue(Reserved) > GetSelectedItemValue(Players) - 1 then
+		-- Players is 2-8, Reserved is 0-7, Reserved must be lower than Players
+		SetSelectedItem(Reserved, GetSelectedItem(Players) + 1)
 	end
 end
 
@@ -378,10 +375,10 @@ OnRatedChanged = function()
 	if GetSelectedItemValue(RankedGame) == 0 then
 		SetEnabled(GameType, false)
 		SetSelectedItem(GameType, 4)
-		--SetEnabled(DamageLevel, true)
-		--SetEnabled(DerbyDamageLevel, true)
+		SetEnabled(GameMode, false)
+		SetEnabled(DamageLevel, true)
+		SetEnabled(DerbyDamageLevel, true)
 		SetEnabled(Reserved, true)
-		OnGameTypeChanged()
 	else
 		SetEnabled(GameType, true)
 		SetSelectedItem(GameType, 1)
@@ -393,37 +390,19 @@ end
 OnGameTypeChanged = function()
 	local gameType = GetSelectedItemValue(GameType)
 	if gameType == 1 then
-		SetEnabled(NitroRegen, true)
-		SetEnabled(Upgrades, true)
+		--OptionItems[GameMode] = GameModeRace
+		SetEnabled(GameMode, false)
 		SetEnabled(DamageLevel, true)
-		SetEnabled(DerbyDamageLevel, false)
-	elseif gameType == 2 then
-		SetEnabled(NitroRegen, false)
-		SetEnabled(Upgrades, false)
-		SetEnabled(DamageLevel, false)
 		SetEnabled(DerbyDamageLevel, false)
 	elseif gameType == 3 then
-		SetEnabled(NitroRegen, true)
-		SetEnabled(Upgrades, true)
+		OptionItems[GameMode] = GameModeDerby
+		SetEnabled(GameMode, true)
 		SetEnabled(DamageLevel, false)
 		SetEnabled(DerbyDamageLevel, true)
 	else
-		SetEnabled(NitroRegen, true)
-		SetEnabled(Upgrades, true)
-		SetEnabled(DamageLevel, true)
-		SetEnabled(DerbyDamageLevel, true)
-	end
-	
-	if gameType == 2 then
-		OptionItems[CarType][ItemLabels] = { MULTIPLAYER_CARTYPE_STUNT, MULTIPLAYER_CAR_SAMEHOST }
-		OptionItems[CarType][ItemValues] = { SessionInfo.CarClass.Stunt, -1 }
-		OptionItems[CarType][Descriptions] = { MULTIPLAYER_CARTYPE_STUNT_DESCRIPTION, MULTIPLAYER_CAR_SAMEHOST_DESC }
-		OptionItems[CarType][SelectedItem] = 1
-	else
-		OptionItems[CarType][ItemLabels] = { MULTIPLAYER_CARTYPE_ANY, MULTIPLAYER_CARTYPE_DERBY, MULTIPLAYER_CARTYPE_RACING, MULTIPLAYER_CARTYPE_STREET, MULTIPLAYER_CAR_SAMEHOST }
-		OptionItems[CarType][ItemValues] = { SessionInfo.CarClass.Any, SessionInfo.CarClass.ClassA, SessionInfo.CarClass.ClassB, SessionInfo.CarClass.ClassC, -1 }
-		OptionItems[CarType][Descriptions] = { MULTIPLAYER_CARTYPE_ANY_DESCRIPTION, MULTIPLAYER_CARTYPE_DERBY_DESCRIPTION, MULTIPLAYER_CARTYPE_RACING_DESCRIPTION, MULTIPLAYER_CARTYPE_STREET_DESCRIPTION, MULTIPLAYER_CAR_SAMEHOST_DESC }
-		OptionItems[CarType][SelectedItem] = 1
+		SetEnabled(GameMode, false)
+		SetEnabled(DamageLevel, false)
+		SetEnabled(DerbyDamageLevel, false)
 	end
 end
 
@@ -432,17 +411,19 @@ local function UpdateArrows(self)
 	local rightarrow = wm.GetWindow("rightarrow")
 	
 	local row = wm.GetWindow("optionlist"):GetSelectedRow()
-	local y = Layout.ListTop + (Layout.RowHeight + Layout.RowPadding) * (row - 1)
+	local y = Layout.ListTop + Layout.RowHeight * (row - 1)
 	
-	local leftArrowSize = wm.GetResourceSize(self:getResource("selection_arrow_r"))
-	local rightArrowSize = wm.GetResourceSize(self:getResource("selection_arrow_l"))
+	local leftArrowSize = wm.GetResourceSize(self:getResource("scroll_left_icon"))
+	local rightArrowSize = wm.GetResourceSize(self:getResource("scroll_right_icon"))
+
+	local xpos = Layout.OptionLeft + 6 * (row - 1) + Layout.OptionArrowIndentLeftRight + 6
+	leftarrow:SetPosition(xpos, y + 2)
 
 	local value = wm.GetWindow("optionvalue_row"..row)
-	local xpos,_ = value:GetPosition()
-	leftarrow:SetPosition(xpos - 5 - leftArrowSize[1], y + 2)
+	local xpos,_ = wm.GetTextExtents(value:GetTitle(), Layout.ListFont)
+	xpos = Layout.OptionLeft + xpos + leftArrowSize[1] + 2 * Layout.OptionArrowIndentLeftRight + 6 * (row - 1) + 9
 
-	local w,_ = wm.GetTextExtents(value:GetTitle(), Layout.ListFont)
-	rightarrow:SetPosition(xpos + w + 9, y + 2)
+	rightarrow:SetPosition(xpos, y + 2)
 end
 
 UpdateInfoText = function()
@@ -469,61 +450,18 @@ UpdateInfoText = function()
 	end
 end
 
-local function SelectHostCar(events)
-	local carlist = { }
-	if events[1].rules == ReplicatedSession.GAMETYPE_STUNT then
-		carlist = CarlistStuntCars()
-	else
-		local function SplitString(str)
-			local t={}		
-			for w in string.gfind(str,"(%w+)%.?") do
-				table.insert(t,w)
-			end
-			return t
-		end
-		for i = 0, db.FlatOut2.Cars:GetPropertyArraySize("Car") - 1 do
-			local car = db.FlatOut2.Cars:GetProperty("Car", i)
-			
-			local path = SplitString(string.lower(car:GetFullPath()))
-
-			if path[3] ~= "stunt" then
-				table.insert(carlist, {index = i})
-			end
-		end
-	end
-
-	EnterCarSelection(
-		function(car, skin)
-			EventListener = Event:AddListener(NetworkEvents, EVENTTYPE_NETWORK)
-			CreateSession( events, car, skin )
-		end,
-		function()
-			EnterMenu("menu_multiplayer_creategame")
-		end,
-		carlist,
-		false,
-		true,
-		false,
-		false,
-		false,
-		false,
-		true,
-		nil,
-		true
-	)
-end
-
 local function ChooseTrack()
 	local tournamenttype
 	
 	if XBOX and GetSelectedItemValue(RankedGame) == 1 then
 		local gametype = GetSelectedItemValue(GameType)
+		local gamemode = GetSelectedItemValue(GameMode)
 		if gametype == 1 then
 			tournamenttype = ReplicatedSession.GAMETYPE_RACE
 		elseif gametype == 2 then
 			tournamenttype = ReplicatedSession.GAMETYPE_STUNT
 		elseif gametype == 3 then
-			tournamenttype = ReplicatedSession.GAMETYPE_DERBY_WRECKING
+			tournamenttype = gamemode
 		else
 			tournamenttype = ReplicatedSession.GAMETYPE_TOURNAMENT
 		end
@@ -535,12 +473,8 @@ local function ChooseTrack()
 		EnterMultiplayerRaceSelection(
 			tournamenttype, 
 			function(event)
-				if GetSelectedItemValue(CarType) == -1 then
-					SelectHostCar( { event } )
-				else
-					EventListener = Event:AddListener(NetworkEvents, EVENTTYPE_NETWORK)
-					CreateSession( { event } )
-				end
+				EventListener = Event:AddListener(NetworkEvents, EVENTTYPE_NETWORK)
+				CreateSession( { event } )
 			end,
 			entermenu("menu_multiplayer_creategame"),
 			GetSelectedItemValue(Players)
@@ -549,12 +483,8 @@ local function ChooseTrack()
 		EnterBuildTournamentMenu(
 			tournamenttype,
 			function(tournamentEvents)
-				if GetSelectedItemValue(CarType) == -1 then
-					SelectHostCar(tournamentEvents)
-				else
-					EventListener = Event:AddListener(NetworkEvents, EVENTTYPE_NETWORK)
-					CreateSession(tournamentEvents)
-				end
+				EventListener = Event:AddListener(NetworkEvents, EVENTTYPE_NETWORK)
+				CreateSession(tournamentEvents)
 			end,
 			entermenu("menu_multiplayer_creategame"),
 			false,
@@ -564,11 +494,7 @@ local function ChooseTrack()
 end
 
 menu_multiplayer_creategame = CreateMenuFromTemplate("template_multiplayer")
-if XBOX then
-	menu_multiplayer_creategame.options.title = TITLE_LIVE_CREATEMATCH
-else
-	menu_multiplayer_creategame.options.title = TITLE_GAMESPY_CREATEGAME
-end
+menu_multiplayer_creategame.options.title = TITLE_LIVE_CREATEMATCH
 menu_multiplayer_creategame.back = function() EnterMenu(menu_multiplayer_creategame.backmenu) end
 
 function menu_multiplayer_creategame.create(self)
@@ -583,35 +509,80 @@ end
 function menu_multiplayer_creategame.init(self)
 	self.parent:init(self)
 	
-	GUI:SetBackgroundVideo("data/video/bg_main")
+	GUI:SetBackground("data/menu/menu_background.tga")
 	
-	if not XBOX and table.getn(OptionItems) == 10 then
+	if not XBOX and table.getn(OptionItems) == 12 then
 		CarType=2
 		Upgrades=3
 		NitroRegen=4
 		Players=5
-		DamageLevel=6
-		DerbyDamageLevel=7
+		Reserved=6
+		Language=7
+		DamageLevel=8
+		DerbyDamageLevel=9
 		
-		table.remove(OptionItems, Reserved)
+		table.remove(OptionItems, GameMode)
 		table.remove(OptionItems, GameType)
 		table.remove(OptionItems, RankedGame)
 
 		if PS2 then
 			for i = 0, 1 do
 				table.remove(OptionItems[Players][ItemValues], 8-i)
+				table.remove(OptionItems[Reserved][ItemValues], 9-i)
 			end
 			SetSelectedItem(Players, 5)
 		end
-
-		OptionItems[SessionType][Descriptions] = {MULTIPLAYER_SESSIONTYPE_SINGLERACE_DESCRIPTION, PS2ONLINE_SESSIONTYPE_TOURNAMENT_DESCRIPTION}
 		
 		NumOptions = table.getn(OptionItems)
 	end
 	
-	Creating=false
+	EventListener=Event:AddListener(NetworkEvents, EVENTTYPE_NETWORK)
 
-	Layout.ListTop = 76 + (11 - NumOptions) * Layout.RowHeight / 2
+	Creating=false
+	for i = 0, Garage:GetNumCars() - 1 do
+		local car = db.FlatOut2.Cars:GetProperty("Car", i)
+		table.insert(OptionItems[CarType][ItemLabels], L(car.Name))
+		table.insert(OptionItems[CarType][ItemValues], 5 + i)
+	end
+	
+	local lang,rang,str,lang2,rang2,str2
+	if NumOptions == 12 then
+		Layout.ListTop = 68
+		Layout.InfoBoxPos = POS(0,313)
+		lang = self:getResource("options_6_slices_l_ang")
+		rang = self:getResource("options_6_slices_r_ang")
+		str = self:getResource("options_6_strech")
+		lang2 = self:getResource("options_6_slices_l_ang")
+		rang2 = self:getResource("options_6_slices_r_ang")
+		str2 = self:getResource("options_6_strech")
+	else
+		Layout.ListTop = 76 + (11 - NumOptions) * Layout.RowHeight / 2
+		Layout.InfoBoxPos = POS(0,301)
+		local num = NumOptions - 5
+		lang = self:getResource("options_5_slices_l_ang")
+		rang = self:getResource("options_5_slices_r_ang")
+		str = self:getResource("options_5_strech")
+		lang2 = self:getResource("options_"..num.."_slices_l_ang")
+		rang2 = self:getResource("options_"..num.."_slices_r_ang")
+		str2 = self:getResource("options_"..num.."_strech")
+	end
+			
+	local angsize = wm.GetResourceSize(lang)
+	local h = angsize[2]
+	Frame { Position=POS(292,Layout.ListTop), Size=angsize, Layer=3 }:AttachResource(lang)
+	angsize = wm.GetResourceSize(rang)
+	Frame { Position=POS(302,Layout.ListTop), Size=angsize, Layer=3 }:AttachResource(rang)
+	
+	Frame { Position=POS(0,Layout.ListTop), Size=SIZE(292,h), Layer=3 }:AttachResource(str)
+	Frame { Position=POS(342,Layout.ListTop), Size=SIZE(327,h), Layer=3 }:AttachResource(str)
+
+	angsize = wm.GetResourceSize(lang2)
+	Frame { Position=POS(327,Layout.ListTop+h+2), Size=angsize, Layer=3 }:AttachResource(lang2)
+	angsize = wm.GetResourceSize(rang2)
+	Frame { Position=POS(337,Layout.ListTop+h+2), Size=angsize, Layer=3 }:AttachResource(rang2)
+	
+	Frame { Position=POS(0,Layout.ListTop+h+2), Size=SIZE(327,angsize[2]), Layer=3 }:AttachResource(str2)
+	Frame { Position=POS(378,Layout.ListTop+h+2), Size=SIZE(262,angsize[2]), Layer=3 }:AttachResource(str2)
 
 	local listboxParams = {
 		ListBoxTemplate	= { Name="optionlist" },
@@ -631,45 +602,13 @@ function menu_multiplayer_creategame.init(self)
 		NumRows	= NumOptions,
 		Coloumns = {
 			[1] = {
-				Name				= "titlebg",
-				ColoumnTemplate		= { Position=POS(0,0), Size=SIZE(0,0), Layer=3 },
-				ColoumnTemplateType	= "Frame",
-				ColoumnTemplateCust	= function(Coloumn, RowNr, ColoumnNr)
-					Coloumn:AttachResource(self:getResource("multiplayer_str_18"))
-				end
-			},				
-			[2] = {
-				Name				= "titlebg_cap",
-				ColoumnTemplate		= { Position=POS(0,0), Size=wm.GetResourceSize(self:getResource("options_1_slice_l_ang")), Layer=3 },
-				ColoumnTemplateType	= "Frame",
-				ColoumnTemplateCust	= function(Coloumn, RowNr, ColoumnNr)
-					Coloumn:AttachResource(self:getResource("options_1_slice_l_ang"))
-				end
-			},				
-			[3] = {
-				Name				= "valuebg_cap",
-				ColoumnTemplate		= { Position=POS(0,0), Size=wm.GetResourceSize(self:getResource("options_1_slice_r_ang")), Layer=3 },
-				ColoumnTemplateType	= "Frame",
-				ColoumnTemplateCust	= function(Coloumn, RowNr, ColoumnNr)
-					Coloumn:AttachResource(self:getResource("options_1_slice_r_ang"))
-				end
-			},				
-			[4] = {
-				Name				= "valuebg",
-				ColoumnTemplate		= { Position=POS(0,0), Size=SIZE(0,0), Layer=3 },
-				ColoumnTemplateType	= "Frame",
-				ColoumnTemplateCust	= function(Coloumn, RowNr, ColoumnNr)
-					Coloumn:AttachResource(self:getResource("multiplayer_str_18"))
-				end
-			},				
-			[5] = {
 				Name				= "optiontitle", -- _row# is added
 				ColoumnTemplate		= { Font=Layout.ListFont, Color=Layout.LabelFontColor, Position=POS(Layout.LabelLeft, -2), Size=SIZE(Layout.OptionWidth, Layout.RowHeight), Align=FONTF_RIGHT, Layer=4 },
 				ColoumnTemplateType	= "StaticText",
 				ColoumnTemplateCust	= function(Coloumn, RowNr, ColoumnNr)
 				end
 			},
-			[6] = {
+			[2] = {
 				Name				= "optionvalue", -- _row# is added
 				ColoumnTemplate		= { Font=Layout.ListFont, Color=Layout.OptionFontColor, Position=POS(Layout.OptionLeft, -2), Size=SIZE(Layout.OptionWidth, Layout.RowHeight), Layer=4 },
 				ColoumnTemplateType	= "StaticText",
@@ -683,27 +622,12 @@ function menu_multiplayer_creategame.init(self)
 	optionlist:SetNumRows(NumOptions)
 	optionlist:SetSelectedRow(1)
 	optionlist.onNeedData = function(Self, RowObject, RowNr, ControlRowNr)
-		local titlebg = wm.GetWindow("titlebg_row"..RowNr)
-		local titlebg_cap = wm.GetWindow("titlebg_cap_row"..RowNr)
-		local valuebg_cap = wm.GetWindow("valuebg_cap_row"..RowNr)
-		local valuebg = wm.GetWindow("valuebg_row"..RowNr)
 		local title = wm.GetWindow("optiontitle_row"..RowNr)
 		local value = wm.GetWindow("optionvalue_row"..RowNr)
 		
-		local arrowSize = GetResourceSize(self:getResource("selection_arrow_r"))
-		title:SetPosition(320 - 6 * (NumOptions / 2 - RowNr + 1) - 15, 0)
-		value:SetPosition(320 - 6 * (NumOptions / 2 - RowNr + 1) + 15 + Layout.OptionArrowIndentLeftRight + arrowSize[1], 0)
-		
-		local capw,caph = titlebg_cap:GetSize()
-		local capx = 320 - 6 * (NumOptions / 2 - RowNr) - capw - 2
-		titlebg:SetSize(capx, Layout.RowHeight)
-		titlebg_cap:SetPosition(capx, 0)
-		
-		capw,caph = valuebg_cap:GetSize()
-		capx = 320 - 6 * (NumOptions / 2 - RowNr + 1) + 2
-		valuebg:SetPosition(capx + capw, 0)
-		valuebg:SetSize(640 - capx - capw, Layout.RowHeight)
-		valuebg_cap:SetPosition(capx, 0)
+		local arrowSize = GetResourceSize(self:getResource("scroll_left_glow"))
+		title:SetPosition(Layout.LabelLeft + 6 * (RowNr - 1), 0)
+		value:SetPosition(Layout.OptionLeft + 6 * (RowNr - 1) + Layout.OptionArrowIndentLeftRight + arrowSize[1], 0)
 		
 		title:SetTitle(OptionItems[RowNr][Label])
 		if OptionItems[RowNr][Enabled] then
@@ -723,8 +647,13 @@ function menu_multiplayer_creategame.init(self)
 		UpdateArrows(self)
 	end
 
+	--local arrowSize = GetResourceSize(self:getResource("scroll_left_glow"))
+	--Frame { Name="leftarrow_glow", Position=POS(0,0), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("scroll_left_glow"))
 	local arrowSize = GetResourceSize(self:getResource("selection_arrow_r"))
 	Frame { Name="leftarrow", Position=POS(0,0), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("selection_arrow_r"))
+	
+--	arrowSize = GetResourceSize(self:getResource("scroll_right_glow"))
+--	Frame { Name="rightarrow_glow", Position=POS(0,0), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("scroll_right_glow"))
 	arrowSize = GetResourceSize(self:getResource("selection_arrow_l"))
 	Frame { Name="rightarrow", Position=POS(0,0), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("selection_arrow_l"))
 	
@@ -809,9 +738,16 @@ function menu_multiplayer_creategame.init(self)
 	end
 
 	if XBOX then	
-		OptionItems[RankedGame][Enabled] = true
-		SetSelectedItem(RankedGame, 2)
-		OnRatedChanged()
+--[[		if MultiplayerMode == MPMODE_LAN then
+			OptionItems[RankedGame][Enabled] = false
+			SetSelectedItem(RankedGame, 2)
+			OnRatedChanged()
+			optionlist:SetSelectedRow(4)
+		else--]]
+			OptionItems[RankedGame][Enabled] = true
+			SetSelectedItem(RankedGame, 2)
+			OnRatedChanged()
+		--end
 	end
 	
 	GUI:SetHelpButtons(BUTTON_OK, UI_CREATEGAME, BUTTON_BACK, UI_BACK)
@@ -828,4 +764,5 @@ end
 	
 function menu_multiplayer_creategame.deinit(self)
 	self.parent:deinit(self)
+	Event:RemoveListener(EventListener)
 end

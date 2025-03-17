@@ -14,45 +14,28 @@ Layout = OnlineOptionsLayout.PlayersMenuLayout
 local GameInvitesEnabled=false
 local Mode
 local BackAction
-local ButtonsChangedTime
 
 local FirstUpdate=true
 local Error=false
 
+local MenuState
 local PlayersListWindows = {}
+
+local SELECT_PLAYER = 1
+local PLAYER_OPTIONS = 2
 
 local Items
 
 -- These are also used in send voice menu
+ControllerId=nil
 CurrentPlayer=nil
 CurrentFriend=nil
 
 MODE_PLAYERS=1
 MODE_FRIENDS=2
 
-local NEW_FRIEND = 1
-local PLAYER_PROFILE = 2
-local SEND_FEEDBACK = 3
-local ACCEPT_REQUEST = 4
-local DECLINE_REQUEST = 5
-local BLOCK_REQUEST = 6
-local LISTEN_MESSAGE = 7
-local CANCEL_REQUEST = 8
-local REMOVE_FRIEND = 9
-local ACCEPT_INVITE = 10
-local DECLINE_INVITE = 11
-local JOIN_FRIEND = 12
-local CANCEL_INVITE = 13
-local SEND_INVITE_VOICE = 14
-local SEND_INVITE = 15
-local UNMUTE = 16
-local MUTE = 17
-local SEND_REQUEST = 18
-local SEND_REQUEST_VOICE = 19
-
 local EventListener
 local BuildMenuButtons
-local UpdateCurrentPlayerAndFriend
 local UpdatePlayersList
 local UpdatePlayers
 local UpdatePlayerInfo
@@ -61,20 +44,29 @@ local ExitPlayersList
 local UpdatePlayersListFSM
 
 local function HidePlayersList()
-	local playersListObj
-	if XBOX then
-		playersListObj = XBoxLive.GetPlayersList()
-	else
-		playersListObj = GameSpy.GetPlayersList()
-	end
-	
 	Event:RemoveListener(EventListener)	
 
 	if UpdatePlayersListFSM then
 		FSM_init_state(UpdatePlayersListFSM)
 		UpdatePlayersListFSM=nil
 	end
+	Friends.EndEnumrate()
+
+	if XBOX then
+		XBoxLive.GetPlayersList():DeInit()	
+		if ControllerId then
+			XBoxLive.GetMessageManager():DisableEnumrate(ControllerId)
+		end
+	end
 	wm.RemoveWindow(wm.GetWindow("pl_contentbox"))
+--	OptionsPopup.AnimateHide()
+end
+
+local function ReturnToSelection()
+	MenuState = SELECT_PLAYER
+	BuildMenuButtons()
+--	wm.GetWindow("pl_itemtitle_bg"):HideWindow()
+--	HideButtons()
 end
 
 local emptyFunc=function()end
@@ -104,7 +96,11 @@ function SendFriendRequest()
 		MessageBox(LIVE_FRIEND_TOO_MANY, MESSAGEBOX_OK, function()end)
 	else
 		Friends.SendRequest(CurrentPlayer.UserId, false)
+		MultiplayerWaitState=FSM()
 		ShowThinkingWindow()
+		FSM_init_state(MultiplayerWaitState)
+		FSM_add_wait_for_event(MultiplayerWaitState, 0.1, emptyFunc, isSendRequestCompleted)
+		FSM_add_function(MultiplayerWaitState, function() HideThinkingWindow(); wm.GetWindow("pl_playerslist"):Refresh(); ReturnToSelection(); end, false, {})
 	end
 end
 
@@ -113,58 +109,66 @@ function SendFriendRequestWithVoice()
 		MessageBox(LIVE_FRIEND_TOO_MANY, UI_OK, function()end)
 	else
 		HidePlayersList()
-		SendVoiceMessage("R", function() EnterPlayersList(Mode, BackAction, GameInvitesEnabled) end)
+		SendVoiceMessage("R", function() EnterPlayersList(Mode, ControllerId, BackAction, GameInvitesEnabled) end)
 	end
 end
 
-function AcceptFriendRequest(friend)
-	Friends.AnswerRequest(friend, "YES");
+function AcceptFriendRequest()
+	Friends.AnswerRequest(CurrentFriend, "YES");
+	ReturnToSelection()
 end
 
-function DeclineFriendRequest(friend)
-	Friends.AnswerRequest(friend, "NO")
+function DeclineFriendRequest()
+	Friends.AnswerRequest(CurrentFriend, "NO")
+	ReturnToSelection()
 end
 
-function BlockFriendRequest(friend)
+function BlockFriendRequest()
 	local block = function()
-		Friends.AnswerRequest(friend, "BLOCK")
+		Friends.AnswerRequest(CurrentFriend, "BLOCK")
+		ReturnToSelection()
 	end
 	MessageBox(
 		LIVE_FRIEND_BLOCK,
 		MESSAGEBOX_YESNO,
 		function(value)
 			if value == TRUE then
-				Friends.AnswerRequest(friend, "BLOCK")
+				Friends.AnswerRequest(CurrentFriend, "BLOCK")
 			end
+			ReturnToSelection()
 		end
 	)
 end
 
 
 
-function CancelFriendRequest(friend)
-	Friends.RemoveFriend(friend)
+function CancelFriendRequest()
+	Friends.RemoveFriend(CurrentFriend)	
+	ReturnToSelection()
 end
 
-function SendGameInvite(friend)
-	Friends.SendInvite(friend, false)
+function SendGameInvite()
+	Friends.SendInvite(CurrentFriend, false)
 	if XBOX then
 		MultiplayerWaitState=FSM()
 		ShowThinkingWindow()
 		FSM_init_state(MultiplayerWaitState)
 		FSM_add_wait_for_event(MultiplayerWaitState, 0.1, emptyFunc, isSendInviteCompleted)
+		FSM_add_function(MultiplayerWaitState, ReturnToSelection, false, {})
 		FSM_add_function(MultiplayerWaitState, HideThinkingWindow, false, {})
+	else
+		ReturnToSelection()
 	end
 end
 
-function AcceptGameInvite(friend)
-	Friends.AnswerInvite(friend, "YES")
-	if Friends.SameTitle(friend) then
+function AcceptGameInvite()
+	Friends.AnswerInvite(CurrentFriend, "YES")
+	if Friends.SameTitle(CurrentFriend) then
 		MultiplayerWaitState=FSM()
 		FSM_init_state(MultiplayerWaitState)
 		local f=function(value)
 			if value == TRUE then
-				Friends.SetFriendToJoin(friend)
+				Friends.SetFriendToJoin(CurrentFriend)
 				OptionsPopup.Destroy()
 				if XBOX then
 					EnterMenu("menu_xboxlive")
@@ -181,30 +185,34 @@ function AcceptGameInvite(friend)
 			f(TRUE)
 		end
 	else
-		Friends.JoinGame(friend)
+		Friends.JoinGame(CurrentFriend)
 		local message=LIVE_FRIEND_TOJOIN_1
-		message=WStringConcat(message, friend.GameTitle)
+		message=WStringConcat(message, CurrentFriend.GameTitle)
 		message=WStringConcat(message, LIVE_FRIEND_TOJOIN_2)
-		MessageBox(message, MESSAGEBOX_OK, function() end)
+		MessageBox(message, MESSAGEBOX_OK, function() ReturnToSelection() end)
 	end
 end
 
-function DeclineGameInvite(friend)
-	Friends.AnswerInvite(friend, "NO")
+function DeclineGameInvite()
+	Friends.AnswerInvite(CurrentFriend, "NO")
+	ReturnToSelection()
 end
 
-function CancelGameInvite(friend)
-	Friends.CancelInvite(friend)
+function CancelGameInvite()
+	Friends.CancelInvite(CurrentFriend)
+	ReturnToSelection()
 end
 
-function RemoveFriend(friend)
+function RemoveFriend()
 	local remove=function()
-		if friend.ReceivedInvite then
-			Friends.AnswerInvite(friend, "NO")
-			Friends.RemoveFriend(friend)
+		if CurrentFriend.ReceivedInvite then
+			--Friends.AnswerInvite(CurrentFriend, "REMOVE")
+			Friends.AnswerInvite(CurrentFriend, "NO")
+			Friends.RemoveFriend(CurrentFriend)
 		else
-			Friends.RemoveFriend(friend)
+			Friends.RemoveFriend(CurrentFriend)
 		end
+		ReturnToSelection()
 	end
 	local msg
 	if XBOX then
@@ -218,17 +226,19 @@ function RemoveFriend(friend)
 		function(result)
 			if result == TRUE then
 				remove()
+			else
+				ReturnToSelection()
 			end
 		end
 	)
 end
 
 
-function JoinFriend(friend)
-	if Friends.SameTitle(friend) then
+function JoinFriend()
+	if Friends.SameTitle(CurrentFriend) then
 		local f=function(value)
 			if value == TRUE then
-				Friends.SetFriendToJoin(friend)
+				Friends.SetFriendToJoin(CurrentFriend)
 				OptionsPopup.Destroy()
 				if XBOX then
 					EnterMenu("menu_xboxlive")
@@ -245,25 +255,25 @@ function JoinFriend(friend)
 			f(TRUE)
 		end
 	else
-		Friends.JoinGame(friend)
+		Friends.JoinGame(CurrentFriend)
 		local message=LIVE_FRIEND_TOJOIN_1
-		message=WStringConcat(message, friend.GameTitle)
+		message=WStringConcat(message, CurrentFriend.GameTitle)
 		message=WStringConcat(message, LIVE_FRIEND_TOJOIN_2)
-		MessageBox(message, MESSAGEBOX_OK, function()end)
+		MessageBox(message, MESSAGEBOX_OK, ReturnToSelection)		
 	end
 end
 
-local function SameSession(player)
+local function SameSession()
 	if Session then
 		local info = Session:GetInfo()
 		local sessId = info.SessionId
-		local friendSessId = player.SessionId
+		local friendSessId = CurrentFriend.SessionId
 		if sessId == friendSessId then
 			return true
 		end
 		for i=1, Session:GetNumPlayers() do
-			local sessionplayer = Session:GetPlayer(i)
-			if sessionplayer.UId == player.UserId then
+			local player = Session:GetPlayer(i)
+			if player.UId == CurrentFriend.UserId then
 				return true
 			end
 		end
@@ -281,28 +291,16 @@ local function MutePlayer()
 		
 	if userId ~= nil then
 		local voiceMan = Network:GetVoiceManager()
-		local voicePlayer = voiceMan:GetPlayer(userId)
-		if CurrentPlayer then
-			if XBOX then
-				voicePlayer:SetPlayerMuted(CurrentPlayer.UserId, true)
-			else
-				GameSpy.GetPlayersList():SetPlayerMuted(CurrentPlayer.UserId, true)
-			end
-			CurrentPlayer.Muted = true
-		elseif CurrentFriend then
+		local voicePlayer = voiceMan:GetPlayerByPort(ControllerId)
+		if CurrentFriend then
 			voicePlayer:SetPlayerMuted(CurrentFriend.UserId, true)
 			CurrentFriend.Muted = true
+		elseif CurrentPlayer then
+			voicePlayer:SetPlayerMuted(CurrentPlayer.UserId, true)
+			CurrentPlayer.Muted = true
 		end
 	end
-
-	local button = OptionsPopup.Buttons[OptionsPopup.ActiveButton]
-	local id
-	if button ~= nil then
-		id = button.id
-	end
-	BuildMenuButtons(nil, id)
-
-	ButtonsChangedTime = wm.GetTime()
+	ReturnToSelection()
 end
 
 local function UnMutePlayer()
@@ -314,28 +312,16 @@ local function UnMutePlayer()
 	end
 	if userId ~= nil then
 		local voiceMan = Network:GetVoiceManager()
-		local voicePlayer = voiceMan:GetPlayer(userId)
-		if CurrentPlayer then
-			if XBOX then
-				voicePlayer:SetPlayerMuted(CurrentPlayer.UserId, false)
-			else
-				GameSpy.GetPlayersList():SetPlayerMuted(CurrentPlayer.UserId, false)
-			end
-			CurrentPlayer.Muted = false
-		elseif CurrentFriend then
+		local voicePlayer = voiceMan:GetPlayerByPort(ControllerId)
+		if CurrentFriend then
 			voicePlayer:SetPlayerMuted(CurrentFriend.UserId, false)
 			CurrentFriend.Muted = false
+		elseif CurrentPlayer then
+			voicePlayer:SetPlayerMuted(CurrentPlayer.UserId, false)
+			CurrentPlayer.Muted = false
 		end
 	end	
-
-	local button = OptionsPopup.Buttons[OptionsPopup.ActiveButton]
-	local id
-	if button ~= nil then
-		id = button.id
-	end
-	BuildMenuButtons(nil, id)
-
-	ButtonsChangedTime = wm.GetTime()
+	ReturnToSelection()
 end
 
 local function ShowPlayerInfo(showGame)
@@ -368,17 +354,20 @@ local function HidePlayerInfo()
 	end
 end
 
-UpdatePlayersList = function(updatebuttons)
+UpdatePlayersList = function()
 	local playersList = wm.GetWindow("pl_playerslist")
+--[[	if XBOX then
+		XBoxLive.GetPlayersList():Update(true)
+	else
+		GameSpy.GetPlayersList():Update(true)
+	end--]]
 	if playersList then
 		playersList:Refresh()
 		local row = playersList:GetSelectedRow()
 		if row > 0 then
-			UpdatePlayerInfo(row, updatebuttons)
+			UpdatePlayerInfo(row)
 		else
-			UpdatePlayerInfo(0, updatebuttons)
---			HidePlayerInfo()
-			OptionsPopup.ActiveButton = 1
+			HidePlayerInfo()
 		end
 	end
 end
@@ -459,15 +448,15 @@ local function GetStatus(RowNr)
 			end
 
 			if friend then
-				status.IsFriend=true
+				status.Friend=true
 				status.ReceivedRequest=friend.ReceivedRequest
 				status.ReceivedInvite=friend.ReceivedInvite
 				status.SentRequest=friend.SentRequest
 				status.SentInvite=friend.SentInvite
 			else
-				status.IsFriend=false
-				status.ReceivedRequest=false
-				status.ReceivedInvite=false
+				status.Friend=false
+				status.ReceivedRequest=info.ReceivedRequest
+				status.ReceivedInvite=info.ReceivedInvite
 				status.SentRequest=false
 				status.SentInvite=false
 			end
@@ -475,39 +464,25 @@ local function GetStatus(RowNr)
 	else
 		local friend = Friends.GetFriend(RowNr)
 		if friend then
-			status.IsFriend = true
+			status.Friend = true
 			status.Name = friend.GamerTag
 			status.Online = friend.Online
 			status.Playing = friend.Playing
 			status.GameTitle = friend.GameTitle
-			
-			local plinfo
-			if XBOX then
-				info = XBoxLive.GetPlayersList():GetPlayerInfo(friend.UserId)
-			else
-				info = GameSpy.GetPlayersList():GetPlayerInfo(friend.UserId)
-			end
-			
-			if info and info.InSession then
-				status.Voice = info.HasVoice
-				status.Talking = info.Talking
-			else
-				status.Voice = friend.Voice
-				status.Talking = false
-			end
-			
+			status.Voice = friend.Voice
+			status.Talking = false
 			status.ReceivedRequest = friend.ReceivedRequest
 			status.ReceivedInvite = friend.ReceivedInvite
 			status.SentRequest = friend.SentRequest
 			status.SentInvite = friend.SentInvite
 		else
-			status.Name=L""
+			status.Name=ConvertToWString("")
 			status.Voice=false
 			status.Talking=false
 			status.Online=false
 			status.Playing=false
-			status.GameTitle=L""
-			status.IsFriend=false
+			status.GameTitle=ConvertToWString("")
+			status.Friend=false
 			status.ReceivedRequest=false
 			status.ReceivedInvite=false
 			status.SentRequest=false
@@ -518,35 +493,37 @@ local function GetStatus(RowNr)
 	return status
 end
 
-UpdatePlayerInfo = function(row, updatebuttons)
+UpdatePlayerInfo = function()
 	local playerstatus = wm.GetWindow("pl_playerstatus")
 	local playergame = wm.GetWindow("pl_playergame")
+	local selectedPlayer = wm.GetWindow("pl_playerslist"):GetSelectedRow()
 	
-	if row == 0 then
+	if selectedPlayer == 0 then
 		HidePlayerInfo()
-		if updatebuttons then
-			BuildMenuButtons()
-		end
 		return
 	end
 
-	local status = GetStatus(row)
+	local status=GetStatus(selectedPlayer)
 
 	if Mode == MODE_PLAYERS then
 		--local friend=Friends.GetFriend(PlayerNr)
 		if status.Online then
+			if not CurrentPlayer or CurrentPlayer.Online ~= status.Online then
+--				BuildMenuButtons()
+			end
 			ShowPlayerInfo(ConvertFromWString(status.GameTitle) ~= "")
 			playerstatus:SetTitle(CreateStatusString(status))
 			playergame:SetTitle(status.GameTitle)
-		elseif status.IsFriend then
+		elseif status.Friend then
 			ShowPlayerInfo(false)
 			playerstatus:SetTitle(CreateStatusString(status))
 		else
-			ShowPlayerInfo(false)
-			playerstatus:SetTitle(CreateStatusString(status))
---			HidePlayerInfo()
+			HidePlayerInfo()
 		end
 	else
+		if not CurrentFriend or CurrentFriend.Online ~= status.Online then
+--			BuildMenuButtons()
+		end
 		if status.Online then
 			ShowPlayerInfo(ConvertFromWString(status.GameTitle) ~= "")
 			playerstatus:SetTitle(CreateStatusString(status))
@@ -555,34 +532,6 @@ UpdatePlayerInfo = function(row, updatebuttons)
 			ShowPlayerInfo(false)
 			playerstatus:SetTitle(CreateStatusString(status))
 		end
-	end
-	
-	if updatebuttons then
-		local button = OptionsPopup.Buttons[OptionsPopup.ActiveButton]
-		local id
-		if button ~= nil then
-			id = button.id
-		end
-		BuildMenuButtons(nil, id)
-	end
-end
-
-UpdateCurrentPlayerAndFriend = function()
-	local num = wm.GetWindow("pl_playerslist"):GetSelectedRow()
-	if Mode == MODE_PLAYERS then
-		if XBOX then
-			CurrentPlayer = XBoxLive.GetPlayersList():GetPlayerInfo(num)
-		else
-			CurrentPlayer = GameSpy.GetPlayersList():GetPlayerInfo(num)
-		end
-		if CurrentPlayer.IsFriend then
-			CurrentFriend = Friends.GetFriendByUserId(CurrentPlayer.UserId)
-		else
-			CurrentFriend = nil
-		end
-	elseif Mode == MODE_FRIENDS then
-		CurrentPlayer = nil
-		CurrentFriend = Friends.GetFriend(num)
 	end
 end
 
@@ -592,21 +541,17 @@ UpdatePlayers = function()
 		return
 	end
 	
+	local playersListObj
 	local numRows
 
+	if XBOX then
+		playersListObj = XBoxLive.GetPlayersList()
+	else
+		playersListObj = GameSpy.GetPlayersList()
+	end
+	
 	if Mode == MODE_PLAYERS then
-		local playersListObj
-		if XBOX then
-			playersListObj = XBoxLive.GetPlayersList()
-		else
-			playersListObj = GameSpy.GetPlayersList()
-		end
-
-		-- Players list is updated automatically when in session, so no need to update here
-		if Session == nil then
-			playersListObj:Update()
-		end
-		
+		playersListObj:Update()
 		numRows = playersListObj:GetNumCurrentPlayers() + playersListObj:GetNumRecentPlayers()
 		playersList:SetNumRows(numRows)
 		if numRows == 0 then
@@ -615,52 +560,84 @@ UpdatePlayers = function()
 				MessageBox(LIVE_PLAYERS_EMPTY, MESSAGEBOX_OK, function(value) if value == TRUE then ExitPlayersList() end end)
 			end
 		elseif FirstUpdate then
-			CurrentPlayer = playersListObj:GetPlayerInfo(1)
+			UpdatePlayersList()
+			if XBOX then
+				CurrentPlayer = XBoxLive.GetPlayersList():GetPlayerInfo(1)
+			else
+				CurrentPlayer = GameSpy.GetPlayersList():GetPlayerInfo(1)
+			end
 			if CurrentPlayer.IsFriend then
 				CurrentFriend = Friends.GetFriendByUserId(CurrentPlayer.UserId)
 			else
 				CurrentFriend = nil
 			end
-			FirstUpdate = false			
-			UpdatePlayersList(true)
-			ButtonsChangedTime = wm.GetTime()
-		elseif playersListObj:IsResultsUpdated() or Friends.IsResultsUpdated() then
-			CurrentPlayer = playersListObj:GetPlayerInfo(playersList:GetSelectedRow())
-			if CurrentPlayer.IsFriend then
-				CurrentFriend = Friends.GetFriendByUserId(CurrentPlayer.UserId)
-			else
-				CurrentFriend = nil
-			end
-			UpdatePlayersList(true)
-			ButtonsChangedTime = wm.GetTime()
+--			UpdatePlayerInfo(1)
+			FirstUpdate = false
+		else
+			UpdatePlayersList()
 		end
 	elseif Mode == MODE_FRIENDS then
 		numRows = Friends.GetNumFriends()
 		playersList:SetNumRows(numRows)
 		if Friends.IsResultsReady() and FirstUpdate or Friends.IsResultsUpdated() and not Error then
-			CurrentFriend = Friends.GetFriend(playersList:GetSelectedRow())
-			FirstUpdate = false
-			if Friends.GetNumFriends() == 0 then
-				OptionsPopup.SetHelpButtons(UI_BACK, nil, nil, ICON_LIVE_ADDFRIEND)
-			elseif Friends.GetNumFriends() < 100 then
-				OptionsPopup.SetHelpButtons(UI_BACK, UI_SELECT, nil, ICON_LIVE_ADDFRIEND)
-			else
-				OptionsPopup.SetHelpButtons(UI_BACK, UI_SELECT)
+			UpdatePlayersList()
+			UpdatePlayerInfo(playersList:GetSelectedRow())
+			if numRows == 0 then
+				--[[if not Error then
+					Error = true
+					MessageBox(
+						FRIENDS_EMPTY,
+						MESSAGEBOX_OK,
+						BackAction
+					)
+				end--]]
+			elseif MenuState == SELECT_PLAYER then -- Bad things happen if we change CurrentFriend in player options state
+				CurrentPlayer = nil
+				CurrentFriend = Friends.GetFriend(playersList:GetSelectedRow())
 			end
-			UpdatePlayersList(true)
-			ButtonsChangedTime = wm.GetTime()
+--			UpdatePlayersList()
+			if FirstUpdate then
+--				BuildMenuButtons()
+			end
+			FirstUpdate = false
 		end
 	end
+
+--	if numRows > 0 then
+--		UpdatePlayerInfo(playersList:GetSelectedRow())
+--[[		if Mode == MODE_FRIENDS and CurrentFriend then
+			UpdatePlayerInfo(playerslist:GetSelectedRow())
+			wm.GetWindow("playerstatus"):SetTitle(GetFriendStatusString())
+		elseif CurrentPlayer then
+			wm.GetWindow("playerstatus"):SetTitle(GetPlayerStatusString())
+		end--]]
+--	end
 end
 
-function EnterPlayersList(mode, backAction, enableGameInvites, createPopup)
+function EnterPlayersList(mode, controllerId, backAction, enableGameInvites, createPopup)
 	Mode = mode
+	ControllerId = controllerId
 	GameInvitesEnabled = enableGameInvites
 	BackAction = backAction
+	MenuState = SELECT_PLAYER
 	CreatePopup = createPopup
 	
-	CurrentFriend = nil
-	CurrentPlayer = nil
+	local userNr
+	local userId
+	if XBOX then
+		userNr = XBoxLive.Auth.GetSignedInUserNr(ControllerId)
+		userId = XBoxLive.Auth.GetSignedInUserId(userNr)
+		XBoxLive.GetPlayersList():SetUserIndex(ControllerId)
+		XBoxLive.GetPlayersList():Init()
+	else
+		GameSpy.GetPlayersList():SetUserIndex(GameSpyPresence.GetLoggedInProfileID())
+	end
+
+	Friends.SetUserIndex(ControllerId)
+	Friends.Enumrate()
+	if XBOX then
+		XBoxLive.GetMessageManager():EnableEnumrate(ControllerId)
+	end
 	
 	local fsm=FSM()
 	FSM_init_state(fsm)
@@ -681,7 +658,7 @@ local function PlayersListEvents(event)
 	if event.id == EVENT_FIND_SESSIONS_COMPLETED then
 		HideThinkingWindow()
 		if SessionList:GetNumSessions()==0 then
-			MessageBox(MULTIPLAYER_NOSESSION, MESSAGEBOX_OK, function()end)
+			MessageBox(MULTIPLAYER_NOSESSION, MESSAGEBOX_OK, ReturnToSelection) 
 		else
 			SessionList:SetSessionNum(1)
 			SessionList:JoinSession()
@@ -709,6 +686,7 @@ local function PlayersListEvents(event)
 		end
 
 		player.CarSkin=1
+		--player.Score = 0
 		if info.CarUpgrades ~= SessionInfo.CarUpgrades.Any then
 			player.UpgradeLevel = info.CarUpgrades
 		else
@@ -721,10 +699,11 @@ local function PlayersListEvents(event)
 			if XBOX then
 				msg = LIVE_CANNOTJOINFRIEND
 			else
-				msg = LIVE_CANNOTJOINBUDDY
+				msg = MULTIPLAYER_CANNOTJOINFRIEND
 			end
-			MessageBox(msg, MESSAGEBOX_OK, function()end)
+			MessageBox(msg, MESSAGEBOX_OK, ReturnToSelection) 
 		elseif event.data == 1 then
+			--HidePlayersList()
 			OptionsPopup.Destroy()
 
 			local backmenu
@@ -741,9 +720,10 @@ local function PlayersListEvents(event)
 	elseif event.id == EVENT_FRIEND_REQUEST_COMPLETE then
 		HideThinkingWindow()
 		if event.data == Friends.FRR_SUCCESS then
-			wm.GetWindow("pl_playerslist"):Refresh()
+			wm.RemoveWindow(wm.GetWindow("pl_virtualkeyboard"))
+			wm.GetWindow("pl_contentbox"):ShowWindow()
 			wm.GetWindow("pl_inputhandler"):SetFocus()
-			BuildMenuButtons()
+			ReturnToSelection()
 		else
 			local msg = L""
 			if event.data == Friends.FRR_SELF then
@@ -758,9 +738,10 @@ local function PlayersListEvents(event)
 			end
 			MessageBox(msg, MESSAGEBOX_OK,
 				function()
-					wm.GetWindow("pl_playerslist"):Refresh()
+					wm.RemoveWindow(wm.GetWindow("pl_virtualkeyboard"))
+					wm.GetWindow("pl_contentbox"):ShowWindow()
 					wm.GetWindow("pl_inputhandler"):SetFocus()
-					BuildMenuButtons()
+					ReturnToSelection()
 				end
 			)
 		end
@@ -769,12 +750,17 @@ end
 
 
 
+menu_multiplayer_players = CreateMenuFromTemplate("template_basic")
+menu_multiplayer_players.options.title = L""
+menu_multiplayer_players.back = function() ReturnToSelection() end
+
+
+
 local function AddFriend()
 	if XBOX and Friends.GetNumFriends() >= 100 then
 		MessageBox(LIVE_FRIEND_TOO_MANY, MESSAGEBOX_OK, function()end)
 		return
 	end
-
 
 	OptionsPopup.ClearButtons()
 	
@@ -788,57 +774,31 @@ local function AddFriend()
 	else
 		maxsize = 20
 	end
-
-	local inputmode
-	if PS2 then
-		inputmode = VKMODE_GAMESPY_NICKNAME
-	else
-		inputmode = VKMODE_XBOX_GAMERTAG
-	end
 	
-	local kb=VirtualKeyboard { Name="pl_virtualkeyboard", Font=fontmedium(),Title=HEADER_MULTIPLAYER_ENTERNAME,TitleFont=fontlarge(),MaxSize=maxsize,Mode=inputmode,
-		TitleResources={ nil, wm.GetResource("keyboard_title_bars_main") },
-		InputResources={ nil, wm.GetResource("keyboard_title_bars_main2") },
-		KeyboardResources={ nil, wm.GetResource("keyboard_bg_main")},
+	local kb=VirtualKeyboard { Name="pl_virtualkeyboard", Font=fontmedium(),Title=HEADER_MULTIPLAYER_ENTERNAME,TitleFont=fontlarge(),MaxSize=maxsize,
+		TitleResources={ wm.GetResource("keyboard_title_bars_tip"), wm.GetResource("keyboard_title_bars_main") },
+		InputResources={ wm.GetResource("keyboard_title_bars_tip2"), wm.GetResource("keyboard_title_bars_main2") },
+		KeyboardResources={ wm.GetResource("keyboard_bg_tip"), wm.GetResource("keyboard_bg_main")},
 		Layer=5, Parent=wm.GetWindow("options_bg") }
+
+--	local kb=VirtualKeyboard { Name="pl_virtualkeyboard", Font=fontsmall(), TitleFont=fontlarge(), MaxSize=maxsize, Layer=5, Parent=wm.GetWindow("options_bg") }
+--	kb:AttachResource(fontmedium())
+--	kb:SetTitle(HEADER_MULTIPLAYER_ENTER_NAME) -- TODO: Show this
 
 	kb:SetFocus()
 
 	kb.onBack = function(self)
+		--kb:HideWindow()
 		wm.RemoveWindow(kb)
 		wm.GetWindow("pl_contentbox"):ShowWindow()
 		wm.GetWindow("pl_inputhandler"):SetFocus()
-		BuildMenuButtons()
+		ReturnToSelection()
 	end
 
 	kb.onAction = function(self)
 		if ConvertFromWString(wm.GetTextInput()) ~= "" then
-			wm.RemoveWindow(kb)
-			local localVoicePlayer = Network:GetVoiceManager():GetPlayerByPort(ControllerId)
-			if XBOX and localVoicePlayer:GetHeadsetConnected() and not localVoicePlayer:IsVoiceBanned() then
-				local msg = WStringConcat(TRANSLATOR(LIVE_ADDFRIEND_VOICEMESSAGE), L" ")
-				msg = WStringConcat(msg, wm.GetTextInput())
-				msg = WStringConcat(msg, L"?")
-				
-				MessageBox(
-					msg,
-					MESSAGEBOX_YESNO,
-					function(value)
-						if value == TRUE then
-							HidePlayersList()
-							SendVoiceRequestByName(ConvertFromWString(wm.GetTextInput()), function() EnterPlayersList(Mode, BackAction, GameInvitesEnabled) end)
-						else
-							ShowThinkingWindow()
-							wm.GetWindow("pl_contentbox"):ShowWindow()
-							Friends.SendRequest(ConvertFromWString(wm.GetTextInput()))
-						end
-					end
-				)
-			else
-				ShowThinkingWindow()
-				wm.GetWindow("pl_contentbox"):ShowWindow()
-				Friends.SendRequest(ConvertFromWString(wm.GetTextInput()))
-			end
+			ShowThinkingWindow()
+			Friends.SendRequest(ConvertFromWString(wm.GetTextInput()))
 		end
 	end
 end
@@ -853,9 +813,9 @@ local function ShowMultiPlayerProfile()
 		name = CurrentPlayer.Name
 		uid = CurrentPlayer.UserId
 	end
-	HidePlayersList()
 	OptionsPopup.ClearButtons()
-	EnterMultiPlayerProfile(name, uid, function() OptionsPopup.DeInit(); EnterPlayersList(Mode, BackAction, GameInvitesEnabled); end)
+	HidePlayersList()
+	EnterMultiPlayerProfile(name, uid, function() OptionsPopup.DeInit(); EnterPlayersList(Mode, ControllerId, BackAction, GameInvitesEnabled); end)
 end
 
 local function ShowFeedback()
@@ -868,9 +828,9 @@ local function ShowFeedback()
 		name = CurrentPlayer.Name
 		uid = CurrentPlayer.UserId
 	end
-	HidePlayersList()
 	OptionsPopup.ClearButtons()
-	SendFeedback(name, uid, function() EnterPlayersList(Mode, BackAction, GameInvitesEnabled) end, true)	
+	HidePlayersList()
+	SendFeedback(name, uid, function() EnterPlayersList(Mode, ControllerId, BackAction, GameInvitesEnabled) end, true)	
 end
 
 local function ShowPlayerOptions()
@@ -898,208 +858,191 @@ local function ShowPlayerOptions()
 		end
 	end
 
+	MenuState = PLAYER_OPTIONS
 	--ActiveItem = 1
 	BuildMenuButtons()
 end
 
-local function AddMenuButton(buttons, id_, title_, action_, icon_)
-	table.insert(buttons, { titles={title_}, action=action_, icons={icon_}, id=id_ } )
+local function AddMenuButton(title_, action_, icon_)
+	table.insert(OptionsPopup.Buttons, { titles={title_}, action=action_, icons={icon_} } )
 end
 
-BuildMenuButtons = function(activeItem, oldActiveItemId)
+BuildMenuButtons = function(activeItem)
 	local bb
-	local newbuttons = { }
-
-	if wm.GetWindow("pl_virtualkeyboard") ~= nil then
-		return
-	end
-	
-	if FirstUpdate then
-		return
-	end
-	
-	local player
-	if Mode == MODE_PLAYERS then
-		player = CurrentPlayer
-	else
-		player = CurrentFriend
-	end
-	
-	if player then
-		if player.ReceivedInvite then
-			if XBOX then
-				title = ICON_LIVE_PLAYER_ACCEPTGAMEINVITE
-			else
-				title = ICON_GAMESPY_PLAYER_ACCEPTGAMEINVITE
-			end
-			AddMenuButton(newbuttons, ACCEPT_INVITE, title, function() AcceptGameInvite(CurrentFriend) end, "icon_accept_game_invite")
-			if XBOX then
-				title = ICON_LIVE_PLAYER_DECLINEGAMEINVITE
-			else
-				title = ICON_GAMESPY_PLAYER_DECLINEGAMEINVITE
-			end
-			AddMenuButton(newbuttons, DECLINE_INVITE, title, function() DeclineGameInvite(CurrentFriend) end, "icon_decline_game_invite")
-			if XBOX then
-				local inviteMessage = XBoxLive.GetMessageManager():GetInviteMessage(ControllerId, player.UserId)
-				if inviteMessage and inviteMessage.HasVoice then
-					local userId = XBoxLive.Auth.GetSignedInUserId(XBoxLive.Auth.GetSignedInUserNr(ControllerId))
-					if userId ~= nil then
-						local voiceMan = Network:GetVoiceManager()
-						local voicePlayer = voiceMan:GetPlayer(userId)
-						if voicePlayer:IsVoiceBanned() == false then
-							AddMenuButton(newbuttons, LISTEN_MESSAGE, ICON_LIVE_VOICEMESSAGE, function() HidePlayersList(); ListenToVoiceMessage("I", inviteMessage.MessageId, function() EnterPlayersList(Mode, BackAction, GameInvitesEnabled) end); end, "icon_listen_to_voice_message")
-						end
-					end
-				end
-			end
-		end
+	OptionsPopup.ClearButtons()
 		
-		if CurrentFriend and CurrentFriend.ReceivedRequest then
+	if MenuState == SELECT_PLAYER then
+--		if Friends.GetNumFriends() > 0 then
+		local title
+		if Mode == MODE_PLAYERS then
+			title = ICON_MULTIPLAYER_PLAYER
+		else
 			if XBOX then
-				title = ICON_LIVE_PLAYER_ACCEPTFRIENDREQUEST
+				title = ICON_LIVE_SELECTFRIEND
 			else
-				title = ICON_GAMESPY_PLAYER_ACCEPTBUDDYREQUEST
-			end
-			AddMenuButton(newbuttons, ACCEPT_REQUEST, title, function() AcceptFriendRequest(CurrentFriend) end, "icon_accept_friend_request")
-			if XBOX then
-				title = ICON_LIVE_PLAYER_DECLINEFRIENDREQUEST
-			else
-				title = ICON_GAMESPY_PLAYER_DECLINEBUDDYREQUEST
-			end
-			AddMenuButton(newbuttons, DECLINE_REQUEST, title, function() DeclineFriendRequest(CurrentFriend) end, "icon_decline_friend_request")
-			if XBOX then
-				AddMenuButton(newbuttons, BLOCK_REQUEST, ICON_LIVE_PLAYER_BLOCKFRIENDREQUEST, function() BlockFriendRequest(CurrentFriend) end, "icon_block_friend_request")
-
-				local requestMessage=XBoxLive.GetMessageManager():GetRequestMessage(ControllerId, player.UserId)
-				if requestMessage and requestMessage.HasVoice then
-					local userId = XBoxLive.Auth.GetSignedInUserId(XBoxLive.Auth.GetSignedInUserNr(ControllerId))
-					if userId ~= nil then
-						local voiceMan = Network:GetVoiceManager()
-						local voicePlayer = voiceMan:GetPlayer(userId)
-						if voicePlayer:IsVoiceBanned() == false then
-							AddMenuButton(newbuttons, LISTEN_MESSAGE, ICON_LIVE_VOICEMESSAGE, function() HidePlayersList(); ListenToVoiceMessage("R", requestMessage.MessageId, function() EnterPlayersList(Mode, BackAction, GameInvitesEnabled) end); end, "icon_listen_to_voice_message")
-						end
-					end
-				end
+				title = ICON_MULTIPLAYER_SELECTBUDDY
 			end
 		end
-		
-		if Mode == MODE_FRIENDS and Friends.GetNumFriends() > 0 then
-			AddMenuButton(newbuttons, PLAYER_PROFILE, ICON_MULTIPLAYER_PLAYER_PROFILE, function() ShowMultiPlayerProfile() end, "icon_player_profile")
-		elseif Mode == MODE_PLAYERS then
-			local numPlayers = XBoxLive.GetPlayersList():GetNumCurrentPlayers() + XBoxLive.GetPlayersList():GetNumRecentPlayers()
-			if numPlayers > 0 then
-				AddMenuButton(newbuttons, PLAYER_PROFILE, ICON_MULTIPLAYER_PLAYER_PROFILE, function() ShowMultiPlayerProfile() end, "icon_player_profile")
+		AddMenuButton(title, function() ShowPlayerOptions() end, "icon_select_player")
+--		end
+			
+		if Mode == MODE_FRIENDS and (not XBOX or Friends.GetNumFriends() < 100) then
+			if XBOX then
+				title = ICON_LIVE_ADDFRIEND
+			else
+				title = ICON_MULTIPLAYER_ADDBUDDY
 			end
+			AddMenuButton(title, function() AddFriend() end, "icon_add_friend")
 		end
-
+	else	
+		if XBOX then
+			AddMenuButton(ICON_MULTIPLAYER_PLAYER_PROFILE, function() ShowMultiPlayerProfile() end, "icon_player_profile")
+		end
 		if XBOX and Mode == MODE_PLAYERS then
-			AddMenuButton(newbuttons, SEND_FEEDBACK, ICON_LIVE_PLAYER_SENDFEEDBACK, function() ShowFeedback() end, "icon_send_feedback")
+			AddMenuButton(ICON_LIVE_PLAYER_SENDFEEDBACK, function() ShowFeedback() end, "icon_send_feedback")
 		end	
 		
-		if not player.ReceivedInvite and CurrentFriend and Friends.GetNumFriends() > 0 and not CurrentFriend.SentRequest and not CurrentFriend.ReceivedRequest then
-			if player.Joinable and not SameSession(player) then
-				if XBOX then
-					title = ICON_LIVE_PLAYER_JOINFRIEND
-				else
-					title = ICON_GAMESPY_PLAYER_JOINBUDDY
-				end
-				AddMenuButton(newbuttons, JOIN_FRIEND, title, function() JoinFriend(CurrentFriend) end, "icon_join_friend")
-			end
-			if GameInvitesEnabled then
-				if CurrentFriend and CurrentFriend.SentInvite and not CurrentFriend.InviteRejected then
-					if XBOX then
-						title = ICON_LIVE_PLAYER_CANCELGAMEINVITE
-					else
-						title = ICON_GAMESPY_PLAYER_CANCELGAMEINVITE
-					end
-					AddMenuButton(newbuttons, CANCEL_INVITE, title, function() CancelGameInvite(CurrentFriend) end, "icon_cancel_game_invite")
-				else
-					local localVoicePlayer = Network:GetVoiceManager():GetPlayerByPort(ControllerId)
-					if XBOX and localVoicePlayer:GetHeadsetConnected() and not SameSession(player) and not localVoicePlayer:IsVoiceBanned() then
-						AddMenuButton(newbuttons, SEND_INVITE_VOICE, ICON_LIVE_PLAYER_SENDGAMEINVITEVOICE, function() HidePlayersList(); SendVoiceMessage("I", function() EnterPlayersList(Mode, BackAction, GameInvitesEnabled) end) end, "icon_send_game_invite_with_voice_message")
-					end
-					if (XBOX or Friends.SameTitle(player)) and not SameSession(player) then
-						if XBOX then
-							title = ICON_LIVE_PLAYER_SENDGAMEINVITE
-						else
-							title = ICON_GAMESPY_PLAYER_SENDGAMEINVITE
-						end
-						AddMenuButton(newbuttons, SEND_INVITE, title, function() SendGameInvite(CurrentFriend) end, "icon_send_game_invite")
-					end
-				end
-			end
+		local player
+		if Mode == MODE_PLAYERS and XBOX then
+			player = CurrentPlayer
+		else
+			player = CurrentFriend
 		end
 		
-		if CurrentFriend and CurrentFriend.SentRequest then
-			if XBOX then
-				AddMenuButton(newbuttons, CANCEL_REQUEST, ICON_LIVE_PLAYER_CANCELFRIENDREQUEST, function() CancelFriendRequest(CurrentFriend) end, "icon_cancel_friend_request")
-			end
-		elseif CurrentFriend == nil then
-			if not XBOX or Friends.GetNumFriends() < 100 then
-				local localVoicePlayer = Network:GetVoiceManager():GetPlayerByPort(ControllerId)
-				if XBOX and localVoicePlayer:GetHeadsetConnected() and not localVoicePlayer:IsVoiceBanned() then
-					AddMenuButton(newbuttons, SEND_REQUEST_VOICE, ICON_LIVE_PLAYER_SENDFRIENDREQUESTVOICE, function() SendFriendRequestWithVoice() end, "icon_send_friend_request_with_voice_message")
+		if player then		
+			if player.ReceivedRequest then
+				if XBOX then
+					title = ICON_LIVE_PLAYER_ACCEPTFRIENDREQUEST
+				else
+					title = ICON_GAMESPY_PLAYER_ACCEPTBUDDYREQUEST
 				end
-				AddMenuButton(newbuttons, SEND_REQUEST, ICON_LIVE_PLAYER_SENDFRIENDREQUEST, function() SendFriendRequest() end, "icon_send_friend_request")
-			end
-		end
+				AddMenuButton(title, function() AcceptFriendRequest() end, "icon_accept_friend_request")
+				if XBOX then
+					title = ICON_LIVE_PLAYER_DECLINEFRIENDREQUEST
+				else
+					title = ICON_GAMESPY_PLAYER_DECLINEBUDDYREQUEST
+				end
+				AddMenuButton(title, function() DeclineFriendRequest() end, "icon_decline_friend_request")
+				if XBOX then
+					AddMenuButton(ICON_LIVE_PLAYER_BLOCKFRIENDREQUEST, function() BlockFriendRequest() end, "icon_block_friend_request")
 
-		if XBOX and Mode == MODE_PLAYERS then
+					local requestMessage=XBoxLive.GetMessageManager():GetRequestMessage(ControllerId, player.UserId)
+					if requestMessage and requestMessage.HasVoice then
+						local userId = XBoxLive.Auth.GetSignedInUserId(XBoxLive.Auth.GetSignedInUserNr(ControllerId))
+						if userId ~= nil then
+							local voiceMan = Network:GetVoiceManager()
+							local voicePlayer = voiceMan:GetPlayer(userId)
+							if voicePlayer:IsVoiceBanned() == false then
+								AddMenuButton(ICON_LIVE_VOICEMESSAGE, function() HidePlayersList(); ListenToVoiceMessage("R", requestMessage.MessageId, function() EnterPlayersList(Mode, ControllerId, BackAction, GameInvitesEnabled) end); end, "icon_listen_to_voice_message")
+							end
+						end
+					end
+				end
+			elseif player.SentRequest then
+				if XBOX then
+					AddMenuButton(ICON_LIVE_PLAYER_CANCELFRIENDREQUEST, function() CancelFriendRequest() end, "icon_cancel_friend_request")
+				end
+			else
+				if XBOX then
+					title = ICON_LIVE_PLAYER_REMOVEFRIEND
+				else
+					title = ICON_GAMESPY_PLAYER_REMOVEBUDDY
+				end
+				AddMenuButton(title, function() RemoveFriend() end, "icon_remove_friend")			
+			end
+
+			if player.ReceivedInvite then
+				if XBOX then
+					title = ICON_LIVE_PLAYER_ACCEPTGAMEINVITE
+				else
+					title = ICON_GAMESPY_PLAYER_ACCEPTGAMEINVITE
+				end
+				AddMenuButton(title, function() AcceptGameInvite() end, "icon_accept_game_invite")
+				if XBOX then
+					title = ICON_LIVE_PLAYER_DECLINEGAMEINVITE
+				else
+					title = ICON_GAMESPY_PLAYER_DECLINEGAMEINVITE
+				end
+				AddMenuButton(title, function() DeclineGameInvite() end, "icon_decline_game_invite")
+				if XBOX then
+					local inviteMessage = XBoxLive.GetMessageManager():GetInviteMessage(ControllerId, player.UserId)
+					if inviteMessage and inviteMessage.HasVoice then
+						local userId = XBoxLive.Auth.GetSignedInUserId(XBoxLive.Auth.GetSignedInUserNr(ControllerId))
+						if userId ~= nil then
+							local voiceMan = Network:GetVoiceManager()
+							local voicePlayer = voiceMan:GetPlayer(userId)
+							if voicePlayer:IsVoiceBanned() == false then
+								AddMenuButton(ICON_LIVE_VOICEMESSAGE, function() HidePlayersList(); ListenToVoiceMessage("I", inviteMessage.MessageId, function() EnterPlayersList(Mode, ControllerId, BackAction, GameInvitesEnabled) end); end, "icon_listen_to_voice_message")
+							end
+						end
+					end
+				end
+			else
+				if player.Playing and not SameSession(player) then
+					if XBOX then
+						title = ICON_LIVE_PLAYER_JOINFRIEND
+					else
+						title = ICON_GAMESPY_PLAYER_JOINBUDDY
+					end
+					AddMenuButton(title, function() JoinFriend() end, "icon_join_friend")
+				end
+				if GameInvitesEnabled then
+					if player.SentInvite then
+						if XBOX then
+							title = ICON_LIVE_PLAYER_CANCELGAMEINVITE
+						else
+							title = ICON_GAMESPY_PLAYER_CANCELGAMEINVITE
+						end
+--						if XBOX then
+							AddMenuButton(title, function() CancelGameInvite() end, "icon_cancel_game_invite")
+--						end
+					else
+						local localVoicePlayer = Network:GetVoiceManager():GetPlayerByPort(ControllerId)
+						if XBOX and localVoicePlayer:GetHeadsetConnected() and not SameSession(player) then
+							AddMenuButton(ICON_LIVE_PLAYER_SENDGAMEINVITEVOICE, function() HidePlayersList(); SendVoiceMessage("I", function() EnterPlayersList(Mode, ControllerId, BackAction, GameInvitesEnabled) end) end, "icon_send_game_invite_with_voice_message")
+						end
+						if (XBOX or Friends.SameTitle(player)) and not SameSession(player) then
+							if XBOX then
+								title = ICON_LIVE_PLAYER_SENDGAMEINVITE
+							else
+								title = ICON_GAMESPY_PLAYER_SENDGAMEINVITE
+							end
+							AddMenuButton(title, function() SendGameInvite() end, "icon_send_game_invite")
+						end
+					end
+				end
+			end
+			
 			if player.Muted then
-				AddMenuButton(newbuttons, UNMUTE, ICON_MULTIPLAYER_PLAYER_UNMUTE, function() UnMutePlayer() end, "icon_unmute_player")
+				AddMenuButton(ICON_MULTIPLAYER_PLAYER_UNMUTE, function() UnMutePlayer() end, "icon_unmute_player")
 			else
-				AddMenuButton(newbuttons, MUTE, ICON_MULTIPLAYER_PLAYER_MUTE, function() MutePlayer() end, "icon_mute_player")
+				AddMenuButton(ICON_MULTIPLAYER_PLAYER_MUTE, function() MutePlayer() end, "icon_mute_player")
 			end
-		end
-
-		if Friends.GetNumFriends() > 0 and CurrentFriend and not (CurrentFriend.ReceivedRequest or CurrentFriend.SentRequest) then
-			if XBOX then
-				title = ICON_LIVE_PLAYER_REMOVEFRIEND
-			else
-				title = ICON_GAMESPY_PLAYER_REMOVEBUDDY
-			end
-			AddMenuButton(newbuttons, REMOVE_FRIEND, title, function() RemoveFriend(CurrentFriend) end, "icon_remove_friend")			
-		end
-	end
-
-	local buttonschanged = false
-	
-	if table.getn(newbuttons) ~= table.getn(OptionsPopup.Buttons) then
-		buttonschanged = true
-	else
-		for i = 1, table.getn(OptionsPopup.Buttons) do
-			if newbuttons[i].id ~= OptionsPopup.Buttons[i].id then
-				buttonschanged = true
-			end
-		end
-	end
-	
-	if buttonschanged then
-		local newActiveItem = activeItem
-		if oldActiveItemId then
-			for i = 1, table.getn(newbuttons) do
-				if newbuttons[i].id == oldActiveItemId or oldActiveItemId == MUTE and newbuttons[i].id == UNMUTE or oldActiveItemId == UNMUTE and newbuttons[i].id == MUTE then
-					newActiveItem = i
-					break
+		else
+			local localVoicePlayer = Network:GetVoiceManager():GetPlayerByPort(ControllerId)
+			if not XBOX or Friends.GetNumFriends() < 100 then
+				if XBOX and localVoicePlayer:GetHeadsetConnected() then
+					AddMenuButton(ICON_LIVE_PLAYER_SENDFRIENDREQUESTVOICE, function() SendFriendRequestWithVoice() end, "icon_send_friend_request_with_voice_message")
 				end
+				if XBOX then
+					title = ICON_LIVE_PLAYER_SENDFRIENDREQUEST
+				else
+					title = ICON_GAMESPY_PLAYER_SENDBUDDYREQUEST
+				end
+				AddMenuButton(title, function() SendFriendRequest() end, "icon_send_friend_request_with_voice_message")
+			end
+			if CurrentPlayer.Muted then
+				AddMenuButton(ICON_MULTIPLAYER_PLAYER_UNMUTE, function() UnMutePlayer() end, "icon_unmute_player")
+			else
+				AddMenuButton(ICON_MULTIPLAYER_PLAYER_MUTE, function() MutePlayer() end, "icon_mute_player")
 			end
 		end
-
-		OptionsPopup.ClearButtons()
-		OptionsPopup.Buttons = newbuttons
-		OptionsPopup.ShowButtons(newActiveItem or 1)
 	end
+	
+	OptionsPopup.ShowButtons(activeItem or 1)
 end
 
 function ShowPlayersListUI()
-	local playersListObj
-	if XBOX then
-		playersListObj = XBoxLive.GetPlayersList()
-	else
-		playersListObj = GameSpy.GetPlayersList()
-	end
-	
 	OptionsPopup.DeInit = function()
 		HidePlayersList()
 	end
@@ -1109,18 +1052,11 @@ function ShowPlayersListUI()
 	EventListener = Event:AddListener(PlayersListEvents, EVENTTYPE_NETWORK)
 	
 	OptionsPopup.Resize(Layout.BoxPos, Layout.BoxSize)
-	OptionsPopup.SetMenuTitle(L"")
-	if Mode == MODE_FRIENDS then
-		if Friends.GetNumFriends() == 0 then
-			OptionsPopup.SetHelpButtons(UI_BACK, nil, nil, ICON_LIVE_ADDFRIEND)
-		elseif Friends.GetNumFriends() < 100 then
-			OptionsPopup.SetHelpButtons(UI_BACK, UI_SELECT, nil, ICON_LIVE_ADDFRIEND)
-		else
-			OptionsPopup.SetHelpButtons(UI_BACK, UI_SELECT)
-		end
-	else
-		OptionsPopup.SetHelpButtons(UI_BACK, UI_SELECT)
-	end
+	OptionsPopup.SetMenuTitle(TITLE_LIVE_OPTIONS)
+	OptionsPopup.SetHelpButtons(UI_BACK, UI_SELECT)
+	
+	--OptionsPopup.AnimateShow()
+	--OptionsPopup.AnimateSize(Layout.BoxSize)
 	
 	local bgbox = wm.GetWindow("options_box")			
 	local contentbox = Frame { Name="pl_contentbox", Position=POS(0,0), Size=pack(bgbox:GetSize()), Layer=5, Parent=bgbox }
@@ -1140,11 +1076,11 @@ function ShowPlayersListUI()
 		end
 	end
 	
-	local scrollDownArrow = Button { Position=Layout.ScrollDownArrowPos, Size=wm.GetResourceSize(wm.GetResource("scroll_arrow_orange_down")), Parent=contentbox, Layer=5 }
-	local scrollUpArrow = Button { Position=Layout.ScrollUpArrowPos, Size=wm.GetResourceSize(wm.GetResource("scroll_arrow_orange_up")), Parent=contentbox, Layer=5 }
+	local scrollDownArrow = Button { Position=Layout.ScrollDownArrowPos, Size=wm.GetResourceSize(wm.GetResource("scroll_arrow_down")), Parent=contentbox, Layer=5 }
+	local scrollUpArrow = Button { Position=Layout.ScrollUpArrowPos, Size=wm.GetResourceSize(wm.GetResource("scroll_arrow_up")), Parent=contentbox, Layer=5 }
 
-	scrollDownArrow:AttachResource(wm.GetResource("scroll_arrow_orange_down"))
-	scrollUpArrow:AttachResource(wm.GetResource("scroll_arrow_orange_up"))
+	scrollDownArrow:AttachResource(wm.GetResource("scroll_arrow_down"))
+	scrollUpArrow:AttachResource(wm.GetResource("scroll_arrow_up"))
 	scrollDownArrow:HideWindow()
 	scrollUpArrow:HideWindow()
 	
@@ -1191,6 +1127,13 @@ function ShowPlayersListUI()
 			end
 			},
 			[4]={
+			Name="pl_flagicon", -- _row# is added
+			ColoumnTemplate={Position=Layout.ListFlagIconPos, Size=SIZE(20,13), Layer=5},
+			ColoumnTemplateType="Frame",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+			end
+			},
+			[5]={
 			Name="pl_playername", -- _row# is added
 			ColoumnTemplate={Position=Layout.ListNamePos, Size=Layout.ListNameSize, Font=Layout.ListFont, DrawBackgroundColor=FALSE, ShowBorders=FALSE, Layer=5},
 			ColoumnTemplateType="StaticText",
@@ -1207,46 +1150,84 @@ function ShowPlayersListUI()
 		local num=wm.GetWindow("pl_num_row"..ControlRowNr)
 		local voiceicon=wm.GetWindow("pl_voiceicon_row"..ControlRowNr)
 		local statusicon=wm.GetWindow("pl_statusicon_row"..ControlRowNr)
+		local flag=wm.GetWindow("pl_flagicon_row"..ControlRowNr)
 		local playername=wm.GetWindow("pl_playername_row"..ControlRowNr)
 		local friend=nil
 		
 		local status = GetStatus(RowNr)
-		playername:SetTitle(EscapeString(status.Name))
+--[[		if Mode == MODE_PLAYERS then
+			local player
 
-		if status.Muted then
-			voiceicon:AttachResource(wm.GetResource("xbox_voice_muted"))
-			voiceicon:ShowWindow()
-		elseif status.Voice then
-			if status.VoiceThroughSpeakers then
-				voiceicon:AttachResource(wm.GetResource("xbox_voice_tv"))
+			if XBOX then
+				player = XBoxLive.GetPlayersList():GetPlayerInfo(RowNr)
 			else
-				voiceicon:AttachResource(wm.GetResource("xbox_voice_communicator"))
+				player = GameSpy.GetPlayersList():GetPlayerInfo(RowNr)
 			end
-			voiceicon:ShowWindow()
+
+			playername:SetTitle(player.Name)
+
+			if player.IsFriend then
+				friend = Friends.GetFriendByUserId(player.UserId)
+			end
+
+			if player.Muted then
+				voiceicon:AttachResource(wm.GetResource("xbox_voice_muted"))
+				voiceicon:ShowWindow()
+			elseif player.HasVoice then
+				if player.Talking then
+					voiceicon:AttachResource(wm.GetResource("xbox_talking"))
+				elseif player.VoiceThroughSpeakers then
+					voiceicon:AttachResource(wm.GetResource("xbox_voice_tv"))
+				else
+					voiceicon:AttachResource(wm.GetResource("xbox_voice_communicator"))
+				end
+				voiceicon:ShowWindow()
+			else
+				voiceicon:HideWindow()
+			end
 		else
-			voiceicon:HideWindow()
-		end
+			friend = Friends.GetFriend(RowNr)--]]
+			playername:SetTitle(status.Name)
+
+			if status.Muted then
+				voiceicon:AttachResource(wm.GetResource("xbox_voice_muted"))
+				voiceicon:ShowWindow()
+			elseif status.Voice then
+				if status.VoiceThroughSpeakers then
+					voiceicon:AttachResource(wm.GetResource("xbox_voice_tv"))
+				else
+					voiceicon:AttachResource(wm.GetResource("xbox_voice_communicator"))
+				end
+				voiceicon:ShowWindow()
+			else
+				voiceicon:HideWindow()
+			end
+--		end
 		
 		num:SetTitle(L(RowNr.."."))
 		
-		statusicon:ShowWindow()
-		if status.ReceivedRequest then
-			statusicon:AttachResource(wm.GetResource("xbox_friend_invite_received"))
-		elseif status.SentRequest then
-			statusicon:AttachResource(wm.GetResource("xbox_friend_sent"))
-		elseif status.ReceivedInvite then
-			statusicon:AttachResource(wm.GetResource("xbox_game_invite_received"))
-		elseif status.SentInvite then
-			statusicon:AttachResource(wm.GetResource("xbox_game_invite_sent"))
-		elseif Mode == MODE_FRIENDS and status.Online or Mode == MODE_PLAYERS and status.IsFriend and status.Online then
-			statusicon:AttachResource(wm.GetResource("xbox_friend_online"))
-		else
-			statusicon:HideWindow()
-		end
+--		if friend then
+			statusicon:ShowWindow()
+			if status.ReceivedRequest then
+				statusicon:AttachResource(wm.GetResource("xbox_friend_invite_received"))
+			elseif status.SentRequest then
+				statusicon:AttachResource(wm.GetResource("xbox_friend_sent"))
+			elseif status.ReceivedInvite then
+				statusicon:AttachResource(wm.GetResource("xbox_game_invite_received"))
+			elseif status.SentInvite then
+				statusicon:AttachResource(wm.GetResource("xbox_game_invite_sent"))
+			elseif status.Online then
+				statusicon:AttachResource(wm.GetResource("xbox_friend_online"))
+			else
+				statusicon:HideWindow()
+			end
+--		else
+--			statusicon:HideWindow()
+--		end
 
 		if playerslist:GetSelectedRow() == RowNr then
 			local c = Layout.ListSelectedBgColor
-			c[4] = 1.0 * MAX_VERTEXCOLOR_A
+			c[4] = 0.5 * MAX_VERTEXCOLOR_A
 			if PS2 then
 				RowObject:SetColor({c[1]*2,c[2]*2,c[3]*2,c[4]}, false)
 			else
@@ -1284,6 +1265,23 @@ function ShowPlayersListUI()
 	end
 	
 	playerslist.onSelectedRowChanged=function(Self, RowNr)
+		if Mode == MODE_FRIENDS then
+			CurrentPlayer = nil
+			CurrentFriend = Friends.GetFriend(RowNr)
+		else
+			if XBOX then
+				CurrentPlayer = XBoxLive.GetPlayersList():GetPlayerInfo(RowNr)
+			else
+				CurrentPlayer = GameSpy.GetPlayersList():GetPlayerInfo(RowNr)
+			end
+
+			if CurrentPlayer.IsFriend then
+				CurrentFriend = Friends.GetFriendByUserId(CurrentPlayer.UserId)
+			else
+				CurrentFriend = nil
+			end
+		end
+		UpdatePlayerInfo(RowNr)
 	end
 	
 	playerslist:SetNumRows(0)
@@ -1317,56 +1315,36 @@ function ShowPlayersListUI()
 			return
 		end
 		
+		-- Handle menubar input for both modes
 		if VirtualKey == KeyCodes["BUTTON_LEFT"] then
-			if table.getn(OptionsPopup.Buttons) == 0 then
-				return
-			end
 			OptionsPopup.MoveLeft()
 			playmenusound_move()
 		elseif VirtualKey == KeyCodes["BUTTON_RIGHT"] then
-			if table.getn(OptionsPopup.Buttons) == 0 then
-				return
-			end
 			OptionsPopup.MoveRight()
 			playmenusound_move()
 		elseif VirtualKey == KeyCodes["BUTTON_START"] then
-			if table.getn(OptionsPopup.Buttons) == 0 then
-				return
-			end
-			if wm.GetTime() >= ButtonsChangedTime + 0.5 then
-				OptionsPopup.Buttons[OptionsPopup.ActiveButton].action()
-				playmenusound_action()
-			end
-		elseif VirtualKey == KeyCodes["BUTTON_X"] then
-			AddFriend()
-		elseif VirtualKey == KeyCodes["BUTTON_SELECT"] then
-			ExitPlayersList()
-			playmenusound_back()
-		elseif VirtualKey == KeyCodes["BUTTON_UP"] then
-			if table.getn(OptionsPopup.Buttons) == 0 then
-				return
-			end
+			OptionsPopup.Buttons[OptionsPopup.ActiveButton].action()
+			playmenusound_action()
+		elseif MenuState == SELECT_PLAYER then
+			-- Player selection input
 			local playerslist = wm.GetWindow("pl_playerslist")
-			local oldsel = playerslist:GetSelectedRow()
-			playerslist:MovePrev()
-			if oldsel ~= playerslist:GetSelectedRow() then
---				OptionsPopup.ActiveButton = 1
-				UpdateCurrentPlayerAndFriend()
-				UpdatePlayerInfo(playerslist:GetSelectedRow(), true)
+			if VirtualKey == KeyCodes["BUTTON_SELECT"] then
+				ExitPlayersList()
+				playmenusound_back()
+			elseif VirtualKey == KeyCodes["BUTTON_UP"] then
+				playerslist:MovePrev()
+				UpdatePlayerInfo(playerslist:GetSelectedRow())
+				playmenusound_move()
+			elseif VirtualKey == KeyCodes["BUTTON_DOWN"] then
+				playerslist:MoveNext()
+				UpdatePlayerInfo(playerslist:GetSelectedRow())
 				playmenusound_move()
 			end
-		elseif VirtualKey == KeyCodes["BUTTON_DOWN"] then
-			if table.getn(OptionsPopup.Buttons) == 0 then
-				return
-			end
-			local playerslist = wm.GetWindow("pl_playerslist")
-			local oldsel = playerslist:GetSelectedRow()
-			playerslist:MoveNext()
-			if oldsel ~= playerslist:GetSelectedRow() then
---				OptionsPopup.ActiveButton = 1
-				UpdateCurrentPlayerAndFriend()
-				UpdatePlayerInfo(playerslist:GetSelectedRow(), true)
-				playmenusound_move()
+		elseif MenuState == PLAYER_OPTIONS then
+			-- Player options input
+			if VirtualKey == KeyCodes["BUTTON_SELECT"] then
+				ReturnToSelection()
+				playmenusound_back()
 			end
 		end
 	end

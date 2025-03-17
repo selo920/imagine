@@ -36,11 +36,7 @@ local MenuTemplates = {
 		end,
 
 		deinit = function(self,child)
-			if child then
-				child:clearResources()
-			else
-				self:clearResources()
-			end
+
 		end,
 
 		startshow = function(self,child)
@@ -209,22 +205,6 @@ function CreateMenuFromTemplate(templatename,resources, ...)
 	return t
 end
 
-
-function HideMenuBarMoney()
-	local w=W("menubar_coin")
-	if w then
-		w:HideWindow()
-		W("menubar_money"):HideWindow()
-	end
-end
-
-function HideMenuBarCar()
-	local w=W("menubar_carname")
-	if w then
-		w:HideWindow()
-		W("menubar_tire"):HideWindow()
-	end
-end
 
 
 function StandardBarsAndButtons(menu,showmoney,showcarname)
@@ -972,6 +952,7 @@ MessageBoxWindows={}
 
 local PrevMsgBoxFocus=nil
 
+
 function AddMsgBoxWin(win)
 	table.insert(MessageBoxWindows, win)
 	return win
@@ -980,7 +961,7 @@ end
 function ShowMessageBox(Pos, TitleMsg, Message, LabelA, FunctionA, LabelB, FunctionB, LabelX, FunctionX, LabelY, FunctionY)
 	HideMessageBox()
 
-	GUI:AllowOnlineOptionsMenu(false)
+	GUI:EnableOnlineOptionsMenu(false)
 
 	PrevMsgBoxFocus=wm.GetFocus()
 	
@@ -1006,15 +987,15 @@ function ShowMessageBox(Pos, TitleMsg, Message, LabelA, FunctionA, LabelB, Funct
 			Title=TitleMsg,
 			Position=POS(30, 30),
 			Size=SIZE(310, 19),
-			Font=fontmedium(),
+			Font=fontlarge(),
 			ShowBorders=FALSE,
 			TitleCentering=TITLE_CENTER_X,
 			Parent=win,
-			Color=GetPaletteColor(33),
+			Color=GetPaletteColor(3),
 			Layer=5,
 			})
 		titlewin:WordWrap()
-		local _,titleheight = wm.GetTextExtents(titlewin:GetTitle(), fontmedium())
+		local _,titleheight = wm.GetTextExtents(titlewin:GetTitle(), fontlarge())
 		texty = texty + titleheight + 26
 	end
 	
@@ -1023,75 +1004,39 @@ function ShowMessageBox(Pos, TitleMsg, Message, LabelA, FunctionA, LabelB, Funct
 		Title=Message, 
 		Position=POS(30, texty),
 		Size=SIZE(310, 137), 
-		Font=fontmedium(), 
+		Font=fontlarge(), 
 		ShowBorders=FALSE, 
 		TitleCentering=TITLE_CENTER_X,
 		Parent=win,
-		Color=GetPaletteColor(34),
+		Color=GetPaletteColor(1),
 		Layer=5,
 		})
 	textwin:WordWrap()
 	
-	local _,textheight = wm.GetTextExtents(textwin:GetTitle(), fontmedium())
-	local buttonsheight = 22
-	
-	local aw=0
-	local bw=0
-	local xw=0
-	local yw=0
-	if LabelA then
-		aw,_ = wm.GetTextExtents(LabelA, fontmedium())
-	end
-	if LabelB then
-		bw,_ = wm.GetTextExtents(LabelB, fontmedium())
-	end
-	if LabelX then
-		xw,_ = wm.GetTextExtents(LabelX, fontmedium())
-	end
-	if LabelY then
-		yw,_ = wm.GetTextExtents(LabelY, fontmedium())
-	end
-	local tw=aw
-	
-	if bw > tw then
-		tw = bw
-	end
-	if xw > tw then
-		tw = xw
-	end
-	if yw > tw then
-		tw = yw
-	end
+	local _,textheight = wm.GetTextExtents(textwin:GetTitle(), fontlarge())
+	local buttonsheight = 20
 
-	local bx
-	if tw > 125 then
-		bx = 30 + 280 - tw
-	else
-		bx = 150
-	end
-	
 	local layout={
-		PosA=POS(bx, texty+textheight+26),
+		PosA=POS(150, texty+textheight+26),
 		PosB=nil,
 		PosX=nil,
 		PosY=nil
 	}
 	
 	if LabelB~=nil then
-		layout.PosB=POS(bx, texty+textheight+48)
-		buttonsheight = buttonsheight + 22
+		layout.PosB=POS(150, texty+textheight+46)
+		buttonsheight = buttonsheight + 20
 	end
 	
 	if LabelX~=nil then
-		layout.PosX=POS(bx, texty+textheight+70)
-		buttonsheight = buttonsheight + 22
+		layout.PosX=POS(150, texty+textheight+66)
+		buttonsheight = buttonsheight + 20
 	end
 	
 	if LabelY~=nil then
-		layout.PosY=POS(bx, texty+textheight+92)
-		buttonsheight = buttonsheight + 22
+		layout.PosY=POS(150, texty+textheight+86)
+		buttonsheight = buttonsheight + 20
 	end
-	
 	local winheight = texty + textheight + 26 + buttonsheight + 30 
 	win:SetPosition(boxleft, 240 - winheight / 2)
 	win:SetSize(370, winheight)
@@ -1104,13 +1049,17 @@ function ShowMessageBox(Pos, TitleMsg, Message, LabelA, FunctionA, LabelB, Funct
 	local posX=layout.PosX
 	local posY=layout.PosY
 
-	local labelPos=POS(20, 0)
+	local labelPos=POS(20, -5)
+	if getplatform()=="PC" then
+		labelPos=POS(30, -5)
+	end
 	local labelSize=SIZE(200, 16)
 	
 	local buttonLabel={
 		Size=labelSize, 
-		Font=fontmedium(), 
+		Font=fontlarge(), 
 		ShowBorders=FALSE, 
+		TitleCentering=TITLE_CENTER_NONE,
 		Layer=5,
 		Parent=win
 	}
@@ -1121,47 +1070,37 @@ function ShowMessageBox(Pos, TitleMsg, Message, LabelA, FunctionA, LabelB, Funct
 		button2 = "xbox_b"
 		button3 = "xbox_x"
 		button4 = "xbox_y"
-	elseif PS2 then
+	else
 		button1 = "ps2_cross"
 		button2 = "ps2_triangle"
 		button3 = "ps2_square"
 		button4 = "ps2_circle"
-	else
-		button1 = "enter_btn"
-		button2 = "esc_btn"
-		button3 = "delete_btn"
-		button4 = "ps2_circle"
-	end
-
-	local function CreateButton(pos, buttonres, label)
-		local button, buttontitle, icon
-		buttonLabel.Title = label
-		buttonLabel.Position = AddPos(pos, labelPos)
-		buttonLabel.Color = GetPaletteColor(34)
-		buttontitle = StaticText(buttonLabel)
-		
-		local _,h = wm.GetTextExtents(buttontitle:GetTitle(), fontmedium())
-		icon = wm.GetResource(buttonres)
-		local bsize = GetResourceSize(icon)
-		local bpos = POS(pos[1] - bsize[1] / 2, pos[2] + h / 2 - bsize[2] / 2)
-		button = Frame { Position=bpos, Size=bsize, Layer=5, Parent=win }
-		button:AttachResource(icon)
-		
-		AddMsgBoxWin(button)
-		AddMsgBoxWin(buttontitle)
 	end
 	
 	if LabelA~=nil then
-		CreateButton(posA, button1, LabelA)
+		AddMsgBoxWin(Frame{Position=posA, Size=GetResourceSize(wm.GetResource(button1)), ShowBorders=FALSE, Layer=5, Parent=win}):AttachResource(wm.GetResource(button1))
+		buttonLabel.Title=LabelA
+		buttonLabel.Position=AddPos(posA, labelPos) 
+		AddMsgBoxWin(StaticText(buttonLabel))
 	end	
 	if LabelB~=nil then
-		CreateButton(posB, button2, LabelB)
+		AddMsgBoxWin(Frame{Position=posB, Size=GetResourceSize(wm.GetResource(button2)), ShowBorders=FALSE, Layer=5, Parent=win}):AttachResource(wm.GetResource(button2))
+		buttonLabel.Title=LabelB
+		buttonLabel.Position=AddPos(posB, labelPos) 
+		AddMsgBoxWin(StaticText(buttonLabel))
 	end	
 	if LabelX~=nil then
-		CreateButton(posX, button3, LabelX)
+		AddMsgBoxWin(Frame{Position=posX, Size=GetResourceSize(wm.GetResource(button3)), ShowBorders=FALSE, Layer=5, Parent=win}):AttachResource(wm.GetResource(button3))
+
+		buttonLabel.Title=LabelX
+		buttonLabel.Position=AddPos(posX, labelPos) 
+		AddMsgBoxWin(StaticText(buttonLabel))
 	end	
 	if LabelY~=nil then
-		CreateButton(posY, button4, LabelY)
+		AddMsgBoxWin(Frame{Position=posY, Size=GetResourceSize(wm.GetResource(button4)), ShowBorders=FALSE, Layer=5, Parent=win}):AttachResource(wm.GetResource(button4))
+		buttonLabel.Title=LabelY
+		buttonLabel.Position=AddPos(posY, labelPos) 
+		AddMsgBoxWin(StaticText(buttonLabel))
 	end	
 	
 	local handler=AddMsgBoxWin(InputHandler{Parent=win})
@@ -1209,7 +1148,9 @@ function HideMessageBox()
 	end
 	PrevMsgBoxFocus=nil
 	
-	GUI:AllowOnlineOptionsMenu(true)
+	if not OptionsPopup.PopupActive then
+		GUI:EnableOnlineOptionsMenu(true)
+	end	
 end
 
 

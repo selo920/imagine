@@ -1,0 +1,118 @@
+--///////////////////////////////////////////////////////////////////////////
+--// CrossInvite.bed
+--///////////////////////////////////////////////////////////////////////////
+--// Copyright (c) 2004 Bugbear Entertainment ltd. 
+--// All Rights Reserved.
+--// 
+--// Created on 9.8.2004 20:34:26
+--// 
+--// Authors: Fred Sundvik (fred.sundvik@bugbear.fi)
+--///////////////////////////////////////////////////////////////////////////
+
+local function afterJoinFail()
+	Event:RemoveListener(EventListener)
+end
+
+local function NetworkEvents(event)
+	if event.id == EVENT_FIND_SESSIONS_COMPLETED then
+		HideThinkingWindow()
+		if SessionList:GetNumSessions()==0 then
+			MessageBox(MULTIPLAYER_NOSESSION, MESSAGEBOX_OK, function(value) afterJoinFail() end) 
+		else
+			SessionList:SetSessionNum(1)
+			SessionList:JoinSession()
+		end
+	elseif event.id == EVENT_NETWORK_REQUEST_PLAYERUPDATE then
+		local player = Session:GetLocalPlayer(1)
+
+		player.Name = XBoxLive.Auth.GetSignedInUserName(1)
+		player.UId = XBoxLive.Auth.GetSignedInUserId(1)
+		
+		local info = Session:GetInfo()
+
+		if info.CarClass > 4 then
+			player.Car = info.CarClass - 5
+		elseif info.CarClass ~= SessionInfo.CarClass.Any then
+			local classCars = CarlistFromClass(info.CarClass - 1, false, true)
+			player.Car = classCars[0]
+		else
+			player.Car = 0
+		end
+
+		player.CarSkin=1
+		--player.Score = 0
+		if info.CarUpgrades ~= SessionInfo.CarUpgrades.Any then
+			player.UpgradeLevel = info.CarUpgrades
+		else
+			player.UpgradeLevel = SessionInfo.CarUpgrades.Full
+		end
+	elseif event.id == EVENT_NETWORK_JOIN_RESULT then
+		HideThinkingWindow()
+		if event.data == 0 then
+			MessageBox(LIVE_CANNOTJOINFRIEND, MESSAGEBOX_OK, function() afterJoinFail() end) 
+		elseif event.data == 1 then
+			Event:RemoveListener(EventListener)
+			MultiplayerMode = MPMODE_XBOXLIVE
+			ShowLobby("menu_xboxlive")
+		end
+	end
+end
+
+
+local function AcceptGameInvite(SessionId, UserNr)
+	EventListener = Event:AddListener(NetworkEvents, EVENTTYPE_NETWORK)	
+
+	ShowThinkingWindow()
+
+	--Network.StartMultiplayer()
+	XBoxLive.CreateFindSessionQuery()
+
+	SessionList:SetParameter("Id", XBoxLive.SessionKIdToString(SessionId))
+	SessionList:Refresh()
+end
+
+
+local function ShowCrossInviteBox(UserNr, SessionId)
+	local message = XBoxLive.Auth.GetUserName(UserNr)
+	message = WStringConcat(message, L" has received a cross-game invite. Do you want to accept the invite?")
+	
+	MessageBox(message, MESSAGEBOX_YESNO,
+		function(value)
+			if value == TRUE then
+				AcceptGameInvite(SessionId, UserNr)
+			else
+				EnterMenu("menu_xboxlive")
+			end
+		end
+	)
+end
+
+function XBoxLiveSignedInCheckGameInvite()
+	if AcceptedInvite then
+		local numUsers = XBoxLive.Auth.GetNumSignedInUsers()
+		for i=1, numUsers do
+			if XBoxLive.Auth.GetSignedInUserId(i) == AcceptedInvite.UserId then
+				ShowCrossInviteBox(i, AcceptedInvite.SessionId)
+				AcceptedInvite = nil
+				return true
+			end
+		end
+	end
+	
+	return false
+end
+
+function XBoxLiveCheckGameInvite()
+	AcceptedInvite = XBoxLive.GetAcceptedGameInvite()
+	if AcceptedInvite then
+		XBoxLive.Auth.ReadUsers()
+		local numUsers = XBoxLive.Auth.GetNumUsers()
+		for i=1, numUsers do
+			if XBoxLive.Auth.GetUserId(i) == AcceptedInvite.UserId then
+				local msg = WStringConcat(XBoxLive.Auth.GetUserName(i), L" has received a cross-game invite. Enter XBox Live to accept the invite.")
+				MessageBox(msg, MESSAGEBOX_OK, function() end)
+				return
+			end
+		end
+	end
+end

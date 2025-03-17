@@ -1,0 +1,628 @@
+--///////////////////////////////////////////////////////////////////////////
+--// FriendOptions.bed
+--///////////////////////////////////////////////////////////////////////////
+--// Copyright (c) 2004 Bugbear Entertainment ltd. 
+--// All Rights Reserved.
+--// 
+--// Created on 7.6.2004 12:42:51
+--// 
+--// Authors: Fred Sundvik (fred.sundvik@bugbear.fi)
+--///////////////////////////////////////////////////////////////////////////
+
+--local FriendOptionImages={
+--	BigBox=image("big_box.tga"),
+--	InfoBox=image("infobox.tga")
+--}
+
+local Layout=XBoxLiveMenuLayout.FriendOptionsLayout
+
+local OptionAlternatives={}
+CurrentFriend={}
+CurrentPlayer={}
+PlayerOptionsEnabled=nil
+FriendPrevMenu=nil
+
+local FriendTitle=FRIEND_OPTIONS
+local PlayerTitle=FRIEND_PLAYEROPTIONS
+
+local emptyFunc=function()end
+local isRefreshCompleted=function()return SessionList:IsRefreshCompleted()end
+local isSearchSuccessful=function()
+	return SessionList:GetNumSessions()==1
+end
+local onSearchFailure=function()
+	HideThinkingWindow()
+	ShowMessageBox(
+		SAFEPOS(154, 70),
+		FRIEND_NOSESSION, 
+		FRIEND_OK, 
+		HideFriendOptions
+	) 
+end
+local joinSession=function()
+	SessionList:SetSessionNum(1)
+	Session:Reset()
+	for i=1, XBoxLive.Auth.GetNumSignedInUsers() do
+		local userId=XBoxLive.Auth.GetSignedInUserId(i)
+		local userPort=XBoxLive.Auth.GetSignedInUserPort(i)
+		Session:AddLocalPlayer(userId, userPort)
+		local player=Session:GetLocalPlayer(i)
+		player:SetName(XBoxLive.Auth.GetSignedInUserName(i))
+	end
+	SessionList:JoinSession()
+end
+local isJoinFailed=function()
+	return Session:GetProgress()=="FAILED"
+end
+local isJoinCompleted=function()
+	return Session:GetProgress()=="SUCCESS"
+end
+local onJoinFailed=function()
+	HideThinkingWindow()
+	ShowMessageBox(
+		SAFEPOS(154, 70),
+		FRIEND_NOTJOIN, 
+		FRIEND_OK, 
+		HideFriendOptions
+	) 
+end
+
+local isSendInviteCompleted=function()
+	local transStatus=XBoxLive.GetMessageManager():GetTransferStatus()
+	return transStatus=="SUCCESS" or transStatus=="FAILED"
+end
+
+local isSendRequestCompleted=function()
+	local transStatus=XBoxLive.GetMessageManager():GetTransferStatus()
+	return transStatus=="SUCCESS" or transStatus=="FAILED"
+end
+
+
+
+function ShowFriendOptions(Friend, PrevMenu)
+	CurrentFriend = Friend
+	CurrentPlayer = nil
+	PlayerOptionsEnabled = false
+	FriendPrevMenu = PrevMenu
+	menu_xboxlive_friend_options.back = entermenu(PrevMenu)
+	EnterMenu("menu_xboxlive_friend_options")
+end
+
+function HideFriendOptions()
+	menu_xboxlive_friend_options.options.back_action()
+end
+
+function ShowPlayerOptions(Player, Friend, PrevMenu)
+	CurrentFriend=Friend
+	CurrentPlayer=Player
+	FriendPrevMenu=PrevMenu
+	PlayerOptionsEnabled=true
+	menu_xboxlive_friend_options.options.back_action=entermenu(PrevMenu)
+	EnterMenu("menu_xboxlive_friend_options")
+end
+
+function SendFriendRequest()
+	Friends.SendRequest(CurrentPlayer.UserId, false)
+	MultiplayerWaitState=FSM()
+	ShowThinkingWindow()
+	FSM_init_state(MultiplayerWaitState)
+	FSM_add_wait_for_event(MultiplayerWaitState, 0.1, emptyFunc, isSendRequestCompleted)
+	FSM_add_function(MultiplayerWaitState, 	HideFriendOptions, false, {})
+	FSM_add_function(MultiplayerWaitState, HideThinkingWindow, false, {})
+end
+
+function AcceptFriendRequest()
+	Friends.AnswerRequest(CurrentFriend, "YES");
+	HideFriendOptions()
+end
+
+function DeclineFriendRequest()
+	Friends.AnswerRequest(CurrentFriend, "NO")
+	HideFriendOptions()
+end
+
+function BlockFriendRequest()
+	local block=function()
+		Friends.AnswerRequest(CurrentFriend, "BLOCK")
+		HideFriendOptions()
+	end
+	ShowMessageBox(
+		SAFEPOS(154, 70),
+		FRIEND_BLOCK, 
+		FRIEND_YES, block, 
+		FRIEND_NO, HideFriendOptions)
+end
+
+
+
+function CancelFriendRequest()
+	Friends.RemoveFriend(CurrentFriend)	
+	HideFriendOptions()
+end
+
+function SendGameInvite(UseVoice)
+	Friends.SendInvite(CurrentFriend, false)
+	MultiplayerWaitState=FSM()
+	ShowThinkingWindow()
+	FSM_init_state(MultiplayerWaitState)
+	FSM_add_wait_for_event(MultiplayerWaitState, 0.1, emptyFunc, isSendInviteCompleted)
+	FSM_add_function(MultiplayerWaitState, 	HideFriendOptions, false, {})
+	FSM_add_function(MultiplayerWaitState, HideThinkingWindow, false, {})
+end
+
+function AcceptGameInvite()
+	Friends.AnswerInvite(CurrentFriend, "YES")
+	if Friends.SameTitle(CurrentFriend) then
+		MultiplayerWaitState=FSM()
+		FSM_init_state(MultiplayerWaitState)
+		local f=function()
+			ShowThinkingWindow()
+			Network:StartXBoxLive()
+			XBoxLive.CreateFindSessionQuery()
+			SessionList:SetParameter("Id", XBoxLive.SessionKIdToString(CurrentFriend.SessionId))
+			SessionList:Refresh()
+			FSM_add_wait_for_event(MultiplayerWaitState, 0.1, emptyFunc, isRefreshCompleted)
+			FSM_check_condition(MultiplayerWaitState, isSearchSuccessful, onSearchFailure)
+			--TODO implement
+			--FSM_check_condition(MultiplayerWaitState, sessionHasRoom, onSessionFull)
+			FSM_add_function(MultiplayerWaitState, joinSession, false, {})
+			FSM_add_wait_for_event(MultiplayerWaitState, 0.1, emptyFunc, isJoinCompleted, isJoinFailed, onJoinFailed, 10)
+			FSM_add_function(MultiplayerWaitState, HideFriendsList, false, {})
+			FSM_add_function(MultiplayerWaitState, GameFlow.SetGameMode, false, {"JOIN"})
+			FSM_add_function(MultiplayerWaitState, ShowLiveLobby, false, {function()Network:StopXBoxLive()EnterMenu("menu_xboxlive")end,entermenu("menu_xboxlive_lobby")})
+			FSM_add_function(MultiplayerWaitState, HideThinkingWindow, false, {})
+		end
+		if Session then
+			menu_xboxlive_options.options.back_action=entermenu("menu_xboxlive")
+			if GameFlow.GetGameMode()=="HOST" then
+				ShowMessageBox(SAFEPOS(154, 70), 
+						LIVELOBBY_LEAVING,
+						LIVELOBBY_YES, 
+						f,
+						LIVELOBBY_NO, 
+						function()wm.GetWindow("inputhandler"):SetFocus()end
+					)				
+			else
+				ShowMessageBox(SAFEPOS(154, 70), 
+						FRIEND_EXITGAME,
+						LIVELOBBY_YES, 
+						f,
+						LIVELOBBY_NO, 
+						function()wm.GetWindow("inputhandler"):SetFocus()end
+					)				
+			end
+		else
+			f()
+		end
+	else
+		Friends.JoinGame(CurrentFriend)
+		local message=FRIEND_TOJOIN_1
+		message=WStringConcat(message, CurrentFriend.GameTitle)
+		message=WStringConcat(message, FRIEND_TOJOIN_2)
+		ShowMessageBox(
+		SAFEPOS(154, 70),
+		message, 
+		FRIEND_OK, HideFriendOptions
+		)		
+	end
+end
+
+function DeclineGameInvite()
+	Friends.AnswerInvite(CurrentFriend, "NO")
+	HideFriendOptions()
+end
+
+function CancelGameInvite()
+	Friends.CancelInvite(CurrentFriend)
+	HideFriendOptions()
+end
+
+function RemoveFriend()
+	local remove=function()
+		if CurrentFriend.ReceivedInvite then
+			--Friends.AnswerInvite(CurrentFriend, "REMOVE")
+			Friends.AnswerInvite(CurrentFriend, "NO")
+			Friends.RemoveFriend(CurrentFriend)
+		else
+			Friends.RemoveFriend(CurrentFriend)
+		end
+		HideFriendOptions()
+	end
+	ShowMessageBox(
+	SAFEPOS(154, 70),
+	FRIEND_REMOVE_LIST, 
+	FRIEND_YES, remove, 
+	FRIEND_NO,  HideFriendOptions)
+end
+
+
+function JoinFriend()
+	if Friends.SameTitle(CurrentFriend) then
+		MultiplayerWaitState=FSM()
+		FSM_init_state(MultiplayerWaitState)
+		local f=function()
+			ShowThinkingWindow()
+			Network:StartXBoxLive()
+			XBoxLive.CreateFindSessionQuery()
+			SessionList:SetParameter("Id", XBoxLive.SessionKIdToString(CurrentFriend.SessionId))
+			SessionList:Refresh()
+			FSM_add_wait_for_event(MultiplayerWaitState, 0.1, emptyFunc, isRefreshCompleted)
+			FSM_check_condition(MultiplayerWaitState, isSearchSuccessful, onSearchFailure)
+			--TODO implement
+			--FSM_check_condition(MultiplayerWaitState, sessionHasRoom, onSessionFull)
+			FSM_add_function(MultiplayerWaitState, joinSession, false, {})
+			FSM_add_wait_for_event(MultiplayerWaitState, 0.1, emptyFunc, isJoinCompleted, isJoinFailed, onJoinFailed, 10)
+			FSM_add_function(MultiplayerWaitState, HideFriendsList, false, {})
+			FSM_add_function(MultiplayerWaitState, GameFlow.SetGameMode, false, {"JOIN"})
+			FSM_add_function(MultiplayerWaitState, ShowLiveLobby, false, {function()Network:StopXBoxLive()EnterMenu("menu_xboxlive")end,entermenu("menu_xboxlive_lobby")})
+			FSM_add_function(MultiplayerWaitState, HideThinkingWindow, false, {})
+		end
+		if Session then
+			menu_xboxlive_options.options.back_action=entermenu("menu_xboxlive")
+			if GameFlow.GetGameMode()=="HOST" then
+				ShowMessageBox(SAFEPOS(154, 70), 
+						LIVELOBBY_LEAVING,
+						LIVELOBBY_YES, 
+						f,
+						LIVELOBBY_NO, 
+						function()wm.GetWindow("inputhandler"):SetFocus()end
+					)				
+			else
+				ShowMessageBox(SAFEPOS(154, 70), 
+						FRIEND_EXITGAME,
+						LIVELOBBY_YES, 
+						f,
+						LIVELOBBY_NO, 
+						function()wm.GetWindow("inputhandler"):SetFocus()end
+					)				
+			end
+		else
+			f()
+		end
+	else
+		Friends.JoinGame(CurrentFriend)
+		local message=FRIEND_TOJOIN_1
+		message=WStringConcat(message, CurrentFriend.GameTitle)
+		message=WStringConcat(message, FRIEND_TOJOIN_2)
+		ShowMessageBox(
+		SAFEPOS(154, 70),
+		message, 
+		FRIEND_OK, HideFriendOptions
+		)		
+	end
+end
+
+local function SameSession()
+	if Session then
+		local info=Session:GetSessionInfo()
+		local sessId=info.SessionId
+		local friendSessId=CurrentFriend.SessionId
+		if sessId==friendSessId then
+			return true
+		end
+		for i=1, Session:GetNumPlayers() do
+			local player=Session:GetPlayer(i)
+			if player:GetUserId()==CurrentFriend.UserId then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+local function MutePlayer()
+	local userId=XBoxLive.Auth.GetSignedInUserId(XBoxLive.Auth.GetSignedInUserNr(ControllerId))
+	if userId~=nil then
+		local voiceMan=XBoxLive.GetVoiceManager()
+		local voicePlayer=voiceMan:GetPlayerByPort(ControllerId)
+		voicePlayer:SetPlayerMuted(CurrentPlayer.UserId, true)
+	end	
+	HideFriendOptions()
+end
+
+local function UnMutePlayer()
+	local userId=XBoxLive.Auth.GetSignedInUserId(XBoxLive.Auth.GetSignedInUserNr(ControllerId))
+	if userId~=nil then
+		local voiceMan=XBoxLive.GetVoiceManager()
+		local voicePlayer=voiceMan:GetPlayerByPort(ControllerId)
+		voicePlayer:SetPlayerMuted(CurrentPlayer.UserId, false)
+	end	
+	HideFriendOptions()
+end
+
+local function GetFriendStatusString()
+	local status=ConvertToWString("")
+
+	if CurrentFriend.ReceivedRequest then
+		status=FRIEND_REQUEST_RECEIVED
+	elseif CurrentFriend.SentRequest then
+		status=FRIEND_REQUEST_SENT
+	elseif CurrentFriend.ReceivedInvite then
+		status=FRIEND_WANTS
+	elseif CurrentFriend.SentInvite then
+		status=FRIEND_INVITED
+	elseif CurrentFriend.Playing then
+		status=FRIEND_PLAYING
+		status=WStringConcat(status, CurrentFriend.GameTitle)
+	elseif CurrentFriend.Online then
+		status=FRIEND_AVAILABLE
+		status=WStringConcat(status, CurrentFriend.GameTitle)
+	else
+		status=FRIEND_OFFLINE
+	end
+	
+	if CurrentFriend.Online then
+		status=WStringConcat(status, ConvertToWString(" "))
+		status=WStringConcat(status, FRIEND_VOICE)
+		if CurrentFriend.Voice then
+			status=WStringConcat(status, FRIEND_ON)
+		else
+			status=WStringConcat(status, FRIEND_OFF)
+		end
+	end
+
+	return status
+end
+
+local function GetPlayerStatusString()
+	local status=ConvertToWString("")
+
+	if CurrentPlayer.InSession then	
+		status=FRIEND_PLAYING
+		status=WStringConcat(status, ConvertToWString("FlatOut"))
+		status=WStringConcat(status, ConvertToWString(" "))
+		status=WStringConcat(status, FRIEND_VOICE)
+		if CurrentPlayer.Voice then
+			status=WStringConcat(status, FRIEND_ON)
+		else
+			status=WStringConcat(status, FRIEND_OFF)
+		end	
+	end
+
+	return status
+
+end
+
+function CreateOptionAlternatives()
+	OptionAlternatives=nil
+	OptionAlternatives={}
+	local friend=CurrentFriend
+	if friend then
+		--local isFriend=(friend.ReceivedRequest==FALSE and friend.SentRequest==FALSE)
+		local isFriend=true
+		if friend.ReceivedRequest or friend.SentRequest then
+			isFriend=false
+		end
+		
+		if friend.ReceivedRequest then
+			table.insert(OptionAlternatives, {FRIEND_REQUEST_ACCEPT, AcceptFriendRequest})
+			table.insert(OptionAlternatives, {FRIEND_REQUEST_DECLINE, DeclineFriendRequest})
+			table.insert(OptionAlternatives, {FRIEND_REQUEST_BLOCK, BlockFriendRequest})
+			local requestMessage=XBoxLive.GetMessageManager():GetRequestMessage(ControllerId, friend.UserId)
+			if requestMessage and requestMessage.HasVoice then
+				local userId=XBoxLive.Auth.GetSignedInUserId(XBoxLive.Auth.GetSignedInUserNr(ControllerId))
+				if userId~=nil then
+					local voiceMan=XBoxLive.GetVoiceManager()
+					local voicePlayer=voiceMan:GetPlayer(userId)
+					if voicePlayer:IsVoiceBanned()==false then
+						table.insert(OptionAlternatives, {FRIEND_VOICEMESSAGE, function()ListenToVoiceMessage("R", requestMessage.MessageId)end})
+					end
+				end
+			end
+		elseif friend.SentRequest then
+			table.insert(OptionAlternatives, {FRIEND_REQUEST_CANCEL, CancelFriendRequest})
+		elseif friend.ReceivedInvite then
+			table.insert(OptionAlternatives, {FRIEND_INVITE_ACCEPT, AcceptGameInvite})
+			table.insert(OptionAlternatives, {FRIEND_INVITE_DECLINE, DeclineGameInvite})
+			local inviteMessage=XBoxLive.GetMessageManager():GetInviteMessage(ControllerId, friend.UserId)
+			if inviteMessage and inviteMessage.HasVoice then
+				local userId=XBoxLive.Auth.GetSignedInUserId(XBoxLive.Auth.GetSignedInUserNr(ControllerId))
+				if userId~=nil then
+					local voiceMan=XBoxLive.GetVoiceManager()
+					local voicePlayer=voiceMan:GetPlayer(userId)
+					if voicePlayer:IsVoiceBanned()==false then
+						table.insert(OptionAlternatives, {FRIEND_VOICEMESSAGE, function()ListenToVoiceMessage("I", inviteMessage.MessageId)end})
+					end
+				end
+			end
+		elseif friend.SentInvite then
+			table.insert(OptionAlternatives, {FRIEND_INVITE_CANCEL, CancelGameInvite})
+		end
+
+		if isFriend then
+			if friend.Joinable and friend.ReceivedInvite==false and SameSession()==false then
+				table.insert(OptionAlternatives, {FRIEND_JOIN, JoinFriend})
+			end
+			if GameInvitesEnabled and SameSession()==false and friend.SentInvite==false then
+				local userId=XBoxLive.Auth.GetSignedInUserId(XBoxLive.Auth.GetSignedInUserNr(ControllerId))
+				if userId~=nil then
+					local voiceMan=XBoxLive.GetVoiceManager()
+					local voicePlayer=voiceMan:GetPlayer(userId)
+					if voicePlayer:GetHeadsetConnected() then
+						table.insert(OptionAlternatives, {FRIEND_INVITE_SEND_VOICE, function()SendVoiceMessage("I")end})	
+					end
+				end
+				table.insert(OptionAlternatives, {FRIEND_INVITE_SEND, function()SendGameInvite(false)end})	
+			end
+			table.insert(OptionAlternatives, {FRIEND_REMOVE, RemoveFriend})
+		end
+	elseif CurrentPlayer then
+		table.insert(OptionAlternatives, {FRIEND_REQUEST_SEND, SendFriendRequest})
+		local userId=XBoxLive.Auth.GetSignedInUserId(XBoxLive.Auth.GetSignedInUserNr(ControllerId))
+		if userId~=nil then
+			local voiceMan=XBoxLive.GetVoiceManager()
+			local voicePlayer=voiceMan:GetPlayer(userId)
+			if voicePlayer:GetHeadsetConnected() then
+				table.insert(OptionAlternatives, {FRIEND_REQUEST_SEND_VOICE, function()SendVoiceMessage("R")end})	
+			end
+		end
+	end
+	if PlayerOptionsEnabled then
+		table.insert(OptionAlternatives, {FRIEND_FEEDBACK, function()SendFeedback("SESSION", entermenu("menu_xboxlive_friend_options"), CurrentPlayer.UserId, CurrentPlayer.Name)end})
+		local userId
+		if CurrentFriend then
+			userId=CurrentFriend.UserId
+		elseif CurrentPlayer then
+			userId=CurrentPlayer.UserId
+		end
+		local voiceMan=XBoxLive.GetVoiceManager()
+		local voicePlayer=voiceMan:GetPlayerByPort(ControllerId)
+		if voicePlayer:PlayerIsMuted(userId) then
+			table.insert(OptionAlternatives, {FRIEND_UNMUTE, UnMutePlayer})
+		else
+			table.insert(OptionAlternatives, {FRIEND_MUTE, MutePlayer})
+		end
+	end
+	local userId
+	local userName
+	if CurrentFriend then
+		userId=CurrentFriend.UserId
+		userName=CurrentFriend.GamerTag
+	else
+		userId=CurrentPlayer.UserId
+		userName=CurrentPlayer.Name
+	end
+	table.insert(OptionAlternatives, {FRIEND_SHOW, function()ShowXBoxLiveProfile(1, userId, userName, 1, entermenu("menu_xboxlive_friend_options"))end})
+		
+	local list=wm.GetWindow("friendoptionslist")
+	list:SetNumRows(table.getn(OptionAlternatives))
+	
+	list:Refresh()
+end
+
+menu_xboxlive_friend_options = CreateMenuFromTemplate("template_basic")
+menu_xboxlive_friend_options.options.title = FriendTitle
+menu_xboxlive_friend_options.back = function()EnterMenu("menu_xboxlive_friends")end
+
+function menu_xboxlive_friend_options.create(self)
+	self.parent:create(self)
+	--self:addResource("big_box", image("big_box.tga"))
+	--self:addResource("infobox", image("infobox.tga"))
+	self:loadResources()
+	
+	items = { }
+end
+
+function menu_xboxlive_friend_options.init(self)
+	self.parent:init(self)
+	--[[--windows_reset()
+	StandardUpperBalk()
+	XBoxLiveLowerBalk(
+		FRIEND_SELECT,
+		FRIEND_BACK
+	)
+	GUI:LoadBackground("data/menu/bg/game_background.tga")--]]--
+	if CurrentFriend then
+		--Menu:SetTitle(FriendTitle)
+	else
+		--Menu:SetTitle(PlayerTitle)
+	end
+	
+	OptionAlternatives={}
+	local layout=Layout
+	local win=Frame{Name="friendoptions", Position = MakeSafePos(layout.Pos), Size=GetResourceSize(FriendOptionImages.BigBox), ShowBorders=FALSE}
+	win:AttachResource(FriendOptionImages.BigBox)
+	
+	local pos=SAFEPOS(layout.NamePos[1], layout.NamePos[2])
+	local win2=StaticText{Title=FRIEND_NAME, Position=pos, Size=layout.NameSize, Font=layout.LabelFont, ShowBorders=FALSE, TitleCenterint=TITLE_CENTER_NONE}
+	win2:SetColor(layout.LabelFontColor, false)
+	
+	local textWidth=wm.GetTextWidth(FRIEND_NAME, layout.LabelFont)
+	pos=AddPos(pos, POS(textWidth, 0))
+	win2=StaticText{Position=pos, Size=layout.NameSize, Font=layout.LabelFont, ShowBorders=FALSE, TitleCenterint=TITLE_CENTER_NONE}
+	win2:SetColor(layout.TextFontColor, false)
+
+	if CurrentFriend then
+		win2:SetTitle(CurrentFriend.GamerTag)
+	elseif CurrentPlayer then
+		win2:SetTitle(CurrentPlayer.Name)
+	end
+
+
+	local pos=SAFEPOS(layout.StatusPos[1], layout.StatusPos[2])
+	local win2=StaticText{Title=FRIEND_STATUS, Position=pos, Size=layout.NameSize, Font=layout.LabelFont, ShowBorders=FALSE, TitleCenterint=TITLE_CENTER_NONE}
+	win2:SetColor(layout.LabelFontColor, false)
+	
+	local textWidth=wm.GetTextWidth(FRIEND_STATUS, layout.LabelFont)
+	pos=AddPos(pos, POS(textWidth, 0))
+	win2=StaticText{Name="status", Position=pos, Size=layout.NameSize, Font=layout.LabelFont, ShowBorders=FALSE, TitleCenterint=TITLE_CENTER_NONE}
+	win2:SetColor(layout.TextFontColor, false)
+
+	local listboxParams={
+		ListBoxTemplate={Name="friendoptionslist", ShowBorders=FALSE, Parent=win},
+		Left=layout.ListPos[1],
+		Top=layout.ListPos[2],
+		LeftPadding=0,
+		RightPadding=0,
+		TopPadding=0,
+		BottomPadding=0,
+		RowWidth=layout.ListItemWidth,
+		RowHeight=layout.ListItemHeight,
+		RowPadding=layout.ListItemPadding,
+		RowTemplate={Font=layout.ListFont, DrawBackgroundColor=TRUE, TitleCentering=TITLE_CENTER_XY},
+		RowTemplateType="Button",
+		RowTemplateCust=function(Row, RowNr)
+			Row:SetColor(layout.ListFontColor[1], layout.ListFontColor[2], layout.ListFontColor[3], layout.ListFontColor[4], false)
+			Row:SetActiveColor(layout.ListActiveItemColor, false)
+			Row:SetInactiveColor(layout.ListInactiveItemColor, false)
+		end,
+		NumRows=layout.ListNumRows
+	}
+	
+	local listbox=CreateSingleColoumnListBox(listboxParams)
+	listbox.onNeedData=function(Self, RowObject, RowNr, ControlRowNr)
+		if listbox:GetSelectedRow()==RowNr then
+			RowObject:SetColor(layout.ListSelectedFontColor, false)
+		else
+			RowObject:SetColor(layout.ListFontColor, false)
+		end
+		if RowNr<=table.getn(OptionAlternatives) then
+			RowObject:SetTitle(OptionAlternatives[RowNr][1])
+		else
+			RowObject:SetTitle(ConvertToWString(""))
+		end
+	end
+	
+	local handler=InputHandler{Name="inputhandler"}
+	handler.onKeyPressed=function(Self, Character, VirtualKey, ScanCode)
+		if ScanCode==ControllerId then
+			if VirtualKey==KeyCodes["BUTTON_START"] then
+				local selectedNum=listbox:GetSelectedRow()
+				if selectedNum<=table.getn(OptionAlternatives) then
+					local f=OptionAlternatives[selectedNum][2]
+					f()
+				end
+			elseif VirtualKey==KeyCodes["BUTTON_SELECT"] then
+				menu_xboxlive_friend_options.options.back_action()
+			elseif VirtualKey==KeyCodes["BUTTON_UP"] then
+				listbox:MovePrev()
+			elseif VirtualKey==KeyCodes["BUTTON_DOWN"] then
+				listbox:MoveNext()
+			end
+		end
+	end
+	CreateOptionAlternatives()
+
+	--activateparents()
+	handler:SetFocus()
+	Joining=false
+	Searching=false
+end
+	
+function menu_xboxlive_friend_options.deinit(self)
+	self.parent:deinit(self)
+	--deactivateparents()
+	--windows_reset()
+end
+	
+function menu_xboxlive_friend_options.update(self)
+	if CheckXBoxLiveErrors() then
+		return
+	end
+	if CurrentFriend then
+		wm.GetWindow("status"):SetTitle(GetFriendStatusString())
+	else
+		wm.GetWindow("status"):SetTitle(GetPlayerStatusString())
+	end
+	CreateOptionAlternatives()
+end

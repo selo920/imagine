@@ -11,7 +11,6 @@ TRACKTYPE_CITY = 5
 TRACKTYPE_RACING = 6
 TRACKTYPE_STUNT = 7
 TRACKTYPE_EVENT = 8
-TRACKTYPE_DERBY = 9
 
 
 
@@ -22,7 +21,8 @@ Levels = {
 			Description = TRACK_DESCRIPTION_FOREST_1A,
 
 			Laps = 4,
-			AIHandicapLevel = 48,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			TrackType = TRACKTYPE_FOREST,
 
@@ -39,7 +39,8 @@ Levels = {
 			Description = TRACK_DESCRIPTION_FOREST_1B,
 
 			Laps = 4,
-			AIHandicapLevel = 49,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,	
 			
 			TrackType = TRACKTYPE_FOREST,			
 
@@ -56,7 +57,8 @@ Levels = {
 			Description = TRACK_DESCRIPTION_FOREST_1C,
 			
 			Laps = 4,
-			AIHandicapLevel = 50,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 
 			TrackType = TRACKTYPE_FOREST,			
 
@@ -73,7 +75,8 @@ Levels = {
 			Description = TRACK_DESCRIPTION_FOREST_2A,
 
 			Laps = 4,
-			AIHandicapLevel = 51,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			TrackType = TRACKTYPE_FOREST,
 
@@ -90,7 +93,8 @@ Levels = {
 			Description = TRACK_DESCRIPTION_FOREST_2B,
 
 			Laps = 4,
-			AIHandicapLevel = 52,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,	
 			
 			TrackType = TRACKTYPE_FOREST,
 
@@ -107,7 +111,8 @@ Levels = {
 			Description = TRACK_DESCRIPTION_FOREST_2C,
 			
 			Laps = 4,
-			AIHandicapLevel = 53,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			TrackType = TRACKTYPE_FOREST,
 
@@ -133,7 +138,8 @@ Levels = {
 			Description = TRACK_DESCRIPTION_CITY_1A,
 			
 			Laps = 4,
-			AIHandicapLevel = 54,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			TrackType = TRACKTYPE_CITY,
 
@@ -150,7 +156,8 @@ Levels = {
 			Description = TRACK_DESCRIPTION_CITY_1B,
 
 			Laps = 4,
-			AIHandicapLevel = 55,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,	
 			
 			TrackType = TRACKTYPE_CITY,
 
@@ -167,7 +174,8 @@ Levels = {
 			Description = TRACK_DESCRIPTION_CITY_1C,
 			
 			Laps = 4,
-			AIHandicapLevel = 56,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			TrackType = TRACKTYPE_CITY,
 
@@ -184,7 +192,8 @@ Levels = {
 			Description = TRACK_DESCRIPTION_CITY_2A,
 			
 			Laps = 4,
-			AIHandicapLevel = 57,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			TrackType = TRACKTYPE_CITY,
 
@@ -201,7 +210,8 @@ Levels = {
 			Description = TRACK_DESCRIPTION_CITY_2B,
 			
 			Laps = 4,
-			AIHandicapLevel = 58,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,	
 			
 			TrackType = TRACKTYPE_CITY,
 
@@ -218,7 +228,8 @@ Levels = {
 			Description = TRACK_DESCRIPTION_CITY_2C,
 			
 			Laps = 4,
-			AIHandicapLevel = 59,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			TrackType = TRACKTYPE_CITY,
 
@@ -235,7 +246,8 @@ Levels = {
 			Description = TRACK_DESCRIPTION_CANAL_1A,
 			
 			Laps = 4,
-			AIHandicapLevel = 60,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			TrackType = TRACKTYPE_CANAL,
 
@@ -252,7 +264,8 @@ Levels = {
 			Description = TRACK_DESCRIPTION_CANAL_1B,
 			
 			Laps = 4,
-			AIHandicapLevel = 61,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,	
 			
 			TrackType = TRACKTYPE_CANAL,
 
@@ -269,7 +282,8 @@ Levels = {
 			Description = TRACK_DESCRIPTION_CANAL_1C,
 			
 			Laps = 4,
-			AIHandicapLevel = 62,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			TrackType = TRACKTYPE_CANAL,
 
@@ -295,7 +309,8 @@ Levels = {
 			Description = TRACK_DESCRIPTION_DESERT_1A,
 			
 			Laps = 4,
-			AIHandicapLevel = 63,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			TrackType = TRACKTYPE_DESERT,
 
@@ -312,7 +327,8 @@ Levels = {
 			Description = TRACK_DESCRIPTION_DESERT_1B,
 			
 			Laps = 4,
-			AIHandicapLevel = 64,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,	
 			
 			TrackType = TRACKTYPE_DESERT,
 
@@ -328,7 +344,8 @@ Levels = {
 			Name = "Desert Town",
 			Description = TRACK_DESCRIPTION_DESERT_1C,
 			Laps = 4,
-			AIHandicapLevel = 65,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			TrackType = TRACKTYPE_DESERT,
 
@@ -350,11 +367,12 @@ Levels = {
 			-- empty
 	},	
 	[28] = {
-			Name = "Midwest Ranch 1",
+			Name = "Whattahoo Ranch 1",
 			Description = TRACK_DESCRIPTION_FIELDS_1A,
 			
 			Laps = 4,
-			AIHandicapLevel = 66,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			TrackType = TRACKTYPE_FIELDS,
 
@@ -367,11 +385,12 @@ Levels = {
 			StagePath	= BaseLevelPath.."Fields/Fields1/A/",
 	},
 	[29] = {
-			Name = "Midwest Ranch 2",
+			Name = "Whattahoo Ranch 2",
 			Description = TRACK_DESCRIPTION_FIELDS_1B,
 			
 			Laps = 4,
-			AIHandicapLevel = 67,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,	
 			
 			TrackType = TRACKTYPE_FIELDS,
 
@@ -384,11 +403,12 @@ Levels = {
 			StagePath	= BaseLevelPath.."Fields/Fields1/B/",
 	},
 	[30] = {
-			Name = "Midwest Ranch 3",
+			Name = "Whattahoo Ranch 3",
 			Description = TRACK_DESCRIPTION_FIELDS_1C,
 			
 			Laps = 4,
-			AIHandicapLevel = 68,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			TrackType = TRACKTYPE_FIELDS,
 
@@ -405,7 +425,8 @@ Levels = {
 			Description = TRACK_DESCRIPTION_FIELDS_2A,
 			
 			Laps = 4,
-			AIHandicapLevel = 69,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			TrackType = TRACKTYPE_FIELDS,
 
@@ -422,7 +443,8 @@ Levels = {
 			Description = TRACK_DESCRIPTION_FIELDS_2B,
 			
 			Laps = 4,
-			AIHandicapLevel = 70,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,	
 			
 			TrackType = TRACKTYPE_FIELDS,
 
@@ -439,7 +461,8 @@ Levels = {
 			Description = TRACK_DESCRIPTION_FIELDS_2C,
 			
 			Laps = 4,
-			AIHandicapLevel = 71,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			TrackType = TRACKTYPE_FIELDS,
 
@@ -470,11 +493,12 @@ Levels = {
 			-- empty
 	},
 	[40] = {
-			Name = "Riverbay Circuit 1",
+			Name = "Speedway 1",
 			Description = TRACK_DESCRIPTION_RACING_1A,
 			
 			Laps = 4,
-			AIHandicapLevel = 72,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			TrackType = TRACKTYPE_RACING,
 
@@ -487,11 +511,12 @@ Levels = {
 			StagePath	= BaseLevelPath.."Racing/Racing1/A/",
 	},
 	[41] = {
-			Name = "Riverbay Circuit 2",
+			Name = "Speedway 2",
 			Description = TRACK_DESCRIPTION_RACING_1B,
 			
 			Laps = 4,
-			AIHandicapLevel = 73,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,	
 			
 			TrackType = TRACKTYPE_RACING,
 
@@ -504,11 +529,12 @@ Levels = {
 			StagePath	= BaseLevelPath.."Racing/Racing1/B/",
 	},
 	[42] = {
-			Name = "Riverbay Circuit 3",
+			Name = "Speedway 3",
 			Description = TRACK_DESCRIPTION_RACING_1C,
 			
 			Laps = 4,
-			AIHandicapLevel = 74,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			TrackType = TRACKTYPE_RACING,
 
@@ -521,11 +547,12 @@ Levels = {
 			StagePath	= BaseLevelPath.."Racing/Racing1/C/",
 	},
 	[43] = {
-			Name = "Motor Raceway 1",
+			Name = "Whattahoo Raceway 1",
 			Description = TRACK_DESCRIPTION_RACING_2A,
 			
 			Laps = 4,
-			AIHandicapLevel = 75,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			TrackType = TRACKTYPE_RACING,
 
@@ -538,11 +565,12 @@ Levels = {
 			StagePath	= BaseLevelPath.."Racing/Racing2/A/",
 	},
 	[44] = {
-			Name = "Motor Raceway 2",
+			Name = "Whattahoo Raceway 2",
 			Description = TRACK_DESCRIPTION_RACING_2B,
 			
 			Laps = 4,
-			AIHandicapLevel = 76,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,	
 			
 			TrackType = TRACKTYPE_RACING,
 
@@ -555,11 +583,12 @@ Levels = {
 			StagePath	= BaseLevelPath.."Racing/Racing2/B/",
 	},
 	[45] = {
-			Name = "Motor Raceway 3",
+			Name = "Whattahoo Raceway 3",
 			Description = TRACK_DESCRIPTION_RACING_2C,
 			
 			Laps = 4,
-			AIHandicapLevel = 77,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			TrackType = TRACKTYPE_RACING,
 
@@ -590,14 +619,15 @@ Levels = {
 			-- empty
 	},
 	[52] = {
-			Name = "Gas Station Derby",
+			Name = "Destruction Yard",
 			Description = TRACK_DESCRIPTION_DERBY_1,
 			
 			Rules = GR_DERBY,
 			
 			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
-			TrackType = TRACKTYPE_DERBY,
+			TrackType = TRACKTYPE_EVENT,
 			
 			TrackIcon  = "track_images_derby1",
 			TrackImage = "track_derby_1",
@@ -608,18 +638,19 @@ Levels = {
 			StagePath	= BaseLevelPath.."Derby/Derby1/A/",
 	},
 	[53] = {
-			Name = "Parking Lot Derby",
+			Name = "Demolition Mall",
 			Description = TRACK_DESCRIPTION_DERBY_2,
 			
 			Rules = GR_DERBY,
 			
 			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			TrackIcon  = "track_images_derby2",
 			TrackImage = "track_derby_2",
 			TrackLogo  = "track_derby_2_logo",
 			
-			TrackType = TRACKTYPE_DERBY,
+			TrackType = TRACKTYPE_EVENT,
 			
 			GfxSetPath	= BaseLevelPath.."Derby/",
 			TrackPath	= BaseLevelPath.."Derby/Derby2/",
@@ -632,66 +663,74 @@ Levels = {
 			Rules = GR_DERBY,
 			
 			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
+			
 
 			TrackIcon  = "track_images_derby3",
 			TrackImage = "track_derby_3",
 			TrackLogo  = "track_derby_3_logo",
 			
-			TrackType = TRACKTYPE_DERBY,
+			TrackType = TRACKTYPE_EVENT,
 	
 			GfxSetPath	= BaseLevelPath.."Derby/",
 			TrackPath	= BaseLevelPath.."Derby/Derby3/",
 			StagePath	= BaseLevelPath.."Derby/Derby3/A/",
 	},
 	[55] = {
-			Name = "Derby Bowl 1",
+			Name = "Destruction Bowl 1",
 			Description = TRACK_DESCRIPTION_DERBY_4,
 			
 			Rules = GR_DERBY,
 			
 			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
+			
 
 			TrackIcon  = "track_images_derby4",
 			TrackImage = "track_derby_4",
 			TrackLogo  = "track_derby_4_logo",
 			
-			TrackType = TRACKTYPE_DERBY,
+			TrackType = TRACKTYPE_EVENT,
 
 			GfxSetPath	= BaseLevelPath.."Derby/",
 			TrackPath	= BaseLevelPath.."Derby/Derby4/",
 			StagePath	= BaseLevelPath.."Derby/Derby4/A/",
 	},
 	[56] = {
-			Name = "Derby Bowl 2",
+			Name = "Destruction Bowl 2",
 			Description = TRACK_DESCRIPTION_DERBY_5,
 			
 			Rules = GR_DERBY,
 			
 			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
+			
 
 			TrackIcon  = "track_images_derby5",
 			TrackImage = "track_derby_5",
 			TrackLogo  = "track_derby_5_logo",
 			
-			TrackType = TRACKTYPE_DERBY,
+			TrackType = TRACKTYPE_EVENT,
 
 			GfxSetPath	= BaseLevelPath.."Derby/",
 			TrackPath	= BaseLevelPath.."Derby/Derby5/",
 			StagePath	= BaseLevelPath.."Derby/Derby5/A/",
 	},
 	[57] = {
-			Name = "Derby Bowl 3",
+			Name = "Destruction Bowl 3",
 			Description = TRACK_DESCRIPTION_DERBY_6,
 			
 			Rules = GR_DERBY,
+			
 
 			TrackIcon  = "track_images_derby6",
 			TrackImage = "track_derby_6",
 			TrackLogo  = "track_derby_6_logo",
 			
-			TrackType = TRACKTYPE_DERBY,
+			TrackType = TRACKTYPE_EVENT,
 
 			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			GfxSetPath	= BaseLevelPath.."Derby/",
 			TrackPath	= BaseLevelPath.."Derby/Derby6/",
@@ -702,18 +741,20 @@ Levels = {
 
 			Laps = 4,
 			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 				
 			GfxSetPath	= BaseLevelPath.."Test/",
 			TrackPath	= BaseLevelPath.."Test/Test1/",
 			StagePath	= BaseLevelPath.."Test/Test1/A/",
 	},
 	[59] = {
-		    Name = "Figure of Eight 1",
-		    Description = TRACK_DESCRIPTION_ARENA_1,
+			Name = "Figure of Eight 1",
+			Description = TRACK_DESCRIPTION_ARENA_1,
 			
 			Laps = 4,
-			AIHandicapLevel = 12,
-		    NitroRegen = true,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
+		
 
 			TrackIcon  = "track_images_dirt1",
 			TrackImage = "track_arena_1",
@@ -726,12 +767,13 @@ Levels = {
 			StagePath	= BaseLevelPath.."Arena/Arena1/A/",
 	},
 	[60] = {
-			Name = "Triloop Special",
+			Name = "Looping Tri-Oval",
 			Description = TRACK_DESCRIPTION_ARENA_2,
 			
 			Laps = 4,
-			AIHandicapLevel = 15,
-		    NitroRegen = true,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
+
 			
 			TrackIcon  = "track_images_dirt2",
 			TrackImage = "track_arena_2",
@@ -744,12 +786,13 @@ Levels = {
 			StagePath	= BaseLevelPath.."Arena/Arena2/A/",
 	},
 	[61] = {
-			Name = "Speedbowl",
+			Name = "Banking Speedway",
 			Description = TRACK_DESCRIPTION_ARENA_3,
 			
 			Laps = 4,
-			AIHandicapLevel = 17,
-		    NitroRegen = true,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
+			
 
 			TrackIcon  = "track_images_dirt3",
 			TrackImage = "track_arena_3",
@@ -762,12 +805,13 @@ Levels = {
 			StagePath	= BaseLevelPath.."Arena/Arena3/A/",
 	},
 	[62] = {
-			Name = "Sand Speedway",
+			Name = "Sand Oval",
 			Description = TRACK_DESCRIPTION_ARENA_4,
 			
 			Laps = 4,
-			AIHandicapLevel = 20,
-		    NitroRegen = true,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
+
 			
 			TrackIcon  = "track_images_dirt4",
 			TrackImage = "track_arena_4",
@@ -784,8 +828,9 @@ Levels = {
 			Description = TRACK_DESCRIPTION_ARENA_5,
 			
 			Laps = 4,
-			AIHandicapLevel = 22,
-		    NitroRegen = true,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
+
 			
 			TrackIcon  = "track_images_dirt5",
 			TrackImage = "track_arena_5",
@@ -802,8 +847,9 @@ Levels = {
 			Description = TRACK_DESCRIPTION_ARENA_6,
 			
 			Laps = 4,
-			AIHandicapLevel = 25,
-		    NitroRegen = true,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
+			
 
 			TrackIcon  = "track_images_dirt6",
 			TrackImage = "track_arena_6",
@@ -816,12 +862,12 @@ Levels = {
 			StagePath	= BaseLevelPath.."Arena/Arena6/A/",
 	},
 	[65] = {
-			Name = "Speedway Left",
+			Name = "Oval Left",
 			Description = TRACK_DESCRIPTION_NASCAR_1A,
 			
 			Laps = 4,
-			AIHandicapLevel = 30,
-		    NitroRegen = true,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			TrackIcon  = "track_images_oval1",
 			TrackImage = "track_oval_1",
@@ -834,12 +880,12 @@ Levels = {
 			StagePath	= BaseLevelPath.."Nascar/Nascar1/A/",
 	},
 	[66] = {
-			Name = "Speedway Right",
+			Name = "Oval Right",
 			Description = TRACK_DESCRIPTION_NASCAR_1B,
 			
 			Laps = 4,
-			AIHandicapLevel = 34,
-		    NitroRegen = true,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			TrackIcon  = "track_images_oval2",
 			TrackImage = "track_oval_2",
@@ -852,12 +898,12 @@ Levels = {
 			StagePath	= BaseLevelPath.."Nascar/Nascar1/B/",
 	},
 	[67] = {
-			Name = "Speedway Special",
+			Name = "Oval Special",
 			Description = TRACK_DESCRIPTION_NASCAR_1C,
 			
 			Laps = 4,
-			AIHandicapLevel = 39,
-		    NitroRegen = true,
+			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 
 			TrackIcon  = "track_images_oval3",
 			TrackImage = "track_oval_3",
@@ -874,6 +920,7 @@ Levels = {
 
 			Laps = 4,
 			AIHandicapLevel = 42,
+			AIUpgradeLevel = 0.5,
 			
 			Rules = GR_TEST,
 			
@@ -884,7 +931,7 @@ Levels = {
 	[69] = {
 			-- empty
 	},
-	[73] = {
+	[70] = {
 			Name = "Curling",
 			Description = TRACK_DESCRIPTION_CURLING,
 			Rules 			= GR_STUNT,
@@ -902,14 +949,14 @@ Levels = {
 			TrackPath	= BaseLevelPath.."Stunt/Stunt1/",
 			StagePath	= BaseLevelPath.."Stunt/Stunt1/A/",
 	},
-	[70] = {
+	[71] = {
 			Name = "High Jump",
 			Description = TRACK_DESCRIPTION_HIGHJUMP,
 
 			Rules 			= GR_STUNT,
 			StuntType		= STUNT_HIGHJUMP,
 			StartPosition	= 2,
-			Weather			= 5,
+			Weather			= 0,
 
 			TrackIcon  = "track_images_stunt6",
 			TrackImage = "stunt_A2_image",
@@ -921,7 +968,7 @@ Levels = {
 			TrackPath	= BaseLevelPath.."Stunt/Stunt1/",
 			StagePath	= BaseLevelPath.."Stunt/Stunt1/A/",
 	},
-	[74] = {
+	[72] = {
 			Name = "Stone-Skipping",
 			Description = TRACK_DESCRIPTION_STONESKIPPING,
 			
@@ -940,7 +987,7 @@ Levels = {
 			TrackPath	= BaseLevelPath.."Stunt/Stunt1/",
 			StagePath	= BaseLevelPath.."Stunt/Stunt1/A/",
 	},
-	[75] = {
+	[73] = {
 			Name = "Ring of Fire",
 			Description = TRACK_DESCRIPTION_RINGOFFIRE,
 			
@@ -959,7 +1006,7 @@ Levels = {
 			TrackPath	= BaseLevelPath.."Stunt/Stunt1/",
 			StagePath	= BaseLevelPath.."Stunt/Stunt1/A/",
 	},
-	[83] = {
+	[74] = {
 			Name = "Darts",
 			Description = TRACK_DESCRIPTION_DARTS,
 			
@@ -978,7 +1025,7 @@ Levels = {
 			TrackPath	= BaseLevelPath.."Stunt/Stunt1/",
 			StagePath	= BaseLevelPath.."Stunt/Stunt1/A/",
 	},
-	[81] = {
+	[75] = {
 			Name = "Royal Flush",
 			Description = TRACK_DESCRIPTION_ROYALFLUSH,
 			
@@ -1009,7 +1056,7 @@ Levels = {
 	[79] = {
 			-- empty
 	},
-	[72] = {
+	[80] = {
 			Name = "Ski Jump",
 			Description = TRACK_DESCRIPTION_SKIJUMP,
 			
@@ -1028,7 +1075,7 @@ Levels = {
 			TrackPath	= BaseLevelPath.."Stunt/Stunt2/",
 			StagePath	= BaseLevelPath.."Stunt/Stunt2/A/",
 	},
-	[80] = {
+	[81] = {
 			Name = "Field Goal",
 			Description = TRACK_DESCRIPTION_FIELDGOAL,
 			
@@ -1047,7 +1094,7 @@ Levels = {
 			TrackPath	= BaseLevelPath.."Stunt/Stunt2/",
 			StagePath	= BaseLevelPath.."Stunt/Stunt2/A/",
 	},
-	[71] = {
+	[82] = {
 			Name = "Bowling",
 			Description = TRACK_DESCRIPTION_BOWLING,
 			
@@ -1066,7 +1113,7 @@ Levels = {
 			TrackPath	= BaseLevelPath.."Stunt/Stunt2/",
 			StagePath	= BaseLevelPath.."Stunt/Stunt2/A/",
 	},
-	[82] = {
+	[83] = {
 			Name = "Basketball",
 			Description = TRACK_DESCRIPTION_BASKETBALL,
 			
@@ -1174,17 +1221,17 @@ LevelIndex = {
 	Nascar1A		= 65,
 	Nascar1B		= 66,
 	Nascar1C		= 67,
-	GarageTestTrack = 68,
-	CURLING			= 73,
-	HIGHJUMP		= 70,
-	STONESKIPPING 	= 74,
-	RINGOFFIRE		= 75,
-	DARTS			= 83,
-	ROYALFLUSH		= 81,
-	SKIJUMP			= 72,
-	FIELDGOAL		= 80,
-	BOWLING			= 71,
-	BASKETBALL		= 82,
+	GarageTestTrack 	= 68,
+	CURLING			= 70,
+	HIGHJUMP		= 71,
+	STONESKIPPING 		= 72,
+	RINGOFFIRE		= 73,
+	DARTS			= 74,
+	ROYALFLUSH		= 75,
+	SKIJUMP			= 80,
+	FIELDGOAL		= 81,
+	BOWLING			= 82,
+	BASKETBALL		= 83,
 	BASEBALL		= 84,
 	SOCCER			= 85,
 }	

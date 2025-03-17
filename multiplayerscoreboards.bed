@@ -9,7 +9,7 @@
 --// Authors: Pasi Matilainen (pasi.matilainen@bugbear.fi)
 --///////////////////////////////////////////////////////////////////////////
 
-dofile("data/menu/garage_elements1.bed")
+dofile("data/menu/flags.bed")
 
 local BoardType
 
@@ -17,12 +17,16 @@ local SCOREBOARD_RACE = 1
 local SCOREBOARD_STUNT = 2
 local SCOREBOARD_DERBY = 3
 local SCOREBOARD_MIXED = 4
+local SCOREBOARD_BOWLING = 5
+local SCOREBOARD_FIELDGOAL = 6
 
 local BoardTitles = {
 	[SCOREBOARD_RACE] = HEADER_MULTIPLAYER_RACERANKING,
 	[SCOREBOARD_STUNT] = HEADER_MULTIPLAYER_STUNTRANKING,
 	[SCOREBOARD_DERBY] = HEADER_MULTIPLAYER_DERBYRANKING,
 	[SCOREBOARD_MIXED] = HEADER_MULTIPLAYER_MIXEDRANKING,
+	[SCOREBOARD_BOWLING] = L"BOWLING RANKING", 
+	[SCOREBOARD_FIELDGOAL] = L"FIELDGOAL RANKING", 
 }
 
 
@@ -48,20 +52,18 @@ function menu_multiplayer_scoreboards.create(self)
 	self:loadResources()
 	
 	self.items = {
-		{ ICON_MULTIPLAYER_RACES, function() EnterScoreboard(SCOREBOARD_RACE) end, ICON(self, "icon_sp_single_race") },
-		{ ICON_MULTIPLAYER_STUNTS, function() EnterScoreboard(SCOREBOARD_STUNT) end, ICON(self, "icon_stunts") },
-		{ ICON_MULTIPLAYER_DERBIES, function() EnterScoreboard(SCOREBOARD_DERBY) end, ICON(self, "icon_derbies") },
+		{ ICON_MULTIPLAYER_RACES, function() EnterScoreboard(SCOREBOARD_RACE) end, ICON(self, "icon_multiplayer") },
+		{ ICON_MULTIPLAYER_STUNTS, function() EnterScoreboard(SCOREBOARD_STUNT) end, ICON(self, "icon_multiplayer") },
+		{ ICON_MULTIPLAYER_DERBIES, function() EnterScoreboard(SCOREBOARD_DERBY) end, ICON(self, "icon_multiplayer") },
+		{ ICON_MULTIPLAYER_MIXED, function() EnterScoreboard(SCOREBOARD_MIXED) end, ICON(self, "icon_multiplayer") },
+		{ L"FIELDGOAL", function() EnterScoreboard(SCOREBOARD_FIELDGOAL) end, ICON(self, "icon_multiplayer") },
+		
+		
 	}
 end
 
 function menu_multiplayer_scoreboards.init(self)
 	self.parent:init(self)
-
-	GUI:SetBackgroundVideo("data/video/bg_main")	
-end
-
-function menu_multiplayer_scoreboards.deinit(self)
-	self.parent:deinit(self)
 end
 
 function menu_multiplayer_scoreboards.update(self, time)
@@ -72,39 +74,36 @@ end
 
 local Layout=
 {
-	TitleFramePos = POS(284,68),
-	
-	TitlePos = POS(301, 74),
+	TitlePos = POS(62, 90),
 	TitleFont = fontlarge(),
 	TitleColor = GetPaletteColor(33),
 	
-	LabelsTop = 111,
+	LabelsTop = 128,
 	LabelFont = fontmedium(),
 	LabelFontColor = GetPaletteColor(33),
 	
-	IconTop = 109,
-	
-	NumX = 105,
-	NameX = 108,
-	RacesX = 404,
+	NumX = 62,
+	FlagX = 103,
+	NameX = 132,
+	RacesX = 390,
 	PointsX = 463,
-	RankX = 529,
+	RankX = 530,
 	
-	ListPos = POS(0,131),
-	ListNumRows = 10,
-	ListRowHeight = 18,
-	ListRowWidth = 640,
-	ListRowPadding = 2,
+	ListPos = POS(48,147),
+	ListNumRows = 8,
+	ListRowHeight = 19,
+	ListRowWidth = 534,
+	ListRowPadding = 4,
 	ListFont = fontmedium(),
 	ListFontColor = GetPaletteColor(34),
 	ListActiveFontColor = GetPaletteColor(34),
 	RankFont=wm.GetResource("FontRank"),
 	RankColor=GetPaletteColor(0),
 	
-	PageUpPos = POS(576.5,140),
-	PageDownPos = POS(576.5,320),
-	ScrollUpPos = POS(576.5,160),
-	ScrollDownPos = POS(576.5,300),
+	PageUpPos = POS(557,129),
+	PageDownPos = POS(557,328),
+	ScrollUpPos = POS(565,153),
+	ScrollDownPos = POS(565, 309),
 }
 
 local FriendsOnly
@@ -116,7 +115,6 @@ local PrevTime
 local IDLE = 1
 local REFRESHING = 2
 local MOVETOUSER = 3
-local FRIENDSLIST = 4
 
 menu_multiplayer_scoreboard = CreateMenuFromTemplate("template_multiplayer")
 menu_multiplayer_scoreboard.options.title = TITLE_MULTIPLAYER_RANKINGS
@@ -124,19 +122,7 @@ menu_multiplayer_scoreboard.back = entermenu("menu_multiplayer_scoreboards")
 
 local function ShowPlayer()
 	StatList:MoveToUser(XBoxLive.Auth.GetSignedInUserId(1))
-	if StatList:IsRefreshing() then
-		ShowThinkingWindow()
-	end
 	State = MOVETOUSER
-end
-
-local function ShowPlayerProfile()
-	local score = StatList:GetSelectedRowData()
-
-	if score then
-		OptionsPopup.Create(XBoxLive.Auth.GetSignedInUserPort(1))
-		EnterMultiPlayerProfile(score.Name, score.UserId, function() OptionsPopup.Destroy(); end)
-	end
 end
 
 local function ToggleShowFriends()
@@ -147,19 +133,15 @@ local function ToggleShowFriends()
 	end
 	
 	StatList:SetFriendsOnly(FriendsOnly)
-	State=MOVETOUSER
-	ShowThinkingWindow()
 	if FriendsOnly then
 		menu_multiplayer_scoreboard.items = {
-			{ ICON_MULTIPLAYER_SHOWALL, function() ToggleShowFriends() end, ICON(menu_multiplayer_scoreboard, "icon_show_all_players") },
-			{ ICON_MULTIPLAYER_SHOWPLAYER, function() ShowPlayer() end, ICON(menu_multiplayer_scoreboard, "icon_select_player") },
-			{ ICON_MULTIPLAYER_PLAYER_PROFILE, function() ShowPlayerProfile() end, ICON(menu_multiplayer_scoreboard, "icon_player_profile") },
+			{ ICON_MULTIPLAYER_SHOWALL, function() ToggleShowFriends() end, ICON(menu_multiplayer_scoreboard, "icon_multiplayer") },
+			{ ICON_MULTIPLAYER_SHOWPLAYER, function() ShowPlayer() end, ICON(menu_multiplayer_scoreboard, "icon_multiplayer") },
 		}
 	else
 		menu_multiplayer_scoreboard.items = {
 			{ ICON_MULTIPLAYER_SHOWFRIENDS, function() ToggleShowFriends() end, ICON(menu_multiplayer_scoreboard, "icon_multiplayer") },
-			{ ICON_MULTIPLAYER_SHOWPLAYER, function() ShowPlayer() end, ICON(menu_multiplayer_scoreboard, "icon_select_player") },
-			{ ICON_MULTIPLAYER_PLAYER_PROFILE, function() ShowPlayerProfile() end, ICON(menu_multiplayer_scoreboard, "icon_player_profile") },
+			{ ICON_MULTIPLAYER_SHOWPLAYER, function() ShowPlayer() end, ICON(menu_multiplayer_scoreboard, "icon_multiplayer") },
 		}
 	end
 	
@@ -174,42 +156,26 @@ end
 function menu_multiplayer_scoreboard.create(self)
 	self.parent:create(self)
 	
-	self:addResource("garage_elements1.tga", garage_elements1, garage_elements1_size)
+	self:addResource("flags.tga", flags, flags_size)
 	
 	self:loadResources()
 	
 	self.items = {
 		{ ICON_MULTIPLAYER_SHOWFRIENDS, function() ToggleShowFriends() end, ICON(self, "icon_multiplayer") },
-		{ ICON_MULTIPLAYER_SHOWPLAYER, function() ShowPlayer() end, ICON(self, "icon_select_player") },
-		{ ICON_MULTIPLAYER_PLAYER_PROFILE, function() ShowPlayerProfile() end, ICON(self, "icon_player_profile") },
+		{ ICON_MULTIPLAYER_SHOWPLAYER, function() ShowPlayer() end, ICON(self, "icon_multiplayer") },
 	}
 end
 
 function menu_multiplayer_scoreboard.init(self)
 	self.parent:init(self)
 
-	GUI:SetBackground("data/menu/menu_background.tga")
-	
-	local res = self:getResource("upshop_top_n_bottom_infotxt_bar_ang")
-	local ressize = wm.GetResourceSize(res)
-	Frame { Position=Layout.TitleFramePos, Size=ressize }:AttachResource(res)
-	res = self:getResource("upshop_top_n_bottom_infotxt_bar")
-	Frame { Position=POS(Layout.TitleFramePos[1] + ressize[1], Layout.TitleFramePos[2]), Size=SIZE(300,32) }:AttachResource(res)
-	StaticText { Title=BoardTitles[BoardType], Font=fontlarge(), Color=Layout.TitleColor, Position=Layout.TitlePos, Size=SIZE(560, 12) }
+	StaticText { Title=BoardTitles[BoardType], Position=Layout.TitlePos, Size=SIZE(300,17), Font=Layout.TitleFont, Color=Layout.TitleColor }
 
-	StaticText { Title=L"#", Position=POS(Layout.NumX-1, Layout.LabelsTop), Size=SIZE(50, 19), Font=Layout.LabelFont, Color=Layout.LabelFontColor, Align=FONTF_RIGHT }
+	StaticText { Title=L"#", Position=POS(Layout.NumX, Layout.LabelsTop), Size=SIZE(50, 19), Font=Layout.LabelFont, Color=Layout.LabelFontColor }
 	StaticText { Title=MULTIPLAYER_NAME, Position=POS(Layout.NameX, Layout.LabelsTop), Size=SIZE(50, 19), Font=Layout.LabelFont, Color=Layout.LabelFontColor }
-
-	local function CreateIcon(resname, x)
-		local icon = wm.GetResource(resname)
-		local iconsize = wm.GetResourceSize(icon)
-		local pos = POS(x - iconsize[1] / 2, Layout.IconTop)
-		Frame { Position=pos, Size=iconsize }:AttachResource(icon)
-	end
-	
-	CreateIcon("ranking_races_icon", Layout.RacesX)
-	CreateIcon("ranking_points_icon", Layout.PointsX)
-	CreateIcon("rank_icon", Layout.RankX)
+	StaticText { Title=MULTIPLAYER_RACES, Position=POS(Layout.RacesX, Layout.LabelsTop), Size=SIZE(50, 19), Font=Layout.LabelFont, Color=Layout.LabelFontColor, Align=FONTF_CENTER }
+	StaticText { Title=MULTIPLAYER_POINTS, Position=POS(Layout.PointsX, Layout.LabelsTop), Size=SIZE(50, 19), Font=Layout.LabelFont, Color=Layout.LabelFontColor, Align=FONTF_CENTER }
+	StaticText { Title=MULTIPLAYER_RANK, Position=POS(Layout.RankX, Layout.LabelsTop), Size=SIZE(50, 19), Font=Layout.LabelFont, Color=Layout.LabelFontColor, Align=FONTF_CENTER }
 	
 	local rankiconsize = wm.GetResourceSize("rank_value_bottom")
 	
@@ -232,33 +198,42 @@ function menu_multiplayer_scoreboard.init(self)
 		Coloumns={
 			[1]={
 			Name="num", -- _row# is added
-			ColoumnTemplate={Position=POS(Layout.NumX-Layout.ListPos[1], 0), Size=Layout.ListNumSize, Font=Layout.ListFont, Align=FONTF_RIGHT },
+			ColoumnTemplate={Position=POS(Layout.NumX-Layout.ListPos[1], 0), Size=Layout.ListNumSize, Font=Layout.ListFont, Align=FONTF_LEFT },
 			ColoumnTemplateType="StaticText",
 			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
 			end
 			},
 			[2]={
+			Name="flagicon", -- _row# is added
+			ColoumnTemplate={Position=POS(Layout.FlagX-Layout.ListPos[1], 1), Size=wm.GetResourceSize(self:getResource("bugbear")) },
+			ColoumnTemplateType="Frame",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+--				Coloumn:AttachResource(wm.GetResource("flag_finland"))
+				Coloumn:HideWindow()
+			end
+			},
+			[3]={
 			Name="playername", -- _row# is added
 			ColoumnTemplate={Position=POS(Layout.NameX-Layout.ListPos[1], 0), Size=SIZE(50,13), Font=Layout.ListFont },
 			ColoumnTemplateType="StaticText",
 			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
 			end
 			},
-			[3]={
+			[4]={
 			Name="races", -- _row# is added
 			ColoumnTemplate={Position=POS(Layout.RacesX-Layout.ListPos[1], 0), Size=SIZE(50,13), Font=Layout.ListFont, Align=FONTF_CENTER },
 			ColoumnTemplateType="StaticText",
 			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
 			end
 			},
-			[4]={
+			[5]={
 			Name="points", -- _row# is added
 			ColoumnTemplate={Position=POS(Layout.PointsX-Layout.ListPos[1], 0), Size=SIZE(50,13), Font=Layout.ListFont, Align=FONTF_CENTER },
 			ColoumnTemplateType="StaticText",
 			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
 			end
 			},
-			[5]={
+			[6]={
 			Name="rankicon", -- _row# is added
 			ColoumnTemplate={Position=POS(Layout.RankX-Layout.ListPos[1]-rankiconsize[1]/2, 0), Size=rankiconsize },
 			ColoumnTemplateType="Frame",
@@ -266,7 +241,7 @@ function menu_multiplayer_scoreboard.init(self)
 				Coloumn:AttachResource(wm.GetResource("rank_value_bottom"))
 			end
 			},
-			[6]={
+			[7]={
 			Name="ranktext", -- _row# is added
 			ColoumnTemplate={Position=POS(Layout.RankX-Layout.ListPos[1]-1, 1), Size=SIZE(20,20), Font=Layout.RankFont, Color=Layout.RankColor, Align=FONTF_CENTER },
 			ColoumnTemplateType="StaticText",
@@ -276,26 +251,6 @@ function menu_multiplayer_scoreboard.init(self)
 		}
 	}
 	
-	local arrowSize = GetResourceSize(self:getResource("xbox_trig_l"))
-	local pos = Layout.PageUpPos
-	Frame { Name="pageup", Position=POS(pos[1] - arrowSize[1] / 2, pos[2] - arrowSize[2] / 2), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("xbox_trig_l")):HideWindow()
-	
-	arrowSize = GetResourceSize(self:getResource("xbox_trig_r"))
-	pos = Layout.PageDownPos
-	Frame { Name="pagedown", Position=POS(pos[1] - arrowSize[1] / 2, pos[2] - arrowSize[2] / 2), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("xbox_trig_r")):HideWindow()
-
-	arrowSize = GetResourceSize(self:getResource("scroll_up_glow"))
-	pos = Layout.ScrollUpPos
-	Frame { Name="uparrow_glow", Position=POS(pos[1] - arrowSize[1] / 2, pos[2] - arrowSize[2] / 2), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("scroll_up_glow")):HideWindow()
-	arrowSize = GetResourceSize(self:getResource("scroll_up_icon"))
-	Frame { Name="uparrow", Position=POS(pos[1] - arrowSize[1] / 2, pos[2] - arrowSize[2] / 2), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("scroll_up_icon")):HideWindow()
-	
-	pos = Layout.ScrollDownPos
-	arrowSize = GetResourceSize(self:getResource("scroll_down_glow"))
-	Frame { Name="downarrow_glow", Position=POS(pos[1] - arrowSize[1] / 2, pos[2] - arrowSize[2] / 2), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("scroll_down_glow")):HideWindow()
-	arrowSize = GetResourceSize(self:getResource("scroll_down_icon"))
-	Frame { Name="downarrow", Position=POS(pos[1] - arrowSize[1] / 2, pos[2] - arrowSize[2] / 2), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("scroll_down_icon")):HideWindow()
-
 	StatList = StatisticsList { BoardType, Layout.ListNumRows }
 	
 	local scorelist = CreateMultiColoumnListBox(listboxParams)
@@ -303,6 +258,7 @@ function menu_multiplayer_scoreboard.init(self)
 	scorelist:SetSelectedRow(1)
 	scorelist.onNeedData = function(Self, RowObject, RowNr, ControlRowNr)
 		local num = wm.GetWindow("num_row"..ControlRowNr)
+		local flag = wm.GetWindow("flagicon_row"..ControlRowNr)
 		local name = wm.GetWindow("playername_row"..ControlRowNr)
 		local races = wm.GetWindow("races_row"..ControlRowNr)
 		local points = wm.GetWindow("points_row"..ControlRowNr)
@@ -313,8 +269,33 @@ function menu_multiplayer_scoreboard.init(self)
 			local scores = StatList:GetData()
 			
 			local scoreIndex = string.format("%d", ControlRowNr)
+			if scores[scoreIndex] == nil then
+				return
+			end
 			
-			if scores[scoreIndex] ~= nil and scores[scoreIndex].Selected then
+			num:SetTitle(WStringConcat(scores[scoreIndex].Ranking, L"."))
+			if MultiplayerMode == MPMODE_XBOXLIVE then
+				local flagicon = self:getResource(flagnames[scores[scoreIndex].Country])
+				local iconsize = wm.GetResourceSize(flagicon)
+				flag:AttachResource(flagicon)
+				flag:SetPosition(Layout.FlagX - Layout.ListPos[1] - iconsize[1] / 2, 1)
+				flag:ShowWindow()
+			end
+			
+			name:SetTitle(scores[scoreIndex].Name)
+			races:SetTitle(L(scores[scoreIndex].NumRacesStarted))
+			if BoardType <= SCOREBOARD_MIXED then
+				points:SetTitle(scores[scoreIndex].Rating)
+				ranktext:SetTitle(L(scores[scoreIndex].Level))
+				ranktext:ShowWindow()
+				rankbg:ShowWindow()
+			else
+				points:SetTitle(ConvertToWString(string.format("%0.2f",scores[scoreIndex].Score)))
+				ranktext:HideWindow()
+				rankbg:HideWindow()
+			end
+			
+			if scores[scoreIndex].Selected then
 				local c = GetPaletteColor(14)
 				c[4] = 0.5*MAX_VERTEXCOLOR_A
 				RowObject:SetColor(c, false)
@@ -330,50 +311,6 @@ function menu_multiplayer_scoreboard.init(self)
 				name:SetColor(Layout.ListFontColor, false)
 				races:SetColor(Layout.ListFontColor, false)
 				points:SetColor(Layout.ListFontColor, false)
-			end			
-			
-			if scores[scoreIndex] == nil then
-				num:SetTitle(L"")
-				name:SetTitle(L"")
-				races:SetTitle(L"")
-				points:SetTitle(L"")
-				rankbg:HideWindow()
-				ranktext:SetTitle(L"")
-				return
-			end
-			
-			num:SetTitle(WStringConcat(scores[scoreIndex].Ranking, L"."))
-			
-			name:SetTitle(scores[scoreIndex].Name)
-			races:SetTitle(L(scores[scoreIndex].NumRacesStarted))
-			if BoardType <= SCOREBOARD_MIXED then
-				points:SetTitle(scores[scoreIndex].Rating)
-				ranktext:SetTitle(L(scores[scoreIndex].Level))
-				ranktext:ShowWindow()
-				rankbg:ShowWindow()
-			else
-				points:SetTitle(ConvertToWString(string.format("%0.2f",scores[scoreIndex].Score)))
-				ranktext:HideWindow()
-				rankbg:HideWindow()
-			end
-			
-			if StatList:CanScrollUp() then
-				wm.GetWindow("uparrow_glow"):ShowWindow()
-				wm.GetWindow("uparrow"):ShowWindow()
-				wm.GetWindow("pageup"):ShowWindow()
-			else
-				wm.GetWindow("uparrow_glow"):HideWindow()
-				wm.GetWindow("uparrow"):HideWindow()
-				wm.GetWindow("pageup"):HideWindow()
-			end
-			if StatList:CanScrollDown() then
-				wm.GetWindow("downarrow_glow"):ShowWindow()
-				wm.GetWindow("downarrow"):ShowWindow()
-				wm.GetWindow("pagedown"):ShowWindow()
-			else
-				wm.GetWindow("downarrow_glow"):HideWindow()
-				wm.GetWindow("downarrow"):HideWindow()
-				wm.GetWindow("pagedown"):HideWindow()
 			end
 		else
 			local rankbg = wm.GetWindow("rankicon_row"..ControlRowNr)
@@ -404,30 +341,18 @@ function menu_multiplayer_scoreboard.init(self)
 		elseif VirtualKey == KeyCodes["BUTTON_UP"] then
 			State = REFRESHING
 			StatList:MoveUp()
-			if StatList:IsRefreshing() then
-				ShowThinkingWindow()
-			end
 			playmenusound_move()
 		elseif VirtualKey == KeyCodes["BUTTON_DOWN"] then
 			State = REFRESHING
 			StatList:MoveDown()
-			if StatList:IsRefreshing() then
-				ShowThinkingWindow()
-			end
 			playmenusound_move()
 		elseif PS2 and VirtualKey == KeyCodes["BUTTON_EXTRA1"] or XBOX and VirtualKey == KeyCodes["BUTTON_LEFT_TRIGGER"] then
 			State = REFRESHING
 			StatList:MovePageUp()
-			if StatList:IsRefreshing() then
-				ShowThinkingWindow()
-			end
 			playmenusound_move()
 		elseif PS2 and VirtualKey == KeyCodes["BUTTON_EXTRA2"] or XBOX and VirtualKey == KeyCodes["BUTTON_RIGHT_TRIGGER"] then
 			State = REFRESHING
 			StatList:MovePageDown()
-			if StatList:IsRefreshing() then
-				ShowThinkingWindow()
-			end
 			playmenusound_move()
 		end
 	end
@@ -435,42 +360,33 @@ function menu_multiplayer_scoreboard.init(self)
 	ActiveItem = 1
 	FriendsOnly = false
 	wm.SetFocus(handler)
-	local controller=XBoxLive.Auth.GetSignedInUserPort(1)
-	Friends.SetUserIndex(controller)
-	Friends.Enumrate()
-	State=FRIENDSLIST
 	ShowThinkingWindow()
+	if XBOX then
+		StatList:MoveToUser(XBoxLive.Auth.GetSignedInUserId(1))
+	else
+		StatList:MoveToUser(GameSpyPresence.GetLoggedInProfileID())
+	end
+	StatList:Update(0)
+	State = MOVETOUSER
 	--GetPlayerRank()
 	PrevTime = nil
 end
 
 function menu_multiplayer_scoreboard.deinit(self)
 	self.parent:deinit(self)
-	Friends.EndEnumrate()
 end
 
 function menu_multiplayer_scoreboard.update(self, time)
 	self.parent:update(self, time)
 	
-	local alpha = 1 - 0.20 + math.sin(time * 6) * 0.20
-	wm.GetWindow("uparrow_glow"):SetAlpha(alpha)
-	wm.GetWindow("downarrow_glow"):SetAlpha(alpha)
-
 	if menu_multiplayer_scoreboard.error then
 		return
 	end
 
 	if PrevTime then
-		StatList:Update((time - PrevTime)*1000)
+		StatList:Update(time - PrevTime)
 	end
 	PrevTime = time
-	
-	if State == FRIENDSLIST and Friends.IsResultsReady() then
-		StatList:MoveToUser(XBoxLive.Auth.GetSignedInUserId(1))
-		StatList:Update(0)
-		State = MOVETOUSER
-	end
-
 	
 	if State == MOVETOUSER and not StatList:IsRefreshing() then
 		if StatList:IsUserFound() then

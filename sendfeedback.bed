@@ -1,0 +1,196 @@
+--///////////////////////////////////////////////////////////////////////////
+--// SendFeedback.bed
+--///////////////////////////////////////////////////////////////////////////
+--// Copyright (c) 2004 Bugbear Entertainment ltd. 
+--// All Rights Reserved.
+--// 
+--// Created on 15.12.2005 7:53
+--// 
+--// Authors: Pasi Matilainen (pasi.matilainen@bugbear.fi)
+--///////////////////////////////////////////////////////////////////////////
+
+local LiveFeedbackLayout = OnlineOptionsLayout.LiveFeedbackLayout
+
+local FeedbackUserId
+local FeedbackNickName
+local SendingFeedback
+local BackAction
+local FeedbackType
+
+local ShowFeedbackUI
+
+local UpdateFeedbackFSM
+
+local PositiveFeedback=
+{
+	{LIVE_FEEDBACK_GOOD, "XONLINE_FEEDBACK_POS_ATTITUDE"},
+	{LIVE_FEEDBACK_GREAT, "XONLINE_FEEDBACK_POS_SESSION"},
+}
+
+local NegativeFeedback=
+{	
+	{LIVE_FEEDBACK_BAD, "XONLINE_FEEDBACK_NEG_NICKNAME"},
+	{LIVE_FEEDBACK_CHEAT, "XONLINE_FEEDBACK_NEG_GAMEPLAY"},
+	{LIVE_FEEDBACK_SCREAM,"XONLINE_FEEDBACK_NEG_SCREAMING"},
+	{LIVE_FEEDBACK_THREATS, "XONLINE_FEEDBACK_NEG_HARASSMENT"},
+}
+
+local VoiceFeedback=
+{
+	{LIVE_FEEDBACK_OFFENSIVE, "XONLINE_FEEDBACK_NEG_MESSAGE_INAPPROPRIATE"}
+}
+
+function SendFeedback(nickName, userId, backAction)
+	BackAction=backAction
+	FeedbackUserId=userId
+	FeedbackNickName=nickName
+	FeedbackType="SESSION"
+	ShowFeedbackUI()
+end
+
+function SendVoiceFeedback(nickName, userId, backAction)
+	BackAction=backAction
+	FeedbackUserId=userId
+	FeedbackNickName=nickName
+	FeedbackType="VOICE"
+	ShowFeedbackUI()
+end
+
+local listItems={}
+
+local SelectedItem=nil
+
+local function SetSelectedItem(item)
+	if SelectedItem then
+		local c = LiveFeedbackLayout.ListBgColor
+		c[4] = 0.5 * MAX_VERTEXCOLOR_A
+		listItems[SelectedItem].bg:SetColor(c, false)--AttachResource(wm.GetResource("wide_black_bar_50"))
+		listItems[SelectedItem].title:SetColor(LiveFeedbackLayout.ListItemColor, false)
+	end
+	SelectedItem=item
+	local c = LiveFeedbackLayout.ListSelectedBgColor
+	c[4] = 0.5 * MAX_VERTEXCOLOR_A
+	listItems[SelectedItem].bg:SetColor(c, false)--AttachResource(wm.GetResource("wide_white_bar_30"))
+	listItems[SelectedItem].title:SetColor(LiveFeedbackLayout.ListActiveItemColor, false)
+end
+
+function ExitFeedback()
+	if UpdateFeedbackFSM then
+		FSM_init_state(UpdateFeedbackFSM)
+		UpdateFeedbackFSM=nil
+	end
+	HideThinkingWindow()
+	wm.RemoveWindow(wm.GetWindow("sf_contentbox"))
+end
+
+function UpdateFeedback()
+	if OptionsPopup.InErrorState then
+		return
+	end
+	
+	if SendingFeedback then
+		local prog=XBoxLive.GetMessageManager():GetTransferStatus()
+		if prog=="SUCCESS" or prog=="FAILED" then
+			ExitFeedback()
+			BackAction()
+		end
+	end
+end
+
+ShowFeedbackUI = function()
+	local Layout = LiveFeedbackLayout
+	local bgbox = wm.GetWindow("options_box")
+
+	OptionsPopup.DeInit = function() ExitFeedback() end
+	
+	OptionsPopup.SetMenuTitle(TITLE_LIVE_FEEDBACK)
+	OptionsPopup.SetHelpButtons(UI_BACK, UI_SEND)
+	
+	local parent = Frame { Name="sf_contentbox", Position=POS(0,0), Size=pack(bgbox:GetSize()), Layer=5, Parent=bgbox }
+	
+	StaticText { Title=HEADER_LIVE_FEEDBACKTO, Position=Layout.TitlePos, Font=Layout.TitleFont, Color=Layout.TitleColor, Layer=5, Parent=parent }
+	StaticText { Title=FeedbackNickName, Position=Layout.NamePos, Font=Layout.TitleFont, Color=Layout.NameColor, Layer=5, Parent=parent }
+	
+	local x,y=unpack(Layout.PositiveListPos)
+	local bgwin,titlewin
+	listItems={}
+
+	if FeedbackType == "SESSION" then
+		StaticText { Title=LIVE_FEEDBACK_POSITIVE, Position=Layout.PositiveListPos, Font=Layout.ListFont, Color=Layout.ListTitleColor, Layer=5, Parent=parent }
+		for i,v in ipairs(PositiveFeedback) do
+			y = y + Layout.ListItemHeight
+			bgwin = Frame { Position=POS(2,y), Size=Layout.ListItemBgSize, Layer=5, Parent=parent }:AttachResource(wm.GetResource("wide_black_bar_50"))
+			titlewin = StaticText { Title=v[1], Position=POS(x,y), Size=SIZE(300, Layout.ListItemHeight), Font=Layout.ListFont, Color=Layout.ListItemColor, Layer=5, Parent=parent }
+			table.insert(listItems, {bg=bgwin, title=titlewin})
+		end
+	end
+	
+	y = y + 2 * Layout.ListItemHeight
+	StaticText { Title=LIVE_FEEDBACK_NEGATIVE, Position=POS(x, y), Font=Layout.ListFont, Color=Layout.ListTitleColor, Layer=5, Parent=parent }
+	
+	local items
+	if FeedbackType == "SESSION" then
+		items = NegativeFeedback
+	else
+		items = VoiceFeedback
+	end
+	for i,v in ipairs(items) do
+		y = y + Layout.ListItemHeight
+		bgwin = Frame { Position=POS(2,y), Size=Layout.ListItemBgSize, Layer=5, Parent=parent }:AttachResource(wm.GetResource("wide_black_bar_50"))
+		titlewin = StaticText { Title=v[1], Position=POS(x,y), Size=SIZE(300, Layout.ListItemHeight), Font=Layout.ListFont, Color=Layout.ListItemColor, Layer=5, Parent=parent }
+		table.insert(listItems, {bg=bgwin, title=titlewin})
+	end
+
+	SetSelectedItem(1)
+	
+	local handler=InputHandler { Name="sf_inputhandler", Parent=parent }
+	handler.onKeyPressed=function(Self, Character, VirtualKey, ScanCode)
+		if VirtualKey==KeyCodes["BUTTON_START"] then
+			local f=
+			MessageBox(
+				FEEDBACK_CONFIRMATION,
+				MESSAGEBOX_YESNO, 
+				function(value)
+					if value == TRUE then
+						local feedbacktype
+						if FeedbackType == "SESSION" then
+							if SelectedItem <= table.getn(NegativeFeedback) then
+								feedbacktype = NegativeFeedback[SelectedItem][2]
+							else
+								feedbacktype = PositiveFeedback[SelectedItem-table.getn(NegativeFeedback)][2]
+							end
+						else
+							feedbacktype = VoiceFeedback[SelectedItem][2]
+						end
+						XBoxLive.GetMessageManager():SendFeedback(ControllerId, FeedbackUserId, FeedbackNickName, feedbacktype)
+						SendingFeedback=true
+						ShowThinkingWindow()
+					end
+				end
+			)
+			playmenusound_action()
+		elseif VirtualKey==KeyCodes["BUTTON_SELECT"] then
+			ExitFeedback()
+			BackAction()
+			playmenusound_back()
+		elseif VirtualKey==KeyCodes["BUTTON_UP"] then
+			local numitems = table.getn(listItems)--table.getn(NegativeFeedback) + table.getn(PositiveFeedback)
+			SetSelectedItem(math.mod(SelectedItem - 2 + numitems, numitems) + 1)
+			playmenusound_move()
+		elseif VirtualKey==KeyCodes["BUTTON_DOWN"] then
+			local numitems = table.getn(listItems)
+			SetSelectedItem(math.mod(SelectedItem, numitems) + 1)
+			playmenusound_move()
+		end
+	end
+
+	SendingFeedback=false
+	handler:SetFocus()
+
+	local fsm=FSM()
+	FSM_init_state(fsm)
+	FSM_add_function(fsm, UpdateFeedback,FALSE,{})
+	FSM_add_delay_state(fsm, 0.2)
+	FSM_add_reset(fsm)
+	UpdateFeedbackFSM=fsm
+end

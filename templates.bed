@@ -80,15 +80,13 @@ function template_multiplayer.update(self,child,time)
 		return
 	end
 	
-	if not PC then
-		if MultiplayerMode == MPMODE_XBOXLIVE then
-			child.error = CheckXBoxLiveErrors()
-		elseif MultiplayerMode == MPMODE_GAMESPY then
-			child.error = CheckGameSpyErrors()
-		elseif MultiplayerMode == MPMODE_LAN then
-			child.error = CheckSystemLinkErrors()
-		end
-	end
+	if MultiplayerMode == MPMODE_XBOXLIVE then
+		child.error = CheckXBoxLiveErrors()
+	elseif MultiplayerMode == MPMODE_GAMESPY then
+		child.error = CheckGameSpyErrors()
+	elseif MultiplayerMode == MPMODE_LAN then
+		child.error = CheckSystemLinkErrors()
+	end	
 end
 
 --//end template_multiplayer

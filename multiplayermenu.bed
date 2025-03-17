@@ -10,10 +10,16 @@
 --///////////////////////////////////////////////////////////////////////////
 
 
+MPMODE_NONE = 1
+MPMODE_LAN = 2
+MPMODE_GAMESPY = 3
+MPMODE_XBOXLIVE = 4
+
+MultiplayerMode = NONE
 
 menu_multiplayer = CreateMenuFromTemplate("template_basic")
 
-menu_multiplayer.options.title = TITLE_MULTIPLAYER
+menu_multiplayer.options.title=L"MULTIPLAYER"
 menu_multiplayer.back = function()
 							EnterMenu("menu_mainmenu")
 						end
@@ -22,12 +28,19 @@ menu_multiplayer.back = function()
 --//	table.insert(menu_mainmenu.items,{ L"Quit game",function() Event:PostEvent(event(EVENT_QUIT)) end })
 --//end
 
-MPMODE_NONE = 1
-MPMODE_LAN = 2
-MPMODE_GAMESPY = 3
-MPMODE_XBOXLIVE = 4
+local Rules2Rules = {
+	[ReplicatedSession.GAMETYPE_RACE] = GR_DEFAULT,
+	[ReplicatedSession.GAMETYPE_PONGRACE] = GR_PONGRACE,
+	[ReplicatedSession.GAMETYPE_DERBY_WRECKING] = GR_DERBY,
+	[ReplicatedSession.GAMETYPE_DERBY_LMS] = GR_DERBY,
+	[ReplicatedSession.GAMETYPE_DERBY_FRAG] = GR_DERBY,
+}
 
-MultiplayerMode = NONE
+local Rules2EventType = {
+	[ReplicatedSession.GAMETYPE_DERBY_WRECKING] = DERBY_WRECKING,
+	[ReplicatedSession.GAMETYPE_DERBY_LMS] = DERBY_LMS,
+	[ReplicatedSession.GAMETYPE_DERBY_FRAG] = DERBY_FRAG,
+}
 
 local function StartSplitscreen(race, players)
 	GameFlow.ClearRace()
@@ -38,7 +51,7 @@ local function StartSplitscreen(race, players)
 
 		playerinfo.Name=players.players[i].name
 		playerinfo.Car=players.players[i].car
-		playerinfo.CarSkin=players.players[i].carskin or 1
+		playerinfo.CarSkin=1
 		playerinfo.Type=PLAYERTYPE_LOCAL
 		playerinfo.CharType=0
 		playerinfo.Controller=i-1
@@ -50,54 +63,21 @@ local function StartSplitscreen(race, players)
 	end
 end
 
+local SplitScreenSetup
+
 local function SplitScreenRaceSelection(state)
 	EnterSplitScreenRaceSelection(true,
 		function(race)
 			StartSplitscreen(race, state)
 		end,
 		entermenu("menu_partymode")
+--		function()
+--			SplitScreenSetup()
+--		end
 	)
 end
 
-function SplitScreenSelectNextRace()
-	SetPlayerSetupParams(
-		true,
-		function(players)
-			SplitScreenRaceSelection(players)
-		end,
-		function()
-			EnterMenu("menu_multiplayer")
-		end
-	)
-	
-	local state={}
-	state.total_players= 0
-	state.num_players= 0
-	state.players={}
-
-	for i=1,8 do
-		local playerinfo=db.GameFlow[string.format("PlayerInfo[%d]",i-1)]
-
-		if playerinfo.Type == PLAYERTYPE_LOCAL then
-			state.players[i]={}
-			state.players[i].name=playerinfo.Name
-			state.players[i].car=playerinfo.Car
-			state.players[i].controller=0
-			state.players[i].carskin=playerinfo.CarSkin
-			
-			local cardata=db.FlatOut2.Cars:GetProperty("Car",state.players[i].car)
-			state.players[i].carname=ConvertToWString(cardata.Name)
-
-
-			state.num_players = state.num_players + 1
-			state.total_players = state.total_players + 1
-		end
-	end
-
-	SplitScreenRaceSelection(state)
-end
-
-local function SplitScreenSetup()
+SplitScreenSetup = function()
 	EnterPartyModeMenu(
 		true,
 		function(state)
@@ -114,11 +94,9 @@ function menu_multiplayer.create(self)
 
 	self:loadResources()
 
-	GameFlow.ClearRace()
-
 	self.items={
-		MENUITEM(TRANSLATOR(ICON_MAIN_PARTYMODE), function() EnterPartyModeMenu(false) end,	ICON(self,"icon_party_mode")),
-		{ ICON_MULTIPLAYER_SPLITSCREEN, function() SplitScreenSetup(); end, ICON(self, "icon_split_screen") },
+		{ ICON_MULTIPLAYER_XBOXLIVE, function() MultiplayerMode = MPMODE_XBOXLIVE; enter_xboxlive()(); end, ICON(self,"icon_xbox_live") },
+		{ ICON_MULTIPLAYER_SPLITSCREEN, function() SplitScreenSetup() end, ICON(self, "icon_split_screen") }
 	}
 end
 
@@ -130,8 +108,6 @@ function menu_multiplayer.init(self)
 	InErrorState = false
 
 	MultiplayerMode = NONE
-
-	GUI:SetBackgroundVideo("data/video/bg_main")
 end
 
 function menu_multiplayer.update(self,time)

@@ -1,0 +1,294 @@
+--///////////////////////////////////////////////////////////////////////////
+--// SendVoice.bed
+--///////////////////////////////////////////////////////////////////////////
+--// Copyright (c) 2004 Bugbear Entertainment ltd. 
+--// All Rights Reserved.
+--// 
+--// Created on 7.6.2004 12:55:48
+--// 
+--// Authors: Pasi Matilainen (pasi.matilainen@bugbear.fi)
+--///////////////////////////////////////////////////////////////////////////
+
+local Layout = OnlineOptionsLayout.LiveSendVoiceLayout
+
+local VoiceMessageType="I"
+local MainMode=nil
+local Mode="IDLE"
+local VoiceLength=15
+local CurrentVoicePos=0
+local PrevTime=0
+local Ready
+local MessageRecorded
+local BackAction
+
+local BuildMenuButtons
+local ExitVoiceMessageMenu
+local HideVoiceMessageUI
+
+local UpdateVoiceFSM
+
+function SendVoiceMessage(type, backAction)
+	VoiceMessageType=type
+	BackAction=backAction
+	MainMode="SEND"
+	ShowVoiceMessageUI()
+--	EnterMenu("menu_xboxlive_voicemessage")
+end
+
+function ListenToVoiceMessage(type, messageId, backAction)
+	VoiceMessageType=type
+	BackAction=backAction
+	MainMode="LISTEN"
+	XBoxLive.GetMessageManager():DownloadVoiceMessage(ControllerId, messageId)
+	ShowVoiceMessageUI()
+--	EnterMenu("menu_xboxlive_voicemessage")
+end
+
+local function SetProgress(Progress, Pos)
+	local newWidth = Layout.ProgressSize[1] * Progress
+	wm.GetWindow("vm_progressbar"):SetSize(newWidth, Layout.ProgressSize[2])
+	local postext = string.format("%02.2f", Pos)
+	wm.GetWindow("vm_messagepos"):SetTitle(L(postext.." SECONDS"))
+end
+
+function StartRecord()
+	Mode="RECORDING"
+	BuildMenuButtons()
+	CurrentVoiceLength=15
+	CurrentVoicePos=0
+	XBoxLive:GetVoiceManager():RecordVoiceMail(ControllerId)
+end
+
+function StopRecord(SignalStop)
+	Mode="IDLE"
+	MessageRecorded = true
+	BuildMenuButtons()
+	if SignalStop then
+		XBoxLive:GetVoiceManager():StopVoiceMail(ControllerId)
+	end
+	SetProgress(0, 0)
+end
+
+function StartPlay()
+	Mode="PLAYING"
+	BuildMenuButtons()
+	CurrentVoiceLength=XBoxLive:GetVoiceManager():GetVoiceMailLength()
+	CurrentVoicePos=0
+	XBoxLive:GetVoiceManager():PlayVoiceMail(ControllerId)
+end
+
+function StopPlay(SignalStop)
+	Mode="IDLE"
+	wm.GetWindow("vm_messagepos"):SetTitle(L(CurrentVoiceLength))
+	BuildMenuButtons()
+	if SignalStop then
+		XBoxLive:GetVoiceManager():StopVoiceMail(ControllerId)
+	end
+	SetProgress(0, 0)
+end
+
+local emptyFunc=function()end
+
+local isSendCompleted=function()
+	local transStatus=XBoxLive.GetMessageManager():GetTransferStatus()
+	return transStatus=="SUCCESS" or transStatus=="FAILED"
+end
+
+function Send()
+	if VoiceMessageType == "I" then
+		Friends.SendInvite(CurrentFriend, true)
+	else
+		Friends.SendRequest(CurrentPlayer.UserId, true)
+	end
+	
+	MultiplayerWaitState=FSM()
+	ShowThinkingWindow()
+	FSM_init_state(MultiplayerWaitState)
+	FSM_add_wait_for_event(MultiplayerWaitState, 0.1, emptyFunc, isSendCompleted)
+	FSM_add_function(MultiplayerWaitState, HideThinkingWindow, false, {})
+	FSM_add_function(MultiplayerWaitState, ExitVoiceMessageMenu, false, {})
+end
+
+local function ShowVoiceFeedback()
+	local name
+	local uid
+	if CurrentFriend then
+		name = CurrentFriend.GamerTag
+		uid = CurrentFriend.UserId
+	else
+		name = CurrentPlayer.Name
+		uid = CurrentPlayer.UserId
+	end
+	OptionsPopup.ClearButtons()
+	HideVoiceMessageUI()
+	SendVoiceFeedback(name, uid, function() ShowVoiceMessageUI() end)
+end
+
+BuildMenuButtons = function(activeitem)
+	OptionsPopup.ClearButtons()
+	
+	if Mode == "PLAYING" then
+		OptionsPopup.Buttons = {
+			{ titles={ICON_LIVE_VOICEMESSAGE_STOP}, action=function() StopPlay(true) end, icons={"icon_multiplayer"} }
+		}
+	elseif Mode == "RECORDING" then
+		OptionsPopup.Buttons = {
+			{ titles={ICON_LIVE_VOICEMESSAGE_STOP}, action=function() StopRecord(true) end, icons={"icon_multiplayer"} }
+		}	
+	else
+		if MainMode == "LISTEN" or MainMode == "SEND" and MessageRecorded then
+			OptionsPopup.Buttons = {
+				{ titles={ICON_LIVE_VOICEMESSAGE_PLAY}, action=function() StartPlay() end, icons={"icon_multiplayer"} }
+			}
+		end
+		if MainMode == "LISTEN" then
+			table.insert(OptionsPopup.Buttons, { titles={ICON_LIVE_PLAYER_SENDFEEDBACK}, action=function() ShowVoiceFeedback() end, icons={"icon_send_feedback"} } )
+		end
+		if MainMode == "SEND" then
+			table.insert(OptionsPopup.Buttons, { titles={ICON_LIVE_VOICEMESSAGE_RECORD}, action=function() StartRecord() end, icons={"icon_multiplayer"} } )
+			if MessageRecorded then
+				table.insert(OptionsPopup.Buttons, { titles={ICON_LIVE_VOICEMESSAGE_SEND}, action=function() Send() end, icons={"icon_multiplayer"} } )
+			end				
+		end
+	end
+	OptionsPopup.ShowButtons(activeitem or 1)
+end
+
+HideVoiceMessageUI = function()
+	if UpdateVoiceFSM then
+		FSM_init_state(UpdateVoiceFSM)
+		UpdateVoiceFSM=nil
+	end
+	if MultiplayerWaitState then
+		FSM_init_state(MultiplayerWaitState)
+		MultiplayerWaitState = nil
+	end
+	wm.RemoveWindow(wm.GetWindow("vm_contentbox"))
+end
+
+function UpdateVoice()
+	if OptionsPopup.InErrorState then
+		HideThinkingWindow()
+		if MultiplayerWaitState then
+			FSM_init_state(MultiplayerWaitState)
+			MultiplayerWaitState = nil
+		end
+		if Mode == "RECORDING" then
+			StopRecord(true)
+			MessageRecorded = false
+			BuildMenuButtons()
+		elseif Mode == "PLAYING" then
+			StopPlay(true)
+			BuildMenuButtons()
+		end
+		return
+	end
+	
+	if Ready == false then
+		if XBoxLive.GetMessageManager():GetTransferStatus() == "SUCCESS" then
+			HideThinkingWindow()
+			BuildMenuButtons()
+			wm.GetWindow("vm_inputhandler"):SetFocus()
+			Ready = true
+		elseif XBoxLive.GetMessageManager():GetTransferStatus() == "FAILED" then
+			MessageBox(L"VOICE MESSAGE TRANSFER FAILED", MESSAGEBOX_OK, function() ExitVoiceMessageMenu() end)
+			Ready = true
+		end
+	end
+	
+	local time = wm.GetTime()
+	local dt = time - PrevTime
+	PrevTime = time
+	if Mode == "RECORDING" or Mode == "PLAYING" then
+		if XBoxLive.GetVoiceManager():IsVoiceMailStopped() then
+			if Mode == "RECORDING" then
+				StopRecord(false)
+				BuildMenuButtons()
+			else
+				StopPlay(false)
+				BuildMenuButtons()
+			end				
+		else
+			CurrentVoicePos = CurrentVoicePos + dt
+			if CurrentVoicePos > CurrentVoiceLength then
+				CurrentVoicePos = CurrentVoiceLength
+			end
+			SetProgress(CurrentVoicePos / CurrentVoiceLength, CurrentVoicePos)
+		end
+	end
+end
+
+ExitVoiceMessageMenu = function()
+	HideVoiceMessageUI()
+	OptionsPopup.ClearButtons()
+	BackAction()
+end
+
+function ShowVoiceMessageUI()
+	OptionsPopup.DeInit = function() HideVoiceMessageUI() end
+	
+	OptionsPopup.ClearButtons()
+
+	OptionsPopup.SetMenuTitle(TITLE_LIVE_VOICEMESSAGE)
+	OptionsPopup.SetHelpButtons(UI_BACK, UI_SELECT)
+	
+	local bgbox = wm.GetWindow("options_box")
+	local contentbox = Frame { Name="vm_contentbox", Position=POS(0,0), Size=pack(bgbox:GetSize()), Layer=5, Parent=bgbox }
+	local win = StaticText { Position=Layout.TitlePos, Size=SIZE(400,22), Font=Layout.TitleFont, Color=Layout.TitleColor, Layer=5, Parent=contentbox }
+	
+	if MainMode == "SEND" then
+		win:SetTitle(HEADER_LIVE_VOICEMESSAGETO)
+	else
+		win:SetTitle(HEADER_LIVE_VOICEMESSAGEFROM)
+	end
+	
+	win = StaticText { Position=Layout.NamePos, Size=SIZE(400,22), Font=Layout.TitleFont, Color=Layout.NameColor, Layer=5, Parent=contentbox }
+	
+	if VoiceMessageType == "I" or MainMode ~= "SEND" then
+		win:SetTitle(CurrentFriend.GamerTag)
+	else
+		win:SetTitle(CurrentPlayer.Name)
+	end
+
+	local progressframe = Frame { Name="vm_progressframe", Position=Layout.ProgressFramePos, Size=Layout.ProgressFrameSize, ShowBorders=TRUE, Layer=5, Parent=contentbox }
+	Frame { Name="vm_progressbarbg", Position=Layout.ProgressPos, Size=Layout.ProgressSize, Color=GetPaletteColor(2), DrawBackgroundColor=TRUE, Layer=5, Parent=progressframe }
+	Frame { Name="vm_progressbar", Position=Layout.ProgressPos, Size=SIZE(0,0), Color=GetPaletteColor(1), DrawBackgroundColor=TRUE, Layer=5, Parent=progressframe }
+	StaticText { Name="vm_messagepos", Position=Layout.MessagePosPos, Size=SIZE(400,13), Font=Layout.MessagePosFont, Color=Layout.MessagePosColor, Layer=5, Parent=progressframe }
+	
+	local handler = InputHandler { Name="vm_inputhandler", Parent=contentbox }
+	handler.onKeyPressed = function(Self, Character, VirtualKey, ScanCode)
+		if VirtualKey == KeyCodes["BUTTON_START"] then
+			OptionsPopup.Buttons[OptionsPopup.ActiveButton].action()
+			playmenusound_action()
+		elseif VirtualKey == KeyCodes["BUTTON_SELECT"] and Mode == "IDLE" then
+			ExitVoiceMessageMenu()
+			playmenusound_back()
+		elseif VirtualKey == KeyCodes["BUTTON_LEFT"] then
+			OptionsPopup.MoveLeft()
+			playmenusound_move()
+		elseif VirtualKey == KeyCodes["BUTTON_RIGHT"] then
+			OptionsPopup.MoveRight()
+			playmenusound_move()
+		end
+	end
+
+	SetProgress(0, 0)
+	MessageRecorded = false
+	XBoxLive.GetVoiceManager():GetPlayerByPort(ControllerId):SetMode(ReplicatedVoiceInfo.MODE_VOICE_MAIL)
+
+	if MainMode=="SEND" then
+		BuildMenuButtons()
+		handler:SetFocus()
+		Ready = true
+	else
+		Ready = false
+		ShowThinkingWindow()
+	end
+
+	local fsm=FSM()
+	FSM_init_state(fsm)
+	FSM_add_function(fsm, UpdateVoice,FALSE,{})
+	FSM_add_delay_state(fsm, 0.1)
+	FSM_add_reset(fsm)
+	UpdateVoiceFSM=fsm
+end

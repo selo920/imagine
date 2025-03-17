@@ -1,0 +1,481 @@
+--///////////////////////////////////////////////////////////////////////////
+--// XBoxLive.bed
+--///////////////////////////////////////////////////////////////////////////
+--// Copyright (c) 2004 Bugbear Entertainment ltd. 
+--// All Rights Reserved.
+--// 
+--// Created on 8.1.2004 21:12:29
+--// 
+--// Authors: Fred Sundvik (fred.sundvik@bugbear.fi)
+--///////////////////////////////////////////////////////////////////////////
+
+
+
+
+local Layout={
+	BoxPos=POS(21, 76),
+
+	ListPos=POS(85, 33),
+	ListItemWidth=325,
+	ListItemHeight=24,
+	ListItemPadding=0,
+	ListFont=fontsmall(),
+	ListFontColor={255, 255, 255, 255},
+	ListSelectedFontColor={255, 200, 0, 255},
+	ListActiveItemColor={0, 0, 0, 75},
+	ListInactiveItemColor={0,0,0,0},
+	ListNumRows=8,	
+	
+	FriendRequestPos=POS(440, 181),
+	GameInvitePos=POS(67, 181),	
+}
+
+local Controller=1
+
+local EventListener
+
+local signingout = false
+
+local function GetControllerId()
+	return Controller
+end
+
+function enter_xboxlive()
+	local f=function()
+		if Network == nil then
+			StartNetwork()
+		end
+		
+		if XBoxLive.Auth.GetNumSignedInUsers()>0  then
+			local allValid=true
+			for i=1, XBoxLive.Auth.GetNumSignedInUsers() do
+				if XBoxLive.Auth.GetSignedInUserStatus(i)=="XONLINE_E_LOGON_USER_ACCOUNT_REQUIRES_MANAGEMENT" then
+					allValid=false
+				end
+			end
+			if allValid then
+				EnterMenu("menu_xboxlive")
+			else
+				EnterMenu("menu_xboxlive_auth")	
+			end		
+		else
+			EnterMenu("menu_xboxlive_auth")
+		end
+	end
+	return f
+end
+
+CableErrorMessageActive = false
+LiveErrorMessageActive = false
+InErrorState = false
+
+function OnlineOptionsCheckXBoxLiveErrors()
+	XBoxLiveError=XBoxLive.Auth.GetSignInResult()
+	if XBoxLiveError=="XONLINE_E_LOGON_CONNECTION_LOST" or XBoxLiveError=="XONLINE_E_LOGON_KICKED_BY_DUPLICATE_LOGON" then
+		if not LiveErrorMessageActive then
+			if CableErrorMessageActive then
+				CableErrorMessageActive = false
+			end
+
+			OptionsPopup.Destroy()
+			GUI:CloseMessageBox()
+			
+			if wm.GetWindow("menubar_gamespy_logo") ~= nil then
+				-- We are in a multiplayer menu, so let the menu handle the error
+				return
+			end	
+			
+			LiveErrorMessageActive = true
+			if MultiplayerWaitState then
+				FSM_init_state(MultiplayerWaitState)
+				MultiplayerWaitState=nil
+			end
+
+			GUI:EnableOnlineOptionsMenu(false)
+			XBoxLiveUpdateStatus()
+			StopNetwork()
+
+			if XBoxLiveError == "XONLINE_E_LOGON_CONNECTION_LOST" then
+				MessageBox(
+					AUTH_LOST,
+					MESSAGEBOX_YESNO,
+					function(value)
+						if value == TRUE then
+							XBoxLive.BootToDash("XLD_LAUNCH_DASHBOARD_NETWORK_CONFIGURATION")
+						end
+					end
+				)
+			elseif XBoxLiveError == "XONLINE_E_LOGON_KICKED_BY_DUPLICATE_LOGON" then
+				MessageBox(AUTH_DUPLICATE, MESSAGEBOX_OK, function() end)
+			end
+		end
+		return true
+	elseif Network.CableDisconnected() then
+		if not InErrorState then
+			if GUI:IsMessageBoxActive() or wm.GetWindow("messagebox") ~= nil then
+				-- Things get confusing if we pop up the disconnect message when another message box is already active,
+				-- so don't show the dialog until the existing message box is closed
+				return
+			end
+
+			LiveErrorMessageActive = false
+			CableErrorMessageActive = true
+			MessageBox(
+				L"The network cable might be disconnected. Please check the cable and try again.",
+				MESSAGEBOX_OK,
+				function(value)
+					if value == TRUE then
+						OptionsPopup.Destroy()
+						GUI:EnableOnlineOptionsMenu(false)
+						CableErrorMessageActive = false
+						XBoxLive.Auth.SignOut()
+						StopNetwork()
+						XBoxLiveUpdateStatus()
+						if wm.GetWindow("menubar_gamespy_logo") ~= nil then
+							EnterMenu("menu_multiplayer")
+						end
+					end
+				end
+			)
+		end
+		InErrorState = true
+		return true
+	end
+	
+	if CableErrorMessageActive then
+		CableErrorMessageActive = false
+		GUI:CloseMessageBox()
+	end
+	
+	LiveErrorMessageActive = false
+	InErrorState = false
+	
+	return false
+end
+
+function CheckXBoxLiveErrors()
+	XBoxLiveError=XBoxLive.Auth.GetSignInResult()
+	if XBoxLiveError=="XONLINE_E_LOGON_CONNECTION_LOST" or XBoxLiveError=="XONLINE_E_LOGON_KICKED_BY_DUPLICATE_LOGON" then
+		if CableErrorMessageActive then
+			CableErrorMessageActive = false
+		end
+
+		GUI:CloseMessageBox()
+		HideMessageBox()
+		HideThinkingWindow()
+
+		if MultiplayerWaitState then
+			FSM_init_state(MultiplayerWaitState)
+			MultiplayerWaitState=nil
+		end
+
+		EnterMenu("menu_xboxlive_error")
+		InErrorState = true
+		return true
+	elseif Network.CableDisconnected() then
+		if not InErrorState then
+			if GUI:IsMessageBoxActive() or wm.GetWindow("messagebox") ~= nil then
+				-- Things get confusing if we pop up the disconnect message when another message box is already active,
+				-- so don't show the dialog until the existing message box is closed
+				return
+			end
+
+			CableErrorMessageActive = true
+			GUI:EnableOnlineOptionsMenu(false)
+			MessageBox(
+				L"The network cable might be disconnected. Please check the cable and try again.",
+				MESSAGEBOX_OK,
+				function(value)
+					if value == TRUE then
+						CableErrorMessageActive = false
+						EnterMenu("menu_multiplayer_xboxlive_disconnect")
+					end
+				end
+			)
+		end
+		InErrorState = true
+		return true
+	end
+	
+	if CableErrorMessageActive then
+		CableErrorMessageActive = false
+		GUI:EnableOnlineOptionsMenu(true)
+		GUI:CloseMessageBox()
+	end
+	InErrorState = false
+	return false
+end
+
+menu_multiplayer_xboxlive_disconnect = CreateMenuFromTemplate("template_basic")
+menu_multiplayer_xboxlive_disconnect.options.title = L""
+menu_multiplayer_xboxlive_disconnect.back = function() end
+
+function menu_multiplayer_xboxlive_disconnect.create(self)
+	self.parent:create(self)
+	self:loadResources()
+end
+
+
+function menu_multiplayer_xboxlive_disconnect.init(self)
+	self.parent:init(self)
+	
+	GUI:EnableOnlineOptionsMenu(false)
+	if Session ~= nil then
+		Session:Disconnect()
+	end
+
+	Network:StopMultiplayer()
+	XBoxLive.Auth.SignOut()
+	XBoxLiveUpdateStatus()
+end
+
+function menu_multiplayer_xboxlive_disconnect.update(self, time)
+	self.parent:update(self,time)
+	
+	if not GUI:IsMenuAnimating() then
+		EnterMenu("menu_multiplayer")
+	end
+end
+
+menu_xboxlive = CreateMenuFromTemplate("template_multiplayer")
+menu_xboxlive.options.title = TITLE_LIVE_MAIN
+menu_xboxlive.back = function()
+						if Session ~= nil then
+							Network:StopMultiplayer()
+						end
+						GUI:SetMenuController(0)
+						EnterMenu("menu_multiplayer")
+					end
+
+function DoSignOut()
+	GUI:EnableOnlineOptionsMenu(false)
+	signingout = true
+	if Session ~= nil then
+		Network:StopMultiplayer()
+	end
+	XBoxLive.Auth.SignOut()
+	GUI:SetStatusText(AUTH_NOTSIGNEDIN)
+	menu_xboxlive.back()
+end
+
+function SignOut()
+	MessageBox(
+		AUTH_SIGNOUT,
+		MESSAGEBOX_YESNO,
+		function(value)
+			if value == TRUE then
+				GUI:SetMenuController(0)
+				DoSignOut()
+			end
+		end
+	)
+end
+
+function menu_xboxlive.create(self)
+	self.parent:create(self)
+
+	self:loadResources()
+
+	self.items = {
+		{ ICON_LIVE_QUICKMATCH, entermenu("menu_xboxlive_quickmatch"), ICON(self,"icon_quickmatch")},
+		{ ICON_LIVE_OPTIMATCH, function() EnterOptimatchMenu("menu_xboxlive") end, ICON(self,"icon_xbl_optimatch")},
+		{ ICON_LIVE_CREATEMATCH, function() EnterCreateGameMenu("menu_xboxlive") end, ICON(self,"icon_xbl_create_game")},
+		{ ICON_LIVE_OPTIONS, function() EnterOnlineOptions(GetControllerId(), false) end, ICON(self,"icon_online_options")},
+		{ ICON_LIVE_PLAYERS, function() OptionsPopup.Create(); EnterPlayersList(MODE_PLAYERS, GetControllerId(), function() OptionsPopup.Destroy(); EnterMenu("menu_xboxlive"); end) end, ICON(self,"icon_xbl_recent_players")},
+		{ ICON_LIVE_SCOREBOARDS, entermenu("menu_multiplayer_scoreboards"), ICON(self,"icon_scoreboards")},
+		{ ICON_LIVE_FRIENDS, function() OptionsPopup.Create(); EnterPlayersList(MODE_FRIENDS, GetControllerId(), function() OptionsPopup.Destroy(); EnterMenu("menu_xboxlive"); end) end, ICON(self,"icon_xbl_friends")},
+		{ ICON_LIVE_LOGOUT, function() SignOut() end, ICON(self,"icon_xbl_logout")}
+	}
+end
+
+local function NetworkEvents(event)
+	if event.id == EVENT_FIND_SESSIONS_COMPLETED then
+		HideThinkingWindow()
+		if SessionList:GetNumSessions()==0 then
+			MessageBox(MULTIPLAYER_NOSESSION, MESSAGEBOX_OK, function(value) end) 
+		else
+			SessionList:SetSessionNum(1)
+			SessionList:JoinSession()
+		end
+	elseif event.id == EVENT_NETWORK_REQUEST_PLAYERUPDATE then
+		local player=Session:GetLocalPlayer(1)
+
+		if XBOX then
+			player.Name = XBoxLive.Auth.GetSignedInUserName(1)
+			player.UId = XBoxLive.Auth.GetSignedInUserId(1)
+		else
+			player.Name = L(GameSpyPresence.GetAccountProfileName())
+			player.UId = GameSpyPresence.GetLoggedInProfileID()
+		end
+		
+		local info = Session:GetInfo()
+
+		if info.CarClass > 4 then
+			player.Car = info.CarClass - 5
+		elseif info.CarClass ~= SessionInfo.CarClass.Any then
+			local classCars = CarlistFromClass(info.CarClass - 1, false, true)
+			player.Car = classCars[0]
+		else
+			player.Car = 0
+		end
+
+		player.CarSkin=1
+		--player.Score = 0
+		if info.CarUpgrades ~= SessionInfo.CarUpgrades.Any then
+			player.UpgradeLevel = info.CarUpgrades
+		else
+			player.UpgradeLevel = SessionInfo.CarUpgrades.Full
+		end
+	elseif event.id == EVENT_NETWORK_JOIN_RESULT then
+		HideThinkingWindow()
+		if event.data == 0 then
+			MessageBox(LIVE_CANNOTJOINFRIEND, MESSAGEBOX_OK, ReturnToSelection) 
+		elseif event.data == 1 then
+			local backmenu
+			if XBOX then
+				MultiplayerMode = MPMODE_XBOXLIVE
+				backmenu = "menu_xboxlive"
+			else
+				MultiplayerMode = MPMODE_GAMESPY
+				backmenu = "menu_multiplayer_gamespy"
+			end
+
+			ShowLobby(backmenu)
+		end
+	end
+end
+
+function menu_xboxlive.init(self)
+	self.parent:init(self)
+
+	GUI:SetBackground("data/menu/menu_background.tga")
+	
+	Controller = XBoxLive.Auth.GetSignedInUserPort(1)
+	GUI:SetMenuController(Controller)
+
+	EventListener = nil
+	
+	if XBoxLiveSignedInCheckGameInvite() then
+		return
+	end
+	
+	EventListener = Event:AddListener(NetworkEvents, EVENTTYPE_NETWORK)
+
+	Network:StopMultiplayer()
+	
+	if Friends.ShouldJoinFriend() then
+		local friend=Friends.GetFriendToJoin()
+		
+		ShowThinkingWindow()
+		XBoxLive.CreateFindSessionQuery()
+		SessionList:SetParameter("Id", XBoxLive.SessionKIdToString(friend.SessionId))
+		SessionList:Refresh()
+	end
+
+	local icon = wm.GetResource("xbox_game_invite_received_big")
+	local size = wm.GetResourceSize(icon)
+	local win = Frame { Name="live_invite_notification", Position=POS(0, 0), Size=size, Layer=5 }:AttachResource(icon)
+	win:HideWindow()
+
+	icon = wm.GetResource("xbox_friend_invite_received_big")
+	size = wm.GetResourceSize(icon)	
+	win = Frame { Name="live_friend_notification", Position=POS(0,0), Size=size, Layer=5 }:AttachResource(icon)
+	win:HideWindow()
+end
+	
+	
+function menu_xboxlive.deinit(self)
+	self.parent:deinit(self)
+	
+	if EventListener then
+		Event:RemoveListener(EventListener)
+	end
+end
+	
+function menu_xboxlive.update(self, time)
+	self.parent:update(self, time)
+	
+	if signingout or menu_xboxlive.error then
+		return
+	end
+	
+	local mm = XBoxLive.GetMessageManager()
+	local port = XBoxLive.Auth.GetSignedInUserPort(1)
+	local size = wm.GetResourceSize(wm.GetResource("xbox_game_invite_received_big"))
+	local y = 350 - size[2]
+	local x = 447.5 - size[1] / 2
+	
+	local win = wm.GetWindow("live_friend_notification")
+	if win then
+		if mm:HasFriendRequest(port) and not OptionsPopup.PopupActive then
+			win:SetPosition(x, y)
+			y = y - size[2] - 2
+			win:ShowWindow()
+		else
+			win:HideWindow()
+		end
+	end
+	
+	local win = wm.GetWindow("live_invite_notification")
+	if win then
+		if mm:HasGameInvite(port) and not OptionsPopup.PopupActive then
+			win:SetPosition(x, y)
+			win:ShowWindow()
+		else
+			win:HideWindow()
+		end
+	end
+end
+
+
+function XBoxLiveUpdateStatus()
+	if Network ~= nil then
+		GUI:SetStatusText(XBoxLive.Auth.GetSignInStatusMessage())
+	else
+		GUI:SetStatusText(AUTH_NOTSIGNEDIN)
+	end
+end
+
+menu_xboxlive_error = CreateMenuFromTemplate("template_basic")
+menu_xboxlive_error.options.title = L""
+menu_xboxlive_error.back = function()EnterMenu("menu_multiplayer")end
+
+function menu_xboxlive_error.create(self)
+	self.parent:create(self)
+	self:loadResources()
+	items = { }
+end
+	
+function menu_xboxlive_error.init(self)
+	self.parent:init(self)
+
+	GUI:SetBackground("data/menu/menu_background.tga")
+	GUI:SetMenuController(0)
+
+	HideMessageBox()
+	HideThinkingWindow()
+
+	GUI:EnableOnlineOptionsMenu(false)
+	XBoxLiveUpdateStatus()
+	StopNetwork()
+	
+	if XBoxLiveError=="XONLINE_E_LOGON_CONNECTION_LOST" then
+		MessageBox(
+			AUTH_LOST,
+			MESSAGEBOX_YESNO,
+			function(value)
+				if value == TRUE then
+					XBoxLive.BootToDash("XLD_LAUNCH_DASHBOARD_NETWORK_CONFIGURATION")
+				else
+					menu_xboxlive_error.back()
+				end
+			end
+		)
+	elseif XBoxLiveError=="XONLINE_E_LOGON_KICKED_BY_DUPLICATE_LOGON" then
+		MessageBox(AUTH_DUPLICATE, MESSAGEBOX_OK, menu_xboxlive_error.back)
+	end
+end
+	
+function menu_xboxlive_error.deinit(self)
+	self.parent:deinit(self)
+end

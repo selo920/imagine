@@ -19,27 +19,21 @@ menu_startscreen.options.title=L""
 function menu_startscreen.create(self)
 	self.parent:create(self)
 
+	self:addResource("title_logo",image("fo2_logo.tga"))
+
 	self:loadResources()
 
 end
 
-local function start_attract()
-	--//AnimateWindowAlpha(W("start_text"),1.0,0.0,0.2)		
-
-	--//menu_startscreen.in_attract=true
-	--//GUI:StartAttract()
-
-	GUI:PlayVideo("data/video/attra",true)
-	Event:SendEvent(event(EVENT_GAMEFLOW_RESET_TIMER_AFTER_ATTRACT))
-
-	GUI:SetBackground("data/menu/generic6_bg.tga")
-	AnimateWindowAlpha(W("start_text"),0.0,1.0,0.3,0.3)		
-
-	Event:PostEvent(event(EVENT_MENU_ATTRACT_END))
-end
-
 function menu_startscreen.init(self)
 --//	self.parent:init(self)
+
+	local size=GetResourceSize(self:getResource("title_logo"))
+
+	local x=640/2-size[1]/2
+	local y=480/2-size[2]/2
+
+	local w=Frame{Name="logo",Position=POS(404,31),Size=size,IgnoreGlobalAlpha=TRUE}:AttachResource(self:getResource("title_logo"))
 
 
 	local text=TRANSLATOR(PRESS_START)
@@ -54,15 +48,39 @@ function menu_startscreen.init(self)
 
 	local input=InputHandler{}
 
+	local end_attract
+
+	local function start_attract()
+		AnimateWindowAlpha(W("logo"),W("logo"):GetAlpha(),0.0,0.2)
+		AnimateWindowAlpha(W("start_text"),1.0,0.0,0.2)		
+
+		--//GUI:SetBackground("data/menu/attract_bg.tga")
+		GUI:SetBackgroundVideo("data/video/attractn")
+
+		self.in_attract=true
+
+		menu_startscreen.timerhandle=Event:AddTimer(end_attract,30*1000,nil,TRUE)
+
+	end
+
+	end_attract=function()
+		self.in_attract=false
+		GUI:SetBackground("data/menu/canvas_bg.tga")
+		AnimateWindowAlpha(W("logo"),W("logo"):GetAlpha(),1.0,0.3,0.3)
+		AnimateWindowAlpha(W("start_text"),0.0,1.0,0.3,0.3)		
+		menu_startscreen.timerhandle=Event:AddTimer(start_attract,30*1000,nil,TRUE)
+	end
+
 
 	function input.onKeyPressed(self,character,virtualkey,scancode)
-		if virtualkey == KeyCodes.BUTTON_START or virtualkey == KeyCodes.BUTTON_A then
-			if XBOX then
-				XBoxLive.Auth.SilentSignIn(GUI:GetLastActiveController())
-				XBoxLiveUpdateStatus()
+		if menu_startscreen.in_attract then
+			Event:RemoveTimer(menu_startscreen.timerhandle)
+			end_attract()
+		else
+			if virtualkey == KeyCodes.BUTTON_START or virtualkey == KeyCodes.BUTTON_A then
+				StartGame()
+				EnterMenu("menu_profiles")
 			end
-			StartGame()
-			EnterMenu("menu_profiles")
 		end
 	end
 
@@ -85,7 +103,7 @@ function menu_startscreen.init(self)
 	self.timerhandle=Event:AddTimer(start_attract,30*1000,nil,TRUE)
 
 
-	GUI:SetBackground("data/menu/generic6_bg.tga")
+	GUI:SetBackground("data/menu/canvas_bg.tga")
 end
 
 function menu_startscreen.deinit(self)
@@ -95,14 +113,8 @@ function menu_startscreen.deinit(self)
 	
 end
 
-function menu_startscreen.eventhandler(self,event)
-	if event.id == EVENT_MENU_ATTRACT_END then	
-		menu_startscreen.timerhandle=Event:AddTimer(start_attract,30*1000,nil,TRUE)
-	end
-end
-
-
 function menu_startscreen.starthide(self)
+	AnimateWindowAlpha(W("logo"),W("logo"):GetAlpha(),0.0,0.3)
 	AnimateWindowAlpha(W("start_text"),W("start_text"):GetAlpha(),0.0,0.3)
 
 end

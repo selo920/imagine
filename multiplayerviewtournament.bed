@@ -20,39 +20,40 @@ local CurrentEvent
 local CurRow
 local CurCol
 
-local Events
+local Events = { }
 
 local function UpdateEventInfo()
 	local event = Events[CurrentEvent]
 	local type = event.rules
-	local self = menu_multiplayer_view_tournament
 	
 	wm.GetWindow("track_name"):SetTitle(L(Levels[event.trackid].Name))
 	wm.GetWindow("game_mode"):SetTitle(GameModeNames[event.rules])
-	if type == ReplicatedSession.GAMETYPE_STUNT then
-		wm.GetWindow("lap"):HideWindow()
-		wm.GetWindow("num_laps"):HideWindow()
-	else
-		local lapiconwin = wm.GetWindow("lap")
-		local lapswin = wm.GetWindow("num_laps")
-		lapiconwin:ShowWindow()
-		lapswin:ShowWindow()
+	if type == ReplicatedSession.GAMETYPE_RACE or type == ReplicatedSession.GAMETYPE_PONGRACE then
+		wm.GetWindow("lap"):ShowWindow()
+		wm.GetWindow("num_laps"):ShowWindow()
 
 		local lapstxt
-		local lapicon
 		if type == ReplicatedSession.GAMETYPE_RACE then
 			lapstxt = MULTIPLAYER_LAPS
-			lapicon = "lap"
-		elseif type == ReplicatedSession.GAMETYPE_DERBY_WRECKING then
-			lapstxt = MULTIPLAYER_MINUTES
-			lapicon = "clock"
+		else
+			lapstxt = MULTIPLAYER_TURNS
 		end
-		lapiconwin:AttachResource(self:getResource(lapicon))
 
 		wm.GetWindow("num_laps"):SetTitle(WStringConcat(L(event.lapsOrTimeLimit.." "), lapstxt))
+		wm.GetWindow("race_data"):HideWindow()
+	elseif type == ReplicatedSession.GAMETYPE_DERBY_FRAG or type == ReplicatedSession.GAMETYPE_HUNTERPREY or type == ReplicatedSession.GAMETYPE_HUNTER_PREY then
+		wm.GetWindow("lap"):HideWindow()
+		wm.GetWindow("num_laps"):HideWindow()
+		wm.GetWindow("race_data"):ShowWindow()
+		wm.GetWindow("race_data"):SetTitle(WStringConcat(L(event.lapsOrTimeLimit.." "), MULTIPLAYER_MINUTES))
+	else
+		wm.GetWindow("lap"):HideWindow()
+		wm.GetWindow("num_laps"):HideWindow()
+		wm.GetWindow("race_data"):HideWindow()
 	end
 
-	local eventnum = WStringConcat(MULTIPLAYER_EVENT, L(" "..CurrentEvent.." / "..table.getn(Events)))
+	local eventnum = WStringConcat(L"#3", MULTIPLAYER_EVENT)
+	eventnum = WStringConcat(eventnum, L("#5 "..CurrentEvent.." / "..table.getn(Events)))
 	wm.GetWindow("event_number"):SetTitle(eventnum)
 end
 
@@ -104,22 +105,21 @@ end
 function menu_multiplayer_view_tournament.init(self)
 	self.parent:init(self)
 
-	GUI:SetBackground("data/menu/career_race_rewards_background.tga")
-
-	Events = { }
-	
 	local pos = POS(353,298)
 	local p = Frame{Name="info_window",Position=pos,Size=SIZE(288,100)}
 
 	Frame { Position=RELATIVEPOS(POS(353,298),pos), Size=SIZE(69,100), Parent=p }:AttachResource(self:getResource("backdrop_detailed_tip"))
 	Frame { Position=RELATIVEPOS(POS(422,298),pos), Size=SIZE(219,100), Parent=p }:AttachResource(self:getResource("backdrop_detailed_main"))
 
-	StaticText { Name="event_number", Position=RELATIVEPOS(POS(369,303),pos), Font=fontmedium(), Color=GetPaletteColor(33), Parent=p }
-	StaticText { Name="game_mode", Position=RELATIVEPOS(POS(377,325),pos), Color=GetPaletteColor(34), Font=fontmedium(), Parent=p }
-	StaticText { Name="track_name", Position=RELATIVEPOS(POS(385,348),pos), Color=GetPaletteColor(34), Font=fontmedium(), Parent=p }
+	StaticText { Name="track_name", Position=RELATIVEPOS(POS(369,303),pos), Color=GetPaletteColor(3), Font=fontmedium(), Parent=p }
 
-	Frame { Name="lap", Position=RELATIVEPOS(POS(393,371),pos),Size=GetResourceSize(self:getResource("lap")),Parent=p}:AttachResource(self:getResource("lap"))
-	StaticText { Name="num_laps", Position=RELATIVEPOS(POS(413,371),pos), Font=fontmedium(), Color=GetPaletteColor(34), Parent=p }
+	StaticText { Name="game_mode", Position=RELATIVEPOS(POS(375,322),pos), Color=GetPaletteColor(5), Font=fontsmall(), Parent=p }
+
+	Frame { Name="lap", Position=RELATIVEPOS(POS(381,341),pos),Size=GetResourceSize(self:getResource("lap")),Parent=p}:AttachResource(self:getResource("lap"))
+	StaticText { Name="num_laps", Position=RELATIVEPOS(POS(401,341),pos), Font=fontsmall(), Color=GetPaletteColor(5), Parent=p }
+	StaticText { Name="race_data", Position=RELATIVEPOS(POS(381,341),pos), Font=fontsmall(), Color=GetPaletteColor(5), Parent=p }
+
+	StaticText { Name="event_number", Position=RELATIVEPOS(POS(393,371),pos), Font=fontmedium(), Parent=p }
 
 	local ppos = POS(0,62)
 	p = Frame { Name="track_image_bar",Position=ppos,Size=SIZE(640,22)}:AttachResource(self:getResource("black_transparent_50"))
@@ -163,7 +163,7 @@ function menu_multiplayer_view_tournament.init(self)
 			Events[i] = { trackid = race.StageNr, rules = race.EventType, lapsOrTimeLimit = race.LapsOrTimeLimit, numhunters = race.NumHunters }
 			w.image = imageframe:AttachResource(self:getResource(Levels[Events[i].trackid].TrackIcon))
 			w.image:SetAlpha(0)
-			if Events[i].rules ~= ReplicatedSession.GAMETYPE_STUNT then
+			if Events[i].rules ~= ReplicatedSession.GAMETYPE_STUNT and Events[i].rules ~= ReplicatedSession.GAMETYPE_DERBY_LMS and Events[i].rules ~= ReplicatedSession.GAMETYPE_DERBY_WRECKING then
 				w.info:SetTitle(L(Events[i].lapsOrTimeLimit))
 			end
 		else
@@ -190,16 +190,16 @@ function menu_multiplayer_view_tournament.init(self)
 				CurrentEvent = CurRow*3+CurCol+1
 			until Events[CurrentEvent] ~= nil
 		elseif VirtualKey == KeyCodes["BUTTON_LEFT"] then
-			local numevents = table.getn(Events)
-			CurrentEvent = math.mod(CurrentEvent - 2 + numevents, numevents) + 1
-			CurCol = math.mod(CurrentEvent - 1, 3)
-			CurRow = math.floor((CurrentEvent - 1) / 3)
-			playmenusound_move()
+			repeat
+				CurCol = math.mod(CurCol - 1 + 3, 3)
+				CurrentEvent = CurRow*3+CurCol+1
+			until Events[CurrentEvent] ~= nil
 		elseif VirtualKey == KeyCodes["BUTTON_RIGHT"] then
-			CurrentEvent = math.mod(CurrentEvent, table.getn(Events)) + 1
-			CurCol = math.mod(CurrentEvent - 1, 3)
-			CurRow = math.floor((CurrentEvent - 1) / 3)
-			playmenusound_move()
+			CurCol = math.mod(CurCol + 1, 3)
+			if Events[CurRow*3+CurCol+1] == nil then
+				CurCol = 0
+			end
+			CurrentEvent = CurRow*3+CurCol+1
 		end
 		
 		if Events[CurrentEvent] then
@@ -228,9 +228,6 @@ end
 	
 function menu_multiplayer_view_tournament.update(self, time)
 	self.parent:update(self, time)
-
-	local alpha = 1 - 0.20 + math.sin(time * 6) * 0.20
-	wm.GetWindow("highlight"):SetAlpha(alpha)
 end
 
 function menu_multiplayer_view_tournament.startshow(self)

@@ -19,7 +19,7 @@ OnlineOptionsLayout =
 		BoxSize=SIZE(558,384),
 
 		ListPos=POS(2,120-68),
-		ListWidth=355-41,
+		ListWidth=351-41,
 		ListRowHeight=19,
 		ListRowPadding=3,
 		ListFont=fontmedium(),
@@ -30,21 +30,22 @@ OnlineOptionsLayout =
 		ListNumPos			= POS(85-41, 0),
 		ListStatusIconPos	= POS(100-41, 1),
 		ListVoiceIconPos	= POS(124-41, 0),
-		ListNamePos			= POS(146-41, 0),
+		ListFlagIconPos		= POS(146-41, 3),
+		ListNamePos			= POS(178-41, 0),
 
 		ListNumSize			= SIZE(30, 19),
 		ListPlayerNameSize	= SIZE(158, 19),
 		
 		ListNumRows=10,
 		
-		ScrollUpArrowPos	= POS(200-41, 109-68),
-		ScrollDownArrowPos	= POS(200-41, 342-68),
+		ScrollUpArrowPos	= POS(336-41, 126-68),
+		ScrollDownArrowPos	= POS(336-41, 325-68),
 
 		StatusBoxLeft=364-41,	
 		StatusBoxTop=120-68,
 		StatusRowSize=SIZE(274-41, 19),
 		
-		StatusLabelLeft=370-41,
+		StatusLabelLeft=377-41,
 		StatusLabelTop=120-68,
 		StatusFont=fontmedium(),
 		StatusLabelFontColor=GetPaletteColor(33),

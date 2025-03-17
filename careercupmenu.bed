@@ -187,7 +187,7 @@ function menu_career_cup_results.init(self)
 
 	local current_class=db.GameFlow.PreRace.Class
 	local current_cup=db.GameFlow.PreRace.Cup
-	local position = CupManager:GetCupPosition(0) or 1 --//PlayerProfile:GetCupPosition(current_class,current_cup) or 1
+	local position = PlayerProfile:GetCupPosition(current_class,current_cup) or 1
 	local awards = db.GameFlow.Awards
 	local money_reward = awards:GetProperty("CupWinnings",position-1)
 	
@@ -259,7 +259,7 @@ function menu_career_cup_results.init(self)
 		place_text=WStringConcat(place_text,TRANSLATOR(CAREER_CUP_COMPLETION_MESSAGE2))
 	end
 
-	StaticText{Title=place_text,Position=POS(343,138),TextLineAdjust=7,Font=fontsmall(),Color=GetPaletteColor(34)}
+	StaticText{Title=place_text,Position=POS(363,138),Font=fontsmall(),Color=GetPaletteColor(34)}
 
 	StaticText{Title=TRANSLATOR(TITLE_CUPTROPHIES),Position=POS(372,236),Font=fontsmall(),Color=GetPaletteColor(33)}
 
@@ -308,16 +308,14 @@ function menu_career_cup_results.init(self)
 			GameFlow.ClearCup()
 			PlayerProfile:ResetActiveCup()
 
-			NextRewardMenu()
+			NextCupRewardMenu()
 		end
 	end
 
 
 	GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_CONTINUE))
-	GUI:SetBackgroundVideo("data/video/flag")
-	--//GUI:SetBackground("data/menu/cup_results_bg.tga")
+	GUI:SetBackground("data/menu/cup_results_bg.tga")
 
-	PlayerProfile:AddMoney(money_reward)
 end
 
 

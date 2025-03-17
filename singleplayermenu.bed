@@ -14,7 +14,6 @@ dofile("data/menu/cup_final_results_elements1.bed")
 dofile("data/menu/garage_elements1.bed")
 dofile("data/menu/single_player_images1.bed")
 dofile("data/menu/single_player_images2.bed")
-dofile("data/menu/single_player_images3.bed")
 
 
 local items = { }
@@ -26,8 +25,6 @@ local okaction
 function EnterSinglePlayer()
 	-- When splitscreen is not set, default single player race selection will happen
 	splitscreen = false
-	okaction=nil
-	backaction=nil
 
 	EnterMenu("menu_singleplayer")
 end
@@ -35,7 +32,7 @@ end
 function EnterSplitScreenRaceSelection(splitscreen_, okaction_, backaction_)
 	splitscreen = splitscreen_
 	
-	--// These are only used when splitscreen is set
+	-- These are only used when splitscreen is set
 	okaction = okaction_
 	backaction = backaction_
 	
@@ -69,7 +66,7 @@ end
 
 local function check_career_garage()
 	if Garage:GetNumCarsPurchased() == 0 then
-		EnterCarShop(CarlistFromClass(1,false,false),true,"data/menu/garage_bg.tga",1)
+		EnterCarShop(CarlistFromClass(1,false,false),true,"data/menu/garage_bg.tga")
 	else
 		EnterMenu("menu_career")
 	end
@@ -83,39 +80,32 @@ function menu_singleplayer.create(self)
 	self:addResource("garage_elements1.tga",garage_elements1,garage_elements1_size)
 	self:addResource("single_player_images1.tga",single_player_images1,single_player_images1_size)
 	self:addResource("single_player_images2.tga",single_player_images2,single_player_images2_size)
-	self:addResource("single_player_images3.tga",single_player_images3,single_player_images3_size)
 
 
 	self:loadResources()
 
 
 	if splitscreen then
-		self.options.title=TRANSLATOR(ICON_MULTIPLAYER_SPLITSCREEN)
 		self.items={
 			{ TRANSLATOR(ICON_SINGLERACE), entersinglerace(),ICON(self,"icon_sp_single_race") },
-			--//{ TRANSLATOR(ICON_SINGLEDERBY), entersinglerace(TRACKTYPE_DERBY),ICON(self,"icon_derbies") },
 			{ TRANSLATOR(ICON_SINGLEEVENT), entersinglerace(TRACKTYPE_EVENT), ICON(self,"icon_dirts_ovals") },
 		}
 		items = {
 			[1] = { name=TRANSLATOR(ICON_SINGLERACE), description=TRANSLATOR(SINGLERACE_DESCRIPTION), image="singleplayer_image_race" },
-			--//[2] = { name=TRANSLATOR(ICON_SINGLEDERBY), description=TRANSLATOR(SINGLEDERBY_DESCRIPTION), image="singleplayer_image_derby" },
 			[2] = { name=TRANSLATOR(ICON_SINGLEEVENT), description=TRANSLATOR(SINGLEEVENT_DESCRIPTION), image="singleplayer_image_event" },
 		}
 	else
-		self.options.title=TRANSLATOR(TITLE_SINGLEPLAYER)
 		self.items={
 			{ TRANSLATOR(ICON_CAREER),check_career_garage,ICON(self,"icon_sp_career") },
 			{ TRANSLATOR(ICON_SINGLERACE), entersinglerace(),ICON(self,"icon_sp_single_race") },
 			{ TRANSLATOR(ICON_SINGLESTUNT), entersinglerace(TRACKTYPE_STUNT), ICON(self,"icon_stunts") },
 			{ TRANSLATOR(ICON_SINGLEEVENT), entersinglerace(TRACKTYPE_EVENT), ICON(self,"icon_dirts_ovals") },
-			{ TRANSLATOR(ICON_SINGLEDERBY), entersinglerace(TRACKTYPE_DERBY), ICON(self,"icon_derbies") },
 		}
 		items = {
 			[1] = { name=TRANSLATOR(ICON_CAREER), description=TRANSLATOR(CAREER_DESCRIPTION), image="singleplayer_image_career" },
 			[2] = { name=TRANSLATOR(ICON_SINGLERACE), description=TRANSLATOR(SINGLERACE_DESCRIPTION), image="singleplayer_image_race" },
 			[3] = { name=TRANSLATOR(ICON_SINGLESTUNT), description=TRANSLATOR(SINGLESTUNT_DESCRIPTION), image="singleplayer_image_stunt" },
 			[4] = { name=TRANSLATOR(ICON_SINGLEEVENT), description=TRANSLATOR(SINGLEEVENT_DESCRIPTION), image="singleplayer_image_event" },
-			[5] = { name=TRANSLATOR(ICON_SINGLEDERBY), description=TRANSLATOR(SINGLEDERBY_DESCRIPTION), image="singleplayer_image_derby" },
 		}
 	end
 end
@@ -129,7 +119,7 @@ function menu_singleplayer.init(self)
 	Frame{Position=POS(284,72+12),Size=SIZE(58,32)}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar_ang"))
 	Frame{Position=POS(342,72+12),Size=SIZE(298,32)}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar"))
 
-	StaticText{Name="type_name",Position=POS(441,79+12),Align=FONTF_CENTER,Font=fontsmall(),Color=GetPaletteColor(33)}
+	StaticText{Name="type_name",Position=POS(441,79+12),Align=FONTF_CENTER,Font=fontlarge(),Color=GetPaletteColor(33)}
 
 	Frame{Position=POS(295,109+12),Size=SIZE(49,130)}:AttachResource(self:getResource("upshop_mid_infotxt_bar_ang"))
 	Frame{Position=POS(344,109+12),Size=SIZE(296,130)}:AttachResource(self:getResource("upshop_mid_infotxt_bar"))
@@ -143,7 +133,7 @@ function menu_singleplayer.init(self)
 	Frame{Position=POS(332,251),Size=SIZE(48,77)}:AttachResource(self:getResource("upshop_mid_infotxt_bar_ang2"))
 	Frame{Position=POS(380,251),Size=SIZE(260,77)}:AttachResource(self:getResource("upshop_mid_infotxt_bar2"))
 
-	StaticText{Name="type_description",FontScale=0.9,Position=POS(310,120+12),TextLineAdjust=6,Size=SIZE(270,300),Font=fontsmall(),Color=GetPaletteColor(34)}
+	StaticText{Name="type_description",Position=POS(310,120+12),TextLineAdjust=6,Size=SIZE(270,300),Font=fontmedium(),Color=GetPaletteColor(34)}
 
 	Frame{Name="type_image",Position=POS(0,98),Size=SIZE(332,219)}
 

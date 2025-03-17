@@ -1,0 +1,166 @@
+--///////////////////////////////////////////////////////////////////////////
+--// QuickMatch.bed
+--///////////////////////////////////////////////////////////////////////////
+--// Copyright (c) 2004 Bugbear Entertainment ltd. 
+--// All Rights Reserved.
+--// 
+--// Created on 20.6.2004 0:57:43
+--// 
+--// Authors: Fred Sundvik (fred.sundvik@bugbear.fi)
+--///////////////////////////////////////////////////////////////////////////
+
+local State=nil
+local CurrentSession=0
+local MaxSessionsToTry=3
+
+local EventListener
+
+local function JoinNextSession()
+	CurrentSession=CurrentSession+1
+	if CurrentSession<=SessionList:GetNumSessions() and CurrentSession<=MaxSessionsToTry then
+		--ShowThinkingWindow()
+		SessionList:SetSessionNum(CurrentSession)
+		SessionList:JoinSession()				
+		State="JOINING"
+	else
+		State="ERROR"
+		HideThinkingWindow()
+		ShowMessageBox(
+			SAFEPOS(154, 70), nil,
+			L"NO GAMES WERE FOUND",
+			L"SEARCH AGAIN",
+			entermenu("menu_xboxlive_quickmatch"),
+			L"BACK",
+			menu_xboxlive_quickmatch.back,
+			L"CREATE GAME", 
+			function() EnterCreateGameMenu("menu_xboxlive") end
+		)
+	end
+end
+
+local InSession=false
+
+local function SearchGames()
+	Network:StartSearchXBoxLiveSessions("QUICKMATCH")
+	SessionList:Refresh()
+end
+
+local function NetworkEvents(event)
+	if event.id==EVENT_NETWORK_REQUEST_PLAYERUPDATE then
+		local player=Session:GetLocalPlayer(1)
+
+		player.Name=XBoxLive.Auth.GetSignedInUserName(1)
+		player.UId=XBoxLive.Auth.GetSignedInUserId(1)
+
+		local info = Session:GetInfo()
+
+		if info.CarClass > 4 then
+			player.Car = info.CarClass - 5
+		elseif info.CarClass == SessionInfo.CarClass.Stunt then
+			player.Car = CarlistStuntCars()[1].index		
+		elseif info.CarClass ~= SessionInfo.CarClass.Any then
+			local classCars = CarlistFromClass(info.CarClass, false, true)
+			player.Car = classCars[1].index
+		else
+			player.Car = 0
+		end
+
+		player.CarSkin=1
+		--player.Score = 0
+		player.TournamentPoints = 0
+
+		if info.CarUpgrades ~= SessionInfo.CarUpgrades.Any then
+			player.UpgradeLevel = info.CarUpgrades
+		else
+			player.UpgradeLevel = SessionInfo.CarUpgrades.Full
+		end
+
+		player.SessionChanged = false
+	elseif event.id==EVENT_FIND_SESSIONS_COMPLETED then
+		if SessionList:GetNumSessions()==0 then
+			State="ERROR"
+			HideThinkingWindow()
+			ShowMessageBox(
+				SAFEPOS(154, 70), nil,
+				L"NO GAMES WERE FOUND",
+				L"SEARCH AGAIN",
+				entermenu("menu_xboxlive_quickmatch"),
+				L"BACK",
+				menu_xboxlive_quickmatch.back,
+				L"CREATE GAME",
+				function() EnterCreateGameMenu("menu_xboxlive") end
+			)
+		else
+			SessionList:SetSessionNum(1)
+			SessionList:JoinSession()
+			State="JOINING"
+		end
+	elseif event.id == EVENT_NETWORK_JOIN_RESULT then
+		HideThinkingWindow()
+		if event.data == 0 then
+			JoinNextSession()
+--[[			ShowMessageBox(
+				SAFEPOS(154, 70), nil,
+				L"NO GAMES WERE FOUND",
+				L"SEARCH AGAIN",
+				entermenu("menu_xboxlive_quickmatch"),
+				L"BACK",
+				menu_xboxlive_quickmatch.back,
+				L"CREATE GAME",
+				function() EnterCreateGameMenu("menu_xboxlive") end
+			)--]]
+			State="ERROR"
+		elseif event.data == 1 then
+			if MultiplayerMode == MPMODE_XBOXLIVE then
+				menu_multiplayer_lobby.backmenu = "menu_xboxlive"
+			elseif MultiplayerMode == MPMODE_GAMESPY then
+				menu_multiplayer_lobby.backmenu = "menu_multiplayer_gamespy"
+			else
+				menu_multiplayer_lobby.backmenu = "menu_lan_modeselect"
+			end
+
+			ShowLobby()
+		end
+	end
+end
+
+menu_xboxlive_quickmatch = CreateMenuFromTemplate("template_multiplayer")
+menu_xboxlive_quickmatch.options.title = QUICK_TITLE
+menu_xboxlive_quickmatch.back = entermenu("menu_xboxlive")
+
+function menu_xboxlive_quickmatch.create(self)
+	self.parent:create(self)
+	self:loadResources()
+	self.items = { }
+end
+
+function menu_xboxlive_quickmatch.init(self)
+	self.parent:init(self)
+	EventListener = Event:AddListener(NetworkEvents, EVENTTYPE_NETWORK)
+	
+	local handler = InputHandler { Name="inputhandler" }
+	handler.onKeyPressed = function( Self, Character, VirtualKey, ScanCode )
+		if VirtualKey == KeyCodes["BUTTON_START"] then
+		elseif VirtualKey == KeyCodes["BUTTON_SELECT"] then
+			HideThinkingWindow()
+			menu_xboxlive_quickmatch.back()
+		end
+	end
+			
+	ShowThinkingWindow()
+	SearchGames()
+
+	handler:SetFocus()
+
+	State="SEARCHING"
+	CurrentSession=0
+end
+	
+function menu_xboxlive_quickmatch.deinit(self)
+	self.parent:deinit(self)
+	Event:RemoveListener(EventListener)
+end
+	
+function menu_xboxlive_quickmatch.update(self, time)
+	self.parent:update(self, time)
+end

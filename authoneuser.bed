@@ -1,0 +1,530 @@
+--///////////////////////////////////////////////////////////////////////////
+--// AuthOneUser.bed
+--///////////////////////////////////////////////////////////////////////////
+--// Copyright (c) 2004 Bugbear Entertainment ltd. 
+--// All Rights Reserved.
+--// 
+--// Created on 2.7.2004 22:14:52
+--// 
+--// Authors: Fred Sundvik (fred.sundvik@bugbear.fi)
+--///////////////////////////////////////////////////////////////////////////
+
+local Layout={
+	LoginBoxPos=POS(0, 6),
+
+	-- Relative to LoginBoxPos
+	LoginListPos=POS(0, 99),
+	LoginListFont=fontlarge(),
+	LoginListFontColor=GetPaletteColor(4),
+	LoginListSelectedFontColor=GetPaletteColor(5),
+	LoginListItemHeight=24,
+	LoginListItemWidth=640,
+	LoginListNumRows=8,
+	LoginListScrollUpArrowPos=POS(240, 68),
+	LoginListScrollDownArrowPos=POS(240, 220),
+	LoginListNamePos=POS(320,0),
+	
+	--Relative to LoginBoxPos
+	StatusLabelPos=POS(320, 27),
+	StatusLabelSize=SIZE(300, 26),
+	StatusLabelFont=fontlarge(),
+	StatusLabelFontColor=GetPaletteColor(3),
+	
+	PasscodeBoxPos=POS(184, 144),
+	PasscodeBoxSize=SIZE(318, 134),
+	PasscodeTitlePos=POS(159,22),
+	PasscodeTitleSize=SIZE(280,24),
+	
+	PlayerLabelPos=POS(159, 44),
+	PlayerLabelSize=SIZE(280, 24),
+	PlayerLabelFont=fontlarge(),
+	PlayerLabelFontColor=GetPaletteColor(3),
+	
+	PasscodePos=POS(119, 83),
+	PasscodeSize=SIZE(16, 16),
+	PasscodePadd=5,
+}
+
+local States=nil
+local IsGuest=nil
+local IgnoreMessages=nil
+local UpdatePlayerListFSM=nil
+local ActiveController = nil
+local UserId = nil
+local LoginState
+local PassCode = { }
+
+function HandleInput(Character, VirtualKey, ScanCode)
+	local loginState = LoginState
+	if loginState == "DISPLAYLIST" then
+		HandleDisplayListInput(Character, VirtualKey, ScanCode)
+	end
+	if ScanCode == ActiveController then
+		if loginState == "GETPASS" or loginState == "INCORRECTPASS" then 
+			HandleGetPassInput(Character, VirtualKey, ScanCode)
+		elseif loginState == "CONNECTCONTROLLER" then
+		end
+	end
+end
+
+function HandleDisplayListInput(Character, VirtualKey, ScanCode)
+	if VirtualKey == KeyCodes["BUTTON_START"] then
+		ActiveController = ScanCode
+		local selectedRow = wm.GetWindow("loginlist"):GetSelectedRow()
+		local authUsers = XBoxLive.Auth.GetNumUsers()
+		if selectedRow <= authUsers then
+			UserId = XBoxLive.Auth.GetUserId(selectedRow)
+			IsGuest = false
+			if XBoxLive.Auth.RequiresPasscode(selectedRow) then
+				EnterLoginState("GETPASS")
+				wm.GetWindow("playerlabel"):SetTitle(XBoxLive.Auth.GetUserName(selectedRow))
+			else
+				FSM_init_state(UpdatePlayerListFSM)
+				UpdatePlayerListFSM = nil
+				EnterLoginState("LOGGINGIN")
+			end
+		else
+			MessageBox(AUTH_CREATENEW_CONFIRMATION, MESSAGEBOX_YESNO,
+				function(value)
+					if value == TRUE then
+						XBoxLive.BootToDash("XLD_LAUNCH_DASHBOARD_NEW_ACCOUNT_SIGNUP")
+					else
+						EnterLoginState("DISPLAYLIST")
+					end
+				end
+			)	
+		end
+		playmenusound_action()
+	elseif VirtualKey == KeyCodes["BUTTON_SELECT"] then
+		menu_xboxlive_auth.back()
+		playmenusound_back()
+	elseif VirtualKey == KeyCodes["BUTTON_UP"] then
+		wm.GetWindow("loginlist"):MovePrev()
+		local selectedRow = wm.GetWindow("loginlist"):GetSelectedRow()
+		playmenusound_move()
+	elseif VirtualKey == KeyCodes["BUTTON_DOWN"] then	
+		wm.GetWindow("loginlist"):MoveNext()
+		local selectedRow=wm.GetWindow("loginlist"):GetSelectedRow()
+		playmenusound_move()
+	end
+end
+
+function HandleGetPassInput(Character, VirtualKey, ScanCode)
+	if VirtualKey == KeyCodes["BUTTON_START"] then
+	elseif VirtualKey == KeyCodes["BUTTON_SELECT"] then
+		EnterLoginState("DISPLAYLIST")
+	elseif  VirtualKey==KeyCodes["BUTTON_LEFT"] or
+			VirtualKey==KeyCodes["BUTTON_RIGHT"] or
+			VirtualKey==KeyCodes["BUTTON_UP"] or
+			VirtualKey==KeyCodes["BUTTON_DOWN"] or 
+			VirtualKey==KeyCodes["BUTTON_X"] or 
+			VirtualKey==KeyCodes["BUTTON_Y"] or
+			VirtualKey==KeyCodes["BUTTON_LEFT_TRIGGER"] or 
+			VirtualKey==KeyCodes["BUTTON_RIGHT_TRIGGER"] then
+
+		local num = table.getn(PassCode)
+		num = num + 1
+		PassCode[num] = VirtualKey
+			
+		local userId = UserId
+		local playerNum = XBoxLive.Auth.GetPlayerNumById(userId)
+		if num == 4 and XBoxLive.Auth.ValidatePasscode(playerNum, PassCode) then
+			EnterLoginState("LOGGINGIN")
+		elseif num == 4 then
+			EnterLoginState("INCORRECTPASS")
+		else
+			for i = 1, 4 do
+				local res
+				if i <= num then
+					wm.GetWindow(string.format("passcode%i", i)):SetTitle(L"*")
+				else
+					wm.GetWindow(string.format("passcode%i", i)):SetTitle(L"")
+				end
+			end
+		end
+	end
+end
+
+function UpdatePlayerList()
+	local loginState = LoginState
+	if loginState == "DISPLAYLIST" or loginState == "GETPASS" or loginState == "INCORRECTPASS" or loginState == "CONNECTCONTROLLER" then
+		XBoxLive.Auth.ReadUsers()
+		local numUsers = XBoxLive.Auth.GetNumUsers()
+		wm.GetWindow("loginlist"):SetNumRows(numUsers + 1)
+	end	
+end
+
+function ShowAuthMessageBox(type, userName)
+	HideThinkingWindow()
+	if type == "XONLINE_E_LOGON_CONNECTION_LOST" then
+		ShowMessageBox(	SAFEPOS(154, 70), nil,
+						AUTH_LOST,
+						UI_YES,
+						function()XBoxLive.BootToDash("XLD_LAUNCH_DASHBOARD_NETWORK_CONFIGURATION")end,
+						UI_NO,
+						function()menu_xboxlive_auth.back()end	
+						)
+	elseif type == "XONLINE_E_LOGON_CANNOT_ACCESS_SERVICE" or res=="XONLINE_E_LOGON_NO_NETWORK_CONNECTION" then
+		ShowMessageBox(	SAFEPOS(154, 70), nil,
+						AUTH_CONNECT,
+						UI_YES,
+						function()XBoxLive.BootToDash("XLD_LAUNCH_DASHBOARD_NETWORK_CONFIGURATION")end,
+						UI_NO,
+						function()menu_xboxlive_auth.back()end	
+						)
+	elseif type == "XONLINE_E_LOGON_UPDATE_REQUIRED" then
+		ShowMessageBox(	SAFEPOS(154, 70), nil,
+						AUTH_UPDATE,
+						UI_OK,
+						function()XBoxLive.TitleUpdate()end,
+						AUTH_CANCEL,
+						function()menu_xboxlive_auth.back()end	
+						)
+	elseif type == "XONLINE_E_LOGON_INVALID_USER" then
+		ShowMessageBox(	SAFEPOS(154, 70), nil,
+						AUTH_ACCOUNT_NO,
+						AUTH_RECOVERY,
+						function()XBoxLive.BootToDash("XLD_LAUNCH_DASHBOARD_ACCOUNT_MANAGEMENT")end,
+						AUTH_CANCEL,
+						function()menu_xboxlive_auth.back()end
+						)
+	elseif type == "XONLINE_E_LOGON_SERVERS_TOO_BUSY" then
+		ShowMessageBox(	SAFEPOS(154, 70), nil,
+						AUTH_BUSY,
+						AUTH_TRYAGAIN,
+						function()EnterLoginState("LOGGINGIN")end,
+						AUTH_CANCEL,
+						function()menu_xboxlive_auth.back()end							
+						)
+	elseif type == "XONLINE_E_LOGON_USER_ACCOUNT_REQUIRES_MANAGEMENT" then
+		local message=WStringConcat(userName, AUTH_MESSAGE_IMPORTANT)
+		ShowMessageBox(	SAFEPOS(154, 70), nil,
+						message,
+						AUTH_MESSAGE_READ,
+						function()XBoxLive.BootToDash("XLD_LAUNCH_DASHBOARD_ACCOUNT_MANAGEMENT")end,
+						AUTH_CANCEL,
+						function()menu_xboxlive_auth.back()end
+						)
+	elseif type == "XONLINE_S_LOGON_USER_HAS_MESSAGE" and IgnoreMessages==false then
+		local message=WStringConcat(userName, AUTH_MESSAGE_NEW)
+		ShowMessageBox(	SAFEPOS(154, 70), nil,
+						message,
+						UI_YES,
+						function()XBoxLive.BootToDash("XLD_LAUNCH_DASHBOARD_ACCOUNT_MANAGEMENT")end,
+						UI_NO,
+						function()
+							IgnoreMessages=true
+							EnterLoginState("LOGGEDIN")
+						end
+						)
+	else	
+		ShowMessageBox(	SAFEPOS(154, 70), nil,
+						AUTH_CONNECT,
+						UI_YES,
+						function()XBoxLive.BootToDash("XLD_LAUNCH_DASHBOARD_NETWORK_CONFIGURATION")end,
+						UI_NO,
+						function()menu_xboxlive_auth.back()end	
+						)
+	end
+end
+
+function EnterLoginState(newState)
+	LoginState = newState
+
+	local loginlist = wm.GetWindow("loginlist")
+	local playerlabel = wm.GetWindow("playerlabel")
+	local statuslabel = wm.GetWindow("statuslabel")
+	local passcodebox = wm.GetWindow("passcodebg")
+
+	if newState == "DISPLAYLIST" then
+		--ActiveController = nil
+		UserId = nil
+		passcodebox:HideWindow()
+		statuslabel:ShowWindow()
+		loginlist:ShowWindow()
+	elseif newState == "GETPASS" then
+		PassCode = { }
+		passcodebox:ShowWindow()
+	elseif newState == "INCORRECTPASS" then
+		PassCode = { }
+		for i = 1, 4 do
+			wm.GetWindow(string.format("passcode%i", i)):SetTitle(L"")
+		end
+		statuslabel:SetTitle(AUTH_PASSCODE_INCORRECT)
+		statuslabel:ShowWindow()
+		passcodebox:ShowWindow()
+	elseif newState == "CONNECTCONTROLLER" then
+		ActiveController = nil
+		UserId = nil
+		IsGuest = nil
+		statuslabel:HideWindow()
+	elseif newState == "LOGGINGIN" then
+		GUI:SetHelpButtons(nil, nil, nil, nil, nil, nil)
+		loginlist:HideWindow()
+		passcodebox:HideWindow()
+		playerlabel:ShowWindow()
+		
+		local msg = WStringConcat(L"SIGNING IN AS ", XBoxLive.Auth.GetUserName(loginlist:GetSelectedRow()))
+		statuslabel:SetTitle(msg)
+
+		local playerNums = { }
+
+		for i = 1, 4 do
+			if i == ActiveController then
+				playerNums[i] = XBoxLive.Auth.GetPlayerNumById(UserId)
+			else
+				playerNums[i] = XBoxLive.Auth.NOUSER
+			end
+		end
+		XBoxLive.Auth.SignIn(playerNums[1], playerNums[2], playerNums[3], playerNums[4])
+		ShowThinkingWindow()
+	elseif newState == "LOGGEDIN" then
+		HideThinkingWindow()
+		local numUsers = XBoxLive.Auth.GetNumSignedInUsers()
+		for i = 1, numUsers do
+			local result = XBoxLive.Auth.GetSignedInUserStatus(i)
+			local name = WStringConcat(XBoxLive.Auth.GetSignedInUserName(i), L"\n")
+			if result == "XONLINE_E_LOGON_USER_ACCOUNT_REQUIRES_MANAGEMENT" then
+				ShowAuthMessageBox("XONLINE_E_LOGON_USER_ACCOUNT_REQUIRES_MANAGEMENT", name)
+				EnterLoginState("ERROR")
+				return
+			elseif result == "XONLINE_S_LOGON_USER_HAS_MESSAGE" then
+				ShowAuthMessageBox("XONLINE_S_LOGON_USER_HAS_MESSAGE", name)
+				EnterLoginState("ERROR")
+				return
+			end
+		end
+		GUI:EnableOnlineOptionsMenu(true)
+		XBoxLiveUpdateStatus()
+		EnterMenu("menu_xboxlive")
+	end
+end
+
+local function UpdateLoginState()
+	local loginState = LoginState
+	if loginState == "LOGGINGIN" then
+		local result = XBoxLive.Auth.GetSignInResult()
+		if result == "XONLINETASK_S_RUNNING" then
+			return
+		elseif result == "XONLINE_E_LOGON_NO_NETWORK_CONNECTION" then
+			ShowAuthMessageBox("XONLINE_E_LOGON_NO_NETWORK_CONNECTION")
+			EnterLoginState("ERROR")
+			return
+		elseif result == "XONLINE_S_LOGON_CONNECTION_ESTABLISHED" then
+			EnterLoginState("LOGGEDIN");
+			return
+		else
+			ShowAuthMessageBox(result)
+			EnterLoginState("ERROR")
+		end
+	elseif loginState == "ALREADYLOGGEDIN" then
+		EnterLoginState("LOGGEDIN")
+	else
+		local connected = false
+		local handler = wm.GetWindow("inputhandler")
+		if ActiveController then
+			connected = handler:IsControllerConnected(ActiveController)
+		end
+		
+		local anyConnected = false
+		for i = 1, 4 do
+			anyConnected = anyConnected or handler:IsControllerConnected(i)
+		end
+		if anyConnected then
+			if loginState == "CONNECTCONTROLLER" or not connected then
+				EnterLoginState("DISPLAYLIST")
+			end
+		else
+			EnterLoginState("CONNECTCONTROLLER")
+		end
+
+		if loginState == "GETPASS" or loginState == "INCORRECTPASS" then
+			if not UserId or XBoxLive.Auth.GetPlayerNumById(UserId) == XBoxLive.Auth.NOUSER then
+				EnterLoginState("DISPLAYLIST")
+			end
+		end
+	end
+end
+
+menu_xboxlive_auth = CreateMenuFromTemplate("template_basic")
+menu_xboxlive_auth.options.title = TITLE_LIVE_LOGIN
+menu_xboxlive_auth.back = entermenu("menu_multiplayer")
+
+function menu_xboxlive_auth.create(self)
+	self.parent:create(self)
+
+	self:loadResources()
+	
+	items = { }
+end
+
+function menu_xboxlive_auth.init(self)
+	self.parent:init(self)
+	
+	local listboxParams={
+		ListBoxTemplate={ShowBorders=FALSE, Parent=loginBox},
+		Left=0,
+		Top=0,
+		LeftPadding=0,
+		RightPadding=0,
+		TopPadding=0,
+		BottomPadding=0,
+		RowWidth=Layout.LoginListItemWidth,
+		RowHeight=Layout.LoginListItemHeight,
+		RowPadding=3,
+		RowTemplate={Font=Layout.LoginListFont, DrawBackgroundColor=FALSE},
+		RowTemplateType="Button",
+		RowTemplateCust=function(Row, RowNr)
+--			Row:SetColor(Layout.LoginListFontColor[1], Layout.LoginListFontColor[2], Layout.LoginListFontColor[3], Layout.LoginListFontColor[4], false)
+		end,
+		NumRows=Layout.LoginListNumRows,
+		Coloumns={
+			[1]={
+			Name="name", -- _row# is added
+			ColoumnTemplate = { Position=Layout.LoginListNamePos, Size=SIZE(Layout.LoginListItemWidth, Layout.LoginListItemHeight), Font=Layout.LoginListFont, Color=Layout.LoginListFontColor, Align=FONTF_CENTER },
+			ColoumnTemplateType="StaticText",
+			ColoumnTemplateCust=function(Coloumn, RowNr, ColoumnNr)
+				Coloumn:SetColor(Layout.ListFontColor, false)
+			end
+			},		
+		}
+	}
+	local pos=Layout.LoginBoxPos
+	local x=pos[1]
+	local y=pos[2]
+	local safepos=SAFEPOS(x, y)
+	
+--	local loginbox=Frame{ Position = safepos, Size=SIZE(640,400), ShowBorders=FALSE}
+	local loginbox=Frame{ Position = POS(pos[1], safepos[2]), Size=SIZE(640,400), ShowBorders=FALSE}
+
+	local scrollUpName="scrollup"
+	local scrollDownName="scrolldown"
+	
+	local scrollUpPos=SAFEPOS(Layout.LoginListScrollUpArrowPos[1]+x, Layout.LoginListScrollUpArrowPos[2]+y) 
+	local scrollDownPos=SAFEPOS(Layout.LoginListScrollDownArrowPos[1]+x, Layout.LoginListScrollDownArrowPos[2]+y) 
+	
+	Button{Name=scrollUpName, Position=scrollUpPos, Size=GetResourceSize(self:getResource("scroll_arrow_up"))}:AttachResource(self:getResource("scroll_arrow_up"))
+	Button{Name=scrollDownName, Position=scrollDownPos, Size=GetResourceSize(self:getResource("scroll_arrow_down"))}:AttachResource(self:getResource("scroll_arrow_down"))
+
+	listboxParams.ListBoxTemplate.Name="loginlist"
+	listboxParams.Left=x+Layout.LoginListPos[1]
+	listboxParams.Top=y+Layout.LoginListPos[2]
+	local list=CreateMultiColoumnListBox(listboxParams)
+
+	list.onNeedData=function(Self, RowObject, RowNr)
+		local name = wm.GetWindow("name_row"..RowNr)
+		
+		if RowNr == list:GetSelectedRow() then
+			name:SetColor(Layout.LoginListSelectedFontColor, false)
+			RowObject:AttachResource(wm.GetResource("wide_white_bar_30"))
+		else
+			name:SetColor(Layout.LoginListFontColor, false)
+			RowObject:AttachResource(wm.GetResource("wide_black_bar_50"))
+		end
+
+		if RowNr <= XBoxLive.Auth.GetNumUsers() then
+			name:SetTitle(XBoxLive.Auth.GetUserName(RowNr))
+		elseif RowNr == XBoxLive.Auth.GetNumUsers() + 1 then
+			--RowObject:SetColor(Layout.LoginListFontColor, false)
+			name:SetTitle(AUTH_ACCOUNT)
+		else
+			name:SetTitle(L"")
+		end
+	end
+	list.onShowScrollUpArrow=function()
+		wm.GetWindow(scrollUpName):ShowWindow()
+	end
+	list.onHideScrollUpArrow=function()
+		wm.GetWindow(scrollUpName):HideWindow()
+	end
+	list.onShowScrollDownArrow=function()
+		wm.GetWindow(scrollDownName):ShowWindow()
+	end
+	list.onHideScrollDownArrow=function()
+		wm.GetWindow(scrollDownName):HideWindow()
+	end
+
+	list:SetNumRows(0)
+
+	local label=StaticText{ Name="statuslabel", Title=HEADER_LIVE_LOGIN_SELECTGAMERTAG, Align=FONTF_CENTER, Position=Layout.StatusLabelPos, Size=Layout.StatusLabelSize , Font=Layout.StatusLabelFont, Parent=loginbox  }
+	label:SetColor(Layout.StatusLabelFontColor, false)
+	label:ShowWindow()
+
+	local passcodebg = Frame { Name="passcodebg", Position=POS(0,0), Size=SIZE(640,480) }
+	passcodebg:AttachResource(wm.GetResource("wide_black_bar_50"))
+	local passcodebox = Frame{ Name="passcodebox", Position=Layout.PasscodeBoxPos, Size=Layout.PasscodeBoxSize, ShowBorders=TRUE, Parent=passcodebg }
+	label=StaticText{ Title=HEADER_LIVE_LOGIN_INPUTPASSWORD, Align=FONTF_CENTER, Position=Layout.PasscodeTitlePos, Size=Layout.PasscodeTitleSize, Font=Layout.StatusLabelFont, Parent=passcodebox  }
+	label:SetColor(Layout.StatusLabelFontColor, false)
+	label=StaticText{ Name="playerlabel", Title=L"", Align=FONTF_CENTER, Position=Layout.PlayerLabelPos, Size=Layout.PlayerLabelSize, Font=Layout.PlayerLabelFont, Parent=passcodebox }
+	label:SetColor(Layout.PlayerLabelFontColor, false)
+	passcodebox:HideWindow()
+
+	for i = 1,4 do
+		local pos = POS(Layout.PasscodePos[1]+(i-1)*Layout.PasscodeSize[1],Layout.PasscodePos[2])
+		StaticText { Name="passcode"..i, Font=Layout.StatusLabelFont, Color=GetPaletteColor(1), Position=pos, Size=Layout.PasscodeSize, ShowBorders=FALSE, Parent=passcodebox }
+	end
+--[[	local pass=StaticText{Name="passcode1", Font=Layout.StatusLabelFont, Color=GetPaletteColor(1), Position=passPos, Size=Layout.PasscodeSize, ShowBorders=FALSE, Parent=passcodebox}
+	passPos[1]=passPos[1]+Layout.PasscodeSize[1]
+	pass=StaticText{Name="passcode2", Font=Layout.StatusLabelFont, Color=GetPaletteColor(1), Position=passPos, Size=Layout.PasscodeSize, ShowBorders=FALSE, Parent=passcodebox}
+	passPos[1]=passPos[1]+Layout.PasscodeSize[1]
+	pass=StaticText{Name="passcode3", Font=Layout.StatusLabelFont, Color=GetPaletteColor(1), Position=passPos, Size=Layout.PasscodeSize, ShowBorders=FALSE, Parent=passcodebox}
+	passPos[1]=passPos[1]+Layout.PasscodeSize[1]
+	pass=StaticText{Name="passcode4", Font=Layout.StatusLabelFont, Color=GetPaletteColor(1),Position=passPos, Size=Layout.PasscodeSize, ShowBorders=FALSE, Parent=passcodebox}
+--]]
+
+	local handler=InputHandler{Name="inputhandler"}
+	handler.onKeyPressed=function(Self, Character, VirtualKey, ScanCode)
+		HandleInput(Character, VirtualKey, ScanCode)
+	end
+
+
+	if XBoxLive.Auth.GetNumSignedInUsers()>0 then
+		local loggedIn = true
+		for i=1, XBoxLive.Auth.GetNumSignedInUsers() do
+			local status = XBoxLive.Auth.GetSignedInUserStatus(i)
+			if status == "XONLINE_E_LOGON_USER_ACCOUNT_REQUIRES_MANAGEMENT" then
+				loggedIn = false
+			end
+		end
+		if loggedIn then
+			EnterLoginState("ALREADYLOGGEDIN")
+		end
+	else
+		EnterLoginState("DISPLAYLIST")
+	end
+
+	local fsm=FSM()
+	FSM_init_state(fsm)
+	FSM_add_function(fsm, UpdatePlayerList,FALSE,{})
+	FSM_add_delay_state(fsm, 0.2)
+	FSM_add_reset(fsm)
+	UpdatePlayerListFSM=fsm
+
+	handler:SetFocus()
+	ActiveController = nil
+	
+	--GUI:LoadBackground("data/menu/bg/login_background.tga")		
+end
+	
+function menu_xboxlive_auth.deinit(self)
+	self.parent:deinit(self)
+
+	if UpdatePlayerListFSM then
+		FSM_init_state(UpdatePlayerListFSM)
+		UpdatePlayerListFSM=nil
+	end
+end
+	
+function menu_xboxlive_auth.update(self)
+	self.parent:update(self,time)
+
+	UpdateLoginState()
+end
+
+function menu_xboxlive_auth.startshow(self)
+	self.parent:startshow(self)
+end
+
+function menu_xboxlive_auth.starthide(self)
+	self.parent:starthide(self)
+end

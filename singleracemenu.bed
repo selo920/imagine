@@ -91,9 +91,9 @@ local trackfiles = {
 	[TRACKTYPE_CANAL] = { "single_player_track_images14", "single_player_track_images15" },
 	[TRACKTYPE_STUNT] = { "single_player_track_images25", "single_player_track_images26", "single_player_track_images27",
 						  "single_player_track_images28", "single_player_track_images29", "single_player_track_images30", },
-	[TRACKTYPE_EVENT] = {  "single_player_track_images19", "single_player_track_images20", "single_player_track_images21",
+	[TRACKTYPE_EVENT] = { "single_player_track_images16", "single_player_track_images17", "single_player_track_images18", 
+						  "single_player_track_images19", "single_player_track_images20", "single_player_track_images21",
 						  "single_player_track_images22", "single_player_track_images23", "single_player_track_images24", },
-	[TRACKTYPE_DERBY] = { "single_player_track_images16", "single_player_track_images17", "single_player_track_images18", },
 }						
 
 local tracktype_descriptions = {
@@ -105,7 +105,6 @@ local tracktype_descriptions = {
 	[TRACKTYPE_CANAL] = TRACK_DESCRIPTION_CANAL,
 	[TRACKTYPE_STUNT] = TRACK_DESCRIPTION_STUNT,
 	[TRACKTYPE_EVENT] = TRACK_DESCRIPTION_ARENA,
-	[TRACKTYPE_DERBY] = TRACK_DESCRIPTION_DERBY,
 }
 
 local stunt_goals = {
@@ -180,7 +179,6 @@ local race_type_names = {
 	{ name=TRANSLATOR(RACETRACKTYPE_RACING), bg="bg_racing.tga", tracktype=TRACKTYPE_RACING, },
 	{ name=TRANSLATOR(RACETRACKTYPE_STUNT), bg="bg_racing.tga", tracktype=TRACKTYPE_STUNT, },
 	{ name=TRANSLATOR(RACETRACKTYPE_EVENTS), bg="bg_racing.tga", tracktype=TRACKTYPE_EVENT, },
-	{ name=TRANSLATOR(RACETRACKTYPE_DERBY), bg="derby_cls_bg.tga", tracktype=TRACKTYPE_DERBY, },
 }
 
 
@@ -273,10 +271,12 @@ function menu_singleplayer_racetype.init(self)
 	Frame{Position=POS(284,72),Size=SIZE(58,32)}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar_ang"))
 	Frame{Position=POS(342,72),Size=SIZE(298,32)}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar"))
 
-	StaticText{Name="type_name",Position=POS(441,79),Align=FONTF_CENTER,Font=fonteng(),Color=GetPaletteColor(33)}
+	StaticText{Name="type_name",Position=POS(441,79),Align=FONTF_CENTER,Font=fontlarge(),Color=GetPaletteColor(33)}
 
 	Frame{Position=POS(295,109),Size=SIZE(49,130)}:AttachResource(self:getResource("upshop_mid_infotxt_bar_ang"))
 	Frame{Position=POS(344,109),Size=SIZE(296,130)}:AttachResource(self:getResource("upshop_mid_infotxt_bar"))
+
+	StaticText{Name="type_description",Position=POS(310,120),TextLineAdjust=7,Size=SIZE(200,110),Font=fontmedium(),Color=GetPaletteColor(34)}
 
 	Frame{Position=POS(0,72),Size=SIZE(273,143)}:AttachResource(self:getResource("big_bottom"))
 	Frame{Position=POS(273,72),Size=SIZE(45,143)}:AttachResource(self:getResource("big_bottom_ang"))
@@ -284,14 +284,12 @@ function menu_singleplayer_racetype.init(self)
 	Frame{Position=POS(0,215),Size=SIZE(313,101)}:AttachResource(self:getResource("big_bottom_race_sel"))
 	Frame{Position=POS(313,215),Size=SIZE(34,101)}:AttachResource(self:getResource("big_bottom_race_sel_ang"))
 
-	StaticText{Name="type_description",FontScale=0.9,Position=POS(310,109+12),TextLineAdjust=7,Size=SIZE(280,110),Font=fontsmall(),Color=GetPaletteColor(34)}
-
 	Frame{Name="track_image",Position=POS(0,84),Size=SIZE(332,219)}
 
 
 
 	bar:onButtonChange(1)
-	GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK))
+	GUI:SetHelpButtons(BUTTON_BACK,TRANSLATOR(UI_BACK),BUTTON_OK,TRANSLATOR(UI_SELECT))
 
 	--//GUI:SetBackground("data/menu/carshop_bg.tga")
 	GUI:SetBackgroundVideo("data/video/bg_main")
@@ -351,8 +349,6 @@ local function UpdateHighScores()
 	local hs_title=TRANSLATOR(TITLE_TIME)
 
 	if type == TRACKTYPE_EVENT then
-		hs_title=TRANSLATOR(TITLE_TIME)
-	elseif type == TRACKTYPE_DERBY then
 		hs_title=TRANSLATOR(TITLE_POINTS)
 	elseif type == TRACKTYPE_STUNT then
 		hs_title=GameFlow.GetStuntScoreType(Levels[RaceSelectionState.Level].StuntType)
@@ -363,7 +359,7 @@ local function UpdateHighScores()
 	for i=1,10 do
 		local wname=string.format("hs_%d",i)
 
-		if i <= table.getn(state.highscores) and state.highscores[i].valid then
+		if i < table.getn(state.highscores) and state.highscores[i].valid then
 			local w=W(wname.."_number")
 			w:ShowWindow()
 			w:SetTitle(ConvertToWString(string.format("%d.",i)))
@@ -395,23 +391,15 @@ local function SwitchTrackInfo(self,direction,id)
 	if W("lapcount") then
 		if W("stunt_goal") then W("stunt_goal"):HideWindow() end
 
-		if leveldata.Rules and leveldata.Rules == GR_DERBY then
-			W("lap_icon"):HideWindow()
-			W("lapcount"):HideWindow()
-			W("track_info_title"):HideWindow()
-		else
-			W("track_info_title"):ShowWindow()
-			W("lap_icon"):ShowWindow()
-			W("lapcount"):ShowWindow()
-			W("lapcount"):SetTitle(ConvertToWString(string.format("%d LAPS",leveldata.Laps or 0)))
-		end
+		W("lap_icon"):ShowWindow()
+		W("lapcount"):ShowWindow()
+		W("lapcount"):SetTitle(ConvertToWString(string.format("%d LAPS",leveldata.Laps or 0)))
 	end
 
 	if W("stunt_goal") and leveldata.StuntType then
 		if W("lap_icon") then W("lap_icon"):HideWindow() end
 		if W("lapcount") then W("lapcount"):HideWindow() end
 
-		W("track_info_title"):ShowWindow()
 		W("stunt_goal"):ShowWindow()
 		W("stunt_goal"):SetTitle(TRANSLATOR(stunt_goals[leveldata.StuntType]))
 	end
@@ -437,16 +425,16 @@ end
 
 local function ToggleHighScores()
 	if state.show_highscores then
-		W("highscore_windows").handle=AnimateWindowPos(W("highscore_windows"),{ W("highscore_windows"):GetPosition() },POS(350,0),0.3,0.0,W("highscore_windows").handle)
+		AnimateWindowPos(W("highscore_windows"),{ W("highscore_windows"):GetPosition() },POS(350,0),0.3)
 
-		W("info_windows").handle=AnimateWindowPos(W("info_windows"),{ W("info_windows"):GetPosition() },POS(0,0),0.3,0.3,W("info_windows").handle)
+		AnimateWindowPos(W("info_windows"),{ W("info_windows"):GetPosition() },POS(0,0),0.3,0.3)
 
 		state.show_highscores=nil
 		GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK),BUTTON_INFO,TRANSLATOR(UI_HIGHSCORES))
 	else
-		W("info_windows").handle=AnimateWindowPos(W("info_windows"),{ W("info_windows"):GetPosition() },POS(350,0),0.3,0.0,W("info_windows").handle)
+		AnimateWindowPos(W("info_windows"),{ W("info_windows"):GetPosition() },POS(350,0),0.3)
 
-		W("highscore_windows").handle=AnimateWindowPos(W("highscore_windows"),{ W("highscore_windows"):GetPosition() },POS(0,0),0.3,0.3,W("highscore_windows").handle)
+		AnimateWindowPos(W("highscore_windows"),{ W("highscore_windows"):GetPosition() },POS(0,0),0.3,0.3)
 
 		state.show_highscores=true
 		GUI:SetHelpButtons(BUTTON_OK,TRANSLATOR(UI_SELECT),BUTTON_BACK,TRANSLATOR(UI_BACK),BUTTON_INFO,TRANSLATOR(UI_DESCRIPTION))
@@ -466,20 +454,6 @@ function menu_singleplayer_trackselection.create(self)
 
 	self.parent:create(self)
 
-
-	self.options.title=TRANSLATOR(TITLE_SELECTRACE)
-	
-	local racetype=race_type_names[RaceSelectionState.RaceType].tracktype
-
-	if racetype == TRACKTYPE_STUNT then
-		self.options.title=TRANSLATOR(TITLE_SELECTSTUNT)
-	elseif racetype == TRACKTYPE_EVENT then
-		self.options.title=TRANSLATOR(TITLE_SELECT_EVENT)
-	elseif racetype == TRACKTYPE_DERBY then
-		self.options.title=TRANSLATOR(TITLE_SELECT_DERBY)
-	end
-
-
 --//	self:addResource("track_icons.tga",track_icons,track_icons_size)
 --//	self:addResource("track_icons_2.tga",track_icons_2,track_icons_2_size)
 	self:addResource("selection_elements.tga",selection_elements,selection_elements_size)
@@ -493,7 +467,7 @@ function menu_singleplayer_trackselection.create(self)
 	self:addResource("backdrops3.tga",backdrops3,backdrops3_size)
 
 
-	local files=trackfiles[racetype]
+	local files=trackfiles[race_type_names[RaceSelectionState.RaceType].tracktype]
 
 	for k,v in ipairs(files) do
 		self:addResource(v..".tga",_G[v],_G[v.."_size"])
@@ -517,28 +491,13 @@ function menu_singleplayer_trackselection.init(self)
 							}
 
 	function bar.onBack(self)
-		if self.backpressed then return end
-		self.backpressed=true
-
 		playmenusound_back()
-
 		--//RaceSelectionState:prevPhase()
 		if RaceSelectionState.backmenu then
 			RaceSelectionState.backmenu()
 		else
 			EnterMenu("menu_singleplayer_racetype")
 		end
-	end
-
-	local infobutton=function(self,id)
-		playmenusound_move()
-		ToggleHighScores()
-	end
-
-	if XBOX then
-		bar.onButtonY = infobutton
-	else
-		bar.onButtonX = infobutton
 	end
 
 	state={}
@@ -556,19 +515,19 @@ function menu_singleplayer_trackselection.init(self)
 	Frame{Position=POS(284,72),Size=SIZE(58,32)}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar_ang"))
 	Frame{Position=POS(342,72),Size=SIZE(298,32)}:AttachResource(self:getResource("upshop_top_n_bottom_infotxt_bar"))
 
-	StaticText{Name="track_name",Position=POS(441,79),Align=FONTF_CENTER,Font=fonteng(),Color=GetPaletteColor(33)}
+	StaticText{Name="track_name",Position=POS(441,79),Align=FONTF_CENTER,Font=fontlarge(),Color=GetPaletteColor(33)}
 
 	local p=Frame{Name="info_windows",Position=POS(0,0),Size=SIZE(640,480)}
 
 	Frame{Position=POS(295,109),Size=SIZE(49,130),Parent=p}:AttachResource(self:getResource("upshop_mid_infotxt_bar_ang"))
 	Frame{Position=POS(344,109),Size=SIZE(296,130),Parent=p}:AttachResource(self:getResource("upshop_mid_infotxt_bar"))
 
+	StaticText{Name="track_description",Position=POS(310,120),TextLineAdjust=7,Size=SIZE(220,110),Font=fontmedium(),Color=GetPaletteColor(34),Parent=p}
+
 	Frame{Position=POS(333,244),Size=SIZE(55,72),Parent=p}:AttachResource(self:getResource("info_box_detailed_tip"))
 	Frame{Position=POS(333+55,244),Size=SIZE(252,72),Parent=p}:AttachResource(self:getResource("info_box_detailed_strech"))
 
-	StaticText{Name="track_description",FontScale=0.9,Position=POS(310,109+12),TextLineAdjust=7,Size=SIZE(270,110),Font=fontsmall(),Color=GetPaletteColor(34),Parent=p}
-
-	StaticText{Name="track_info_title",Title=TRANSLATOR(HEADER_TRACKINFORMATION),Position=POS(346,251),Font=fonteng(),Color=GetPaletteColor(33),Parent=p}
+	StaticText{Title=TRANSLATOR(HEADER_TRACKINFORMATION),Position=POS(346,251),Font=fontmedium(),Color=GetPaletteColor(33),Parent=p}
 
 
 	local lap_size=GetResourceSize(self:getResource("lap"))
@@ -578,18 +537,18 @@ function menu_singleplayer_trackselection.init(self)
 	Frame{Name="lap_icon",Position=POS(358,294),Size=lap_size,Parent=p}:AttachResource(self:getResource("lap"))
 
 	--//StaticText{Name="highscore",Title=L"0'00'00",Font=fontsmall(),Position=POS(358+clock_size[1]+4,275),Color=GetPaletteColor(34),Parent=p}
-	StaticText{Name="lapcount",Title=L"3 LAPS",Font=fonteng(),Position=POS(358+lap_size[1]+4,295),Color=GetPaletteColor(34),Parent=p}
-	StaticText{Name="stunt_goal",Position=POS(358,294),Font=fontsmall(),Color=GetPaletteColor(33),Parent=p}:HideWindow()
+	StaticText{Name="lapcount",Title=L"3 LAPS",Font=fontsmall(),Position=POS(358+lap_size[1]+4,295),Color=GetPaletteColor(34),Parent=p}
+	StaticText{Name="stunt_goal",Position=POS(358+lap_size[1]+4,294),Font=fontsmall(),Color=GetPaletteColor(33),Parent=p}:HideWindow()
 
 	--//highscores
 	p=Frame{Name="highscore_windows",Position=POS(350,0),Size=SIZE(640,480)}
 
-	StaticText{Title=L"#",Position=POS(324,111),Fontf=fonteng(),Align=FONTF_RIGHT,Parent=p,Color=GetPaletteColor(33)}
-	StaticText{Title=TRANSLATOR(TITLE_NAME),Position=POS(330,111),Parent=p,Font=fonteng(),Color=GetPaletteColor(33)}
+	StaticText{Title=L"#",Position=POS(324,111),Fontf=fontmedium(),Align=FONTF_RIGHT,Parent=p,Color=GetPaletteColor(33)}
+	StaticText{Title=L"NAME",Position=POS(330,111),Parent=p,Font=fontmedium(),Color=GetPaletteColor(33)}
 
 	local hs_title=TRANSLATOR(TITLE_TIME)
 
-	StaticText{Name="hs_title",Title=hs_title,Position=POS(474,111),Parent=p,Font=fonteng(),Color=GetPaletteColor(33)}
+	StaticText{Name="hs_title",Title=hs_title,Position=POS(474,111),Parent=p,Font=fontmedium(),Color=GetPaletteColor(33)}
 
 
 	Frame{Position=POS(301,129),Size=SIZE(31,92),Parent=p}:AttachResource(self:getResource("sr_highscore_bar_ang"))
@@ -600,9 +559,9 @@ function menu_singleplayer_trackselection.init(self)
 
 	local hs_pos=POS(329,130)
 	for i=1,10 do
-		StaticText{Name=string.format("hs_%d_number",i),Position=POS(hs_pos[1],hs_pos[2]-1),Align=FONTF_RIGHT,Font=fonteng(),Color=GetPaletteColor(34),Parent=p}
-		StaticText{Name=string.format("hs_%d_name",i),Position=POS(hs_pos[1]+6,hs_pos[2]-1),Font=fonteng(),Color=GetPaletteColor(34),Parent=p}
-		StaticText{Name=string.format("hs_%d_score",i),Position=POS(hs_pos[1]+150,hs_pos[2]-1),Font=fonteng(),Color=GetPaletteColor(34),Parent=p}
+		StaticText{Name=string.format("hs_%d_number",i),Position=POS(hs_pos[1],hs_pos[2]-1),Align=FONTF_RIGHT,Font=fontmedium(),Color=GetPaletteColor(34),Parent=p}
+		StaticText{Name=string.format("hs_%d_name",i),Position=POS(hs_pos[1]+6,hs_pos[2]-1),Font=fontmedium(),Color=GetPaletteColor(34),Parent=p}
+		StaticText{Name=string.format("hs_%d_score",i),Position=POS(hs_pos[1]+150,hs_pos[2]-1),Font=fontmedium(),Color=GetPaletteColor(34),Parent=p}
 
 		hs_pos[1] = hs_pos[1] + 5
 		hs_pos[2] = hs_pos[2] + 19
@@ -618,7 +577,6 @@ function menu_singleplayer_trackselection.init(self)
 	Frame{Name="track_image",Position=POS(0,84),Size=SIZE(332,219)}
 
 	bar.onButtonChange = function(self,id)
-		if self.pressed or self.backpressed then return end
 
 		playmenusound_move()
 		local old_id=RaceSelectionState.Id
@@ -649,15 +607,9 @@ function menu_singleplayer_trackselection.init(self)
 	end
 
 	bar.onChildAction = function(self,id)
-		if self.pressed then return end
-		self.pressed=true
-
 		playmenusound_action()
-
-		
 		if singlerace_selected then
-			local selection=CopyTable(RaceSelectionState)
-			singlerace_selected(selection)
+			singlerace_selected(RaceSelectionState)
 			RaceSelectionState=nil
 		else
 			local carlist
@@ -675,17 +627,19 @@ function menu_singleplayer_trackselection.init(self)
 					  function()
 							--//RaceSelectionState:prevPhase()
 							EnterMenu("menu_singleplayer_trackselection")
-					  end,carlist,false,true,description,false,bg,nil,true,TRANSLATOR(TITLE_SELECTCAR))
+					  end,carlist,false,true,description,false,bg)
 		end
 	end
 
+	bar.onButtonY = function(self,id)
+		playmenusound_move()
+		ToggleHighScores()
+	end
 
 	for k,v in ipairs(tracks) do
 		local data=Levels[v.level_id]
 		bar:AddButton(self:getResource(data.TrackIcon or ""))
 	end
-
-
 
 	bar:SetFocus()
 	
@@ -705,3 +659,6 @@ function menu_singleplayer_trackselection.deinit(self)
 
 
 end
+
+
+

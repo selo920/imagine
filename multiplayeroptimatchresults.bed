@@ -40,7 +40,7 @@ local Layout=
 	ListSelectedFontColor=GetPaletteColor(5),
 	
 	LabelTop=270,
-	ColPos={79, 84, 332, 405, 466, 530},
+	ColPos={69, 72, 332, 405, 466, 530},
 	
 	LabelColor=GetPaletteColor(33),
 
@@ -50,8 +50,8 @@ local Layout=
 
 local GameInfoNames1={"cars","upgrades","nitroregen","rankedgame"}
 local GameInfoTitles1={MULTIPLAYER_FOUNDGAMES_CARS,MULTIPLAYER_FOUNDGAMES_UPGRADES,MULTIPLAYER_FOUNDGAMES_NITRO,MULTIPLAYER_FOUNDGAMES_RANKED}
-local GameInfoNames2={"damage","derbydamage"}
-local GameInfoTitles2={MULTIPLAYER_DAMAGE,MULTIPLAYER_DERBYDAMAGE}
+local GameInfoNames2={"language","damage","derbydamage","timeleft"}
+local GameInfoTitles2={MULTIPLAYER_FOUNDGAMES_LANGUAGE,MULTIPLAYER_DAMAGE,MULTIPLAYER_DERBYDAMAGE,MULTIPLAYER_TIMEREMAINING}
 	
 
 
@@ -69,7 +69,6 @@ local function JoinSelectedSession()
 	local sessionNum=wm.GetWindow("sessionlist"):GetSelectedRow()
 	if sessionNum>=1 and sessionNum<=SessionList:GetNumSessions() then
 		ShowThinkingWindow()
-		wm.GetWindow("inputhandler"):SetFocus()
 		SessionList:SetSessionNum(sessionNum)
 		if MultiplayerMode == MPMODE_GAMESPY then
 			SessionList:PrepareJoin()
@@ -82,10 +81,11 @@ local function JoinSelectedSession()
 end
 
 
-local carclasses={ MULTIPLAYER_CARTYPE_ANY, MULTIPLAYER_CARTYPE_DERBY, MULTIPLAYER_CARTYPE_RACING, MULTIPLAYER_CARTYPE_STREET, MULTIPLAYER_CARTYPE_STUNT }
-local nitrolabels={L"0x", L"0.5x", L"1x", L"2x"}
+local languages={MULTIPLAYER_LANGUAGE_ANY, MULTIPLAYER_LANGUAGE_ENGLISH, MULTIPLAYER_LANGUAGE_GERMAN, MULTIPLAYER_LANGUAGE_FRENCH, MULTIPLAYER_LANGUAGE_SPANISH, MULTIPLAYER_LANGUAGE_ITALIAN}
+local carclasses={MULTIPLAYER_CARTYPE_ANY, MULTIPLAYER_CARTYPE_STREET, MULTIPLAYER_CARTYPE_RACING, MULTIPLAYER_CARTYPE_DERBY, L"STUNT (NEED ID)"}
+local nitrolabels={L"0%", L"50%", L"100%", L"200%"}
 local upgradelabels={L"0%", L"50%", L"100%", MULTIPLAYER_UPGRADES_CHOICE}
-local damagelabels={L"0x", L"0.5x", L"1x", L"1.5x", L"2x"}
+local damagelabels={L"0%", L"50%", L"100%", L"150%", L"200%"}
 
 local function RefreshGameInfo()
 	local sessionNum = wm.GetWindow("sessionlist"):GetSelectedRow()
@@ -95,20 +95,19 @@ local function RefreshGameInfo()
 			local sessionInfo = SessionList:GetSessionInfo()
 			local win
 			local nextRace=sessionInfo.Races[sessionInfo.NextRace]
-			
-			local msg = L(Levels[nextRace.StageNr].Name)
-			if nextRace.EventType ~= ReplicatedSession.GAMETYPE_STUNT then
-				msg = WStringConcat(msg, L(", "..nextRace.LapsOrTimeLimit.." "))
-				if nextRace.EventType == ReplicatedSession.GAMETYPE_RACE then
-					msg = WStringConcat(msg, MULTIPLAYER_LAPS)
+			--[[local msg = Levels[race.StageNr].Name
+			if race.EventType ~= ReplicatedSession.GAMETYPE_STUNT and race.EventType ~= ReplicatedSession.GAMETYPE_DERBY_LMS then
+				msg = msg..", "..race.LapsOrTimeLimit
+				if race.EventType == ReplicatedSession.GAMETYPE_RACE then
+					msg = msg.." LAPS"
 				else
-					msg = WStringConcat(msg, MULTIPLAYER_MINUTES)
+					msg = msg.." MINUTES"
 				end
 			end
 
 			win = wm.GetWindow("trackname")
-			local ressize = wm.GetResourceSize(menu_multiplayer_optimatchresults:getResource("upshop_top_n_bottom_infotxt_bar_ang"))
-			win:SetTitle(msg)
+			local ressize = wm.GetResourceSize(self:getResource("upshop_top_n_bottom_infotxt_bar_ang"))
+			win:SetTitle(L(msg))
 			local w,h = wm.GetTextExtents(win:GetTitle(), fontlarge())
 			w = w + TITLESAFE_X
 			if 640 - w > Layout.TrackFramePos[1] then
@@ -118,17 +117,17 @@ local function RefreshGameInfo()
 			wm.GetWindow("tracknamebg"):SetPosition(640 - w + ressize[1], Layout.TrackFramePos[2])
 			local namex = 640 - w + (Layout.TrackNamePos[1] - Layout.TrackFramePos[1])
 			win:SetPosition(namex, Layout.TrackNamePos[2])
-			wm.GetWindow("gametype"):SetPosition(namex, Layout.GameTypePos[2])
+			wm.GetWindow("gametype"):SetPosition(namex, Layout.GameTypePos[2])--]]
 
-			--win=wm.GetWindow("trackname")
-			--win:SetTitle(L(Levels[nextRace.StageNr].Name))
+			win=wm.GetWindow("trackname")
+			win:SetTitle(L(Levels[nextRace.StageNr].Name))
 			
 			win=wm.GetWindow("gametype")
 			
 			if GameModeNames[nextRace.EventType] ~= nil then
-				local txt = WStringConcat(TRANSLATOR(MULTIPLAYER_OPTIMATCH_NEXTEVENT), L": ")
-				txt = WStringConcat(txt, GameModeNames[nextRace.EventType])
-				win:SetTitle(txt)
+				win:SetTitle(GameModeNames[nextRace.EventType])
+			else
+				win:SetTitle(L("EVENT TYPE "..nextRace.EventType.." NOT HANDLED!"))
 			end
 			
 			win=wm.GetWindow("nitroregen")
@@ -139,6 +138,13 @@ local function RefreshGameInfo()
 				win:SetTitle(UI_YES)
 			else
 				win:SetTitle(UI_NO)
+			end
+			
+			win=wm.GetWindow("language")
+			if sessionInfo.Language == 0 then
+				win:SetTitle(MULTIPLAYER_LANGUAGE_ANY)
+			else
+				win:SetTitle(languages[sessionInfo.Language])
 			end
 			
 			win=wm.GetWindow("upgrades")
@@ -158,6 +164,13 @@ local function RefreshGameInfo()
 			win=wm.GetWindow("derbydamage")
 			win:SetTitle(damagelabels[sessionInfo.DerbyDamageLevel + 2])
 			
+			win=wm.GetWindow("timeleft")
+			if sessionInfo.Progress > 0 then
+				win:SetTitle(L(sessionInfo.Progress.." MINUTES"))
+			else
+				win:SetTitle(L"")
+			end
+			
 			win=wm.GetWindow("numraces")
 			win:SetTitle(L(sessionInfo.NumRaces))
 			win=wm.GetWindow("numderbies")
@@ -170,11 +183,11 @@ local function RefreshGameInfo()
 			wm.GetWindow("cars"):ShowWindow()
 			wm.GetWindow("upgrades"):ShowWindow()
 			wm.GetWindow("nitroregen"):ShowWindow()
-			if XBOX then
-				wm.GetWindow("rankedgame"):ShowWindow()
-			end
+			wm.GetWindow("rankedgame"):ShowWindow()
+			wm.GetWindow("language"):ShowWindow()
 			wm.GetWindow("damage"):ShowWindow()
 			wm.GetWindow("derbydamage"):ShowWindow()
+			wm.GetWindow("timeleft"):ShowWindow()
 			wm.GetWindow("numraces"):ShowWindow()
 			wm.GetWindow("numderbies"):ShowWindow()
 			wm.GetWindow("numstunts"):ShowWindow()
@@ -186,8 +199,10 @@ local function RefreshGameInfo()
 			wm.GetWindow("upgrades"):HideWindow()
 			wm.GetWindow("nitroregen"):HideWindow()
 			wm.GetWindow("rankedgame"):HideWindow()
+			wm.GetWindow("language"):HideWindow()
 			wm.GetWindow("damage"):HideWindow()
 			wm.GetWindow("derbydamage"):HideWindow()
+			wm.GetWindow("timeleft"):HideWindow()
 			wm.GetWindow("numraces"):HideWindow()
 			wm.GetWindow("numderbies"):HideWindow()
 			wm.GetWindow("numstunts"):HideWindow()
@@ -206,8 +221,8 @@ local function NetworkEvents(event)
 			player:GenerateUserId()
 			player.Name=PlayerProfile:GetName()
 		elseif MultiplayerMode == MPMODE_GAMESPY then
-			player:GenerateUserId()
-			player.Name=PlayerProfile:GetName()
+			player.UId = GameSpyPresence.GetLoggedInProfileID()
+			player.Name = L(GameSpyPresence.GetProfileUniqueNick())
 		elseif MultiplayerMode == MPMODE_XBOXLIVE then
 			player.Name=XBoxLive.Auth.GetSignedInUserName(1)
 			player.UId=XBoxLive.Auth.GetSignedInUserId(1)
@@ -217,47 +232,62 @@ local function NetworkEvents(event)
 
 		if info.CarClass > 4 then
 			player.Car = info.CarClass - 5
-			player.CarValid = true
-		elseif info.CarClass == SessionInfo.CarClass.Stunt or info.Races[info.NextRace].EventType == ReplicatedSession.GAMETYPE_STUNT then
+		elseif info.CarClass == SessionInfo.CarClass.Stunt then
 			player.Car = CarlistStuntCars()[1].index		
-			player.CarValid = false
 		elseif info.CarClass ~= SessionInfo.CarClass.Any then
-			player.Car = CarlistFromClass(info.CarClass, false, true)[1].index
-			player.CarValid = false
+			local classCars = CarlistFromClass(info.CarClass, false, true)
+			player.Car = classCars[1].index
 		else
 			player.Car = 0
-			player.CarValid = false
 		end
 
 		player.CarSkin=1
-		player.CharacterType = PlayerProfile:GetGender()
+		--player.Score = 0
 		player.TournamentPoints = 0
 
 		if info.CarUpgrades ~= SessionInfo.CarUpgrades.Any then
 			player.UpgradeLevel = info.CarUpgrades
 		else
-			player.UpgradeLevel = SessionInfo.CarUpgrades.All
+			player.UpgradeLevel = SessionInfo.CarUpgrades.Full
 		end
+
+		player.SessionChanged = false
 	elseif event.id == EVENT_NETWORK_JOIN_RESULT then
 		if event.data == 0 then
 			HideThinkingWindow()
-			Network:DeleteSession()
 			ShowMessageBox(SAFEPOS(154, 70), nil,
-						MULTIPLAYER_NOSESSION,
-						GAMESPYRESULTS_TRY,
+						L"COULD NOT JOIN GAME",
+						L"TRY AGAIN",
 						function()JoinSelectedSession()end,
-						GAMESPYRESULTS_ANOTHER,
+						L"SELECT ANOTHER GAME",
 						function()State="DISPLAYING"end
 						)
 			State="ERROR"
 		elseif event.data == 1 then
 			HideThinkingWindow()
-			EnterLobby()
+			ShowLobby()
 		end
 	elseif event.id == EVENT_SESSION_UPDATED then
-		if SessionList:IsRefreshCompleted() then
-			RefreshGameInfo()
-		end
+		RefreshGameInfo()
+			
+--[[	elseif event.id==EVENT_FIND_SESSIONS_COMPLETED then
+		HideThinkingWindow()
+		if SessionList:GetNumSessions()==0 then
+			State="ERROR"
+			ShowMessageBox(SAFEPOS(154, 70),
+						QUICK_NOGAMES,
+						QUICK_SEARCH,
+						entermenu("menu_xboxlive_quickmatch"),
+						QUICK_BACK,
+						menu_xboxlive_quickmatch.back,
+						QUICK_CREATE, 
+						entermenu("menu_xboxlive_creategame")
+						)
+		else
+			SessionList:SetSessionNum(1)
+			SessionList:JoinSession()
+			State="JOINING"
+		end--]]
 	end
 end
 
@@ -267,7 +297,7 @@ local function CreateGameInfoLabels(x, y, names, titles)
 		local yoffset = (i - 1) * 20
 		local xoffset = (i - 1) * 5
 		
-		local win = StaticText { Name=names[i].."_label", Position=POS(x + xoffset, y + yoffset), Size=SIZE(200,20), Font=Layout.GameInfoFont, Align=FONTF_RIGHT }
+		local win = StaticText { Position=POS(x + xoffset, y + yoffset), Size=SIZE(200,20), Font=Layout.GameInfoFont, Align=FONTF_RIGHT }
 		win:SetColor(Layout.GameInfoLabelFontColor, false)
 		win:SetTitle(titles[i])
 		
@@ -305,9 +335,6 @@ end
 
 function menu_multiplayer_optimatchresults.init(self)
 	self.parent:init(self)
-
-	GUI:SetBackground("data/menu/career_race_rewards_background.tga")
-
 	EventListener = Event:AddListener(NetworkEvents, EVENTTYPE_NETWORK)
 	
 	if MultiplayerMode == MPMODE_LAN then
@@ -319,9 +346,9 @@ function menu_multiplayer_optimatchresults.init(self)
 
 	local res = self:getResource("upshop_top_n_bottom_infotxt_bar_ang")
 	local ressize = wm.GetResourceSize(res)
-	Frame { Name="tracknamebg_cap", Position=Layout.TrackFramePos, Size=ressize, DrawBackgroundColor=FALSE }:AttachResource(res)
+	Frame { Position=Layout.TrackFramePos, Size=ressize, DrawBackgroundColor=FALSE }:AttachResource(res)
 	res = self:getResource("upshop_top_n_bottom_infotxt_bar")
-	Frame { Name="tracknamebg", Position=POS(Layout.TrackFramePos[1] + ressize[1], Layout.TrackFramePos[2]), Size=SIZE(300,32), DrawBackgroundColor=FALSE }:AttachResource(res)
+	Frame { Position=POS(Layout.TrackFramePos[1] + ressize[1], Layout.TrackFramePos[2]), Size=SIZE(300,32), DrawBackgroundColor=FALSE }:AttachResource(res)
 
 	local gametype = StaticText { Name="gametype", Font=fontmedium(), Color=Layout.GameTypeColor, Position=Layout.GameTypePos, Size=SIZE(560, 12) }
 	local trackname = StaticText { Name="trackname", Font=fontlarge(), Color=Layout.TrackNameColor, Position=Layout.TrackNamePos, Size=SIZE(560, 12) }
@@ -335,12 +362,7 @@ function menu_multiplayer_optimatchresults.init(self)
 	Frame { Position=POS(307,122), Size=SIZE(32,88) }:AttachResource(self:getResource("found_games_r_ang"))
 	
 	CreateGameInfoLabels (204, 130, GameInfoNames1, GameInfoTitles1)
-	CreateGameInfoLabels (460, 130, GameInfoNames2, GameInfoTitles2)
-	
-	if not XBOX then
-		wm.GetWindow("rankedgame"):HideWindow()
-		wm.GetWindow("rankedgame_label"):HideWindow()
-	end
+	CreateGameInfoLabels (460, 130, GameInfoNames2, GameInfoTitles2)	
 	
 	-- Track types
 	StaticText { Title=MULTIPLAYER_TRACKBREAKDOWN, Position=Layout.TrackTypesTitlePos, Size=SIZE(640,18), Font=fontmedium(), Color=Layout.TrackTypesTitleFontColor, Align=FONTF_CENTER }
@@ -366,8 +388,8 @@ function menu_multiplayer_optimatchresults.init(self)
 	RowWidth=Layout.ListWidth,
 	RowHeight=Layout.ListRowHeight,
 	RowPadding=Layout.ListRowPadding,
-	RowTemplate={DrawBackgroundColor=TRUE},
-	RowTemplateType="Frame",
+	RowTemplate={Font=Layout.ListFont, DrawBackgroundColor=FALSE, TitleCentering=TITLE_CENTER_Y},
+	RowTemplateType="Button",
 	RowTemplateCust=function(Row, RowNr)
 	end,
 	NumRows=5,
@@ -435,7 +457,7 @@ function menu_multiplayer_optimatchresults.init(self)
 		}
 	}
 
-	StaticText { Title=MULTIPLAYER_FOUNDGAMES_CROSSHATCH, Position=POS(Layout.ColPos[1]-1, Layout.LabelTop), Size=SIZE(50,20), Font=fontmedium(), Color=Layout.LabelColor, Align=FONTF_RIGHT }
+	StaticText { Title=MULTIPLAYER_FOUNDGAMES_CROSSHATCH, Position=POS(Layout.ColPos[1], Layout.LabelTop), Size=SIZE(50,20), Font=fontmedium(), Color=Layout.LabelColor, Align=FONTF_RIGHT }
 	StaticText { Title=MULTIPLAYER_FOUNDGAMES_HOST, Position=POS(Layout.ColPos[2], Layout.LabelTop), Size=SIZE(50,20), Font=fontmedium(), Color=Layout.LabelColor }
 
 	res = wm.GetResource("game_type_icon")
@@ -450,11 +472,9 @@ function menu_multiplayer_optimatchresults.init(self)
 	ressize = wm.GetResourceSize(res)
 	Frame { Position=POS(Layout.ColPos[5] - ressize[1] / 2, Layout.LabelTop), Size=ressize }:AttachResource(res)
 
-	if XBOX then
-		res = wm.GetResource("rank_icon")
-		ressize = wm.GetResourceSize(res)
-		Frame { Position=POS(Layout.ColPos[6] - ressize[1] / 2, Layout.LabelTop), Size=ressize }:AttachResource(res)
-	end
+	res = wm.GetResource("rank_icon")
+	ressize = wm.GetResourceSize(res)
+	Frame { Position=POS(Layout.ColPos[6] - ressize[1] / 2, Layout.LabelTop), Size=ressize }:AttachResource(res)
 	
 	local list=CreateMultiColoumnListBox(listboxParams)
 	list.onNeedData=function(Self, RowObject, RowNr, ControlRowNr)
@@ -467,23 +487,23 @@ function menu_multiplayer_optimatchresults.init(self)
 			local rank=wm.GetWindow("rank_row"..ControlRowNr)
 			local rankbg=wm.GetWindow("rankbg_row"..ControlRowNr)
 			
-			local c,a
-			if (Mode == SELECT_PLAYER or Mode == PLAYER_OPTIONS) and RowNr == list:GetSelectedRow() then
-				c = GetPaletteColor(14)
-			else
-				c = {0,0,0}
-			end
-			a = 0.5*MAX_VERTEXCOLOR_A
+			--local allColumns={num, host, gametype, status, players}
 			
-			if PS2 then
-				RowObject:SetColor({c[1]*2-1,c[2]*2-1,c[3]*2-1,a}, false)
+			if RowNr == list:GetSelectedRow() then
+				RowObject:AttachResource(wm.GetResource("wide_white_bar_30"))
+				--for _,col in allColumns do
+				--	col:SetColor(Layout.ListSelectedFontColor, false)
+				--end
 			else
-				RowObject:SetColor({c[1],c[2],c[3],a}, false)
+				RowObject:AttachResource(wm.GetResource("wide_black_bar_50"))
+				--for _,col in allColumns do
+				--	col:SetColor(Layout.ListFontColor, false)
+				--end
 			end
 		
 			SessionList:SetSessionNum(RowNr)
 			local sessionInfo=SessionList:GetSessionInfo()
-			num:SetTitle(L(RowNr.."."))
+			num:SetTitle(L(RowNr))
 			host:SetTitle(sessionInfo.SessionName)
 			gametype:SetTitle(GameModeNames[sessionInfo.TournamentDisplayType])
 			
@@ -502,13 +522,14 @@ function menu_multiplayer_optimatchresults.init(self)
 			playersTitle = L(playersTitle)
 			players:SetTitle(playersTitle)
 			
-			if XBOX and sessionInfo.RatedGame then
+			if sessionInfo.RatedGame then
 				rank:SetTitle(L(sessionInfo.AverageSkill))
 				rank:ShowWindow()
 				rankbg:ShowWindow()
 			else 
 				rank:HideWindow()
-				rankbg:HideWindow()	
+				rankbg:HideWindow()
+				
 			end
 		end
 	end
@@ -520,83 +541,80 @@ function menu_multiplayer_optimatchresults.init(self)
 	end
 	
 	local arrowSize = GetResourceSize(self:getResource("scroll_up_glow"))
-	Frame { Name="uparrow_glow", Position=POS(576 - arrowSize[1] / 2, 300 - arrowSize[2] / 2), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("scroll_up_glow"))
+	Frame { Name="uparrow_glow", Position=POS(576 - arrowSize[1] / 2, 320 - arrowSize[2] / 2), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("scroll_up_glow"))
 	arrowSize = GetResourceSize(self:getResource("scroll_up_icon"))
-	Frame { Name="uparrow", Position=POS(576 - arrowSize[1] / 2, 300 - arrowSize[2] / 2), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("scroll_up_icon"))
+	Frame { Name="uparrow", Position=POS(576 - arrowSize[1] / 2, 320 - arrowSize[2] / 2), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("scroll_up_icon"))
 	
 	arrowSize = GetResourceSize(self:getResource("scroll_down_glow"))
-	Frame { Name="downarrow_glow", Position=POS(576 - arrowSize[1] / 2, 380 - arrowSize[2] / 2), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("scroll_down_glow"))
+	Frame { Name="downarrow_glow", Position=POS(576 - arrowSize[1] / 2, 360 - arrowSize[2] / 2), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("scroll_down_glow"))
 	arrowSize = GetResourceSize(self:getResource("scroll_down_icon"))
-	Frame { Name="downarrow", Position=POS(576 - arrowSize[1] / 2, 380 - arrowSize[2] / 2), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("scroll_down_icon"))
+	Frame { Name="downarrow", Position=POS(576 - arrowSize[1] / 2, 360 - arrowSize[2] / 2), Size=arrowSize, Layer=4 }:AttachResource(self:getResource("scroll_down_icon"))
+
+	local pageup,pagedown
+	if XBOX then
+		pageup = "xbox_trig_l"
+		pagedown = "xbox_trig_r"
+	else
+		pageup = "ps2_l1"
+		pagedown = "ps2_r1"
+	end
+	
+	arrowSize = wm.GetResourceSize(wm.GetResource(pageup))
+	Frame { Name="pageup", Position=POS(576 - arrowSize[1] / 2, 300 - arrowSize[2] / 2), Size=arrowSize }:AttachResource(wm.GetResource(pageup))
+	arrowSize = wm.GetResourceSize(wm.GetResource(pagedown))
+	Frame { Name="pagedown", Position=POS(576 - arrowSize[1] / 2, 380 - arrowSize[2] / 2), Size=arrowSize }:AttachResource(wm.GetResource(pagedown))
 
 	list.onShowScrollUpArrow=function()
 		wm.GetWindow("uparrow_glow"):ShowWindow()
 		wm.GetWindow("uparrow"):ShowWindow()
+		wm.GetWindow("pageup"):ShowWindow()
 	end
 	
 	list.onShowScrollDownArrow=function()
 		wm.GetWindow("downarrow_glow"):ShowWindow()
 		wm.GetWindow("downarrow"):ShowWindow()
+		wm.GetWindow("pagedown"):ShowWindow()
 	end
 	
 	list.onHideScrollUpArrow=function()
 		wm.GetWindow("uparrow_glow"):HideWindow()
 		wm.GetWindow("uparrow"):HideWindow()
+		wm.GetWindow("pageup"):HideWindow()
 	end
 	
 	list.onHideScrollDownArrow=function()
 		wm.GetWindow("downarrow_glow"):HideWindow()
 		wm.GetWindow("downarrow"):HideWindow()
+		wm.GetWindow("pagedown"):HideWindow()
 	end
 
 	local handler=InputHandler{Name="inputhandler"}
 	handler.onKeyPressed=function(Self, Character, VirtualKey, ScanCode)
-		if GUI:IsMenuAnimating() then
-			return
-		end
-		
-		if State == "SEARCHING" then
-			if VirtualKey==KeyCodes["BUTTON_SELECT"] then
-				State = "ABORT"
-				HideThinkingWindow()
-				Network:StopMultiplayer()
-				menu_multiplayer_optimatchresults.back()
-				playmenusound_back()
-			end
-		elseif State == "JOINING" or State == "PREPAREJOIN1" or State == "PREPAREJOIN2" then
-			if VirtualKey==KeyCodes["BUTTON_SELECT"] then
-				State = "DISPLAYING"
-				Network:DeleteSession()
-				HideThinkingWindow()
-			end
-		else
-			if VirtualKey==KeyCodes["BUTTON_START"] then
-				JoinSelectedSession()
-				--handler:SetFocus()
-				playmenusound_action()
-			elseif VirtualKey==KeyCodes["BUTTON_SELECT"] then
-				menu_multiplayer_optimatchresults.back()
-				playmenusound_back()
-			elseif State=="DISPLAYING" and ((PS2 or PC) and VirtualKey==KeyCodes["BUTTON_X"] or XBOX and VirtualKey==KeyCodes["BUTTON_Y"]) then
-				SessionList:Refresh()
-				ShowThinkingWindow(true)
-				State="SEARCHING"	
-				playmenusound_move()
-			elseif VirtualKey==KeyCodes["BUTTON_UP"] then
-				list:MovePrev()
-				playmenusound_move()
-			elseif VirtualKey==KeyCodes["BUTTON_DOWN"] then
-				list:MoveNext()
-				playmenusound_move()
-			end
+		if VirtualKey==KeyCodes["BUTTON_START"] then
+			JoinSelectedSession()
+			playmenusound_action()
+		elseif VirtualKey==KeyCodes["BUTTON_SELECT"] then
+			menu_multiplayer_optimatchresults.back()
+			playmenusound_back()
+		elseif VirtualKey==KeyCodes["BUTTON_Y"] and State=="DISPLAYING" then
+			SessionList:Refresh()
+			ShowThinkingWindow()
+			State="SEARCHING"	
+			playmenusound_move()
+		elseif VirtualKey==KeyCodes["BUTTON_UP"] then
+			list:MovePrev()
+			playmenusound_move()
+		elseif VirtualKey==KeyCodes["BUTTON_DOWN"] then
+			list:MoveNext()
+			playmenusound_move()
 		end
 	end
+	handler:SetFocus()
 	
 	SessionList:Refresh()
 	RefreshingQuality=false
 	NeedRefresh=true
-	handler:SetFocus()
-	ShowThinkingWindow(true)
+	ShowThinkingWindow()
 	State="SEARCHING"
 
 	GUI:SetHelpButtons(BUTTON_OK, UI_SELECT, BUTTON_BACK, UI_BACK, BUTTON_EXTRA, UI_REFRESH)
@@ -643,7 +661,7 @@ function menu_multiplayer_optimatchresults.update(self, time)
 			ShowMessageBox(SAFEPOS(154, 70), nil,
 						GAMESPYRESULTS_NOTJOIN,
 						GAMESPYRESULTS_TRY,
-						function() JoinSelectedSession() end,
+						function()JoinSelectedSession()end,
 						GAMESPYRESULTS_ANOTHER,
 						function()State="DISPLAYING"end
 						)
